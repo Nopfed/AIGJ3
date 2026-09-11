@@ -1,35 +1,56 @@
-import { chebyshev } from './board.js';
-import { enemyMoves } from './moves.js';
+import { chebyshev, idx, key } from './fov.js';
+import { guestMoves, guestThreats } from './moves.js';
 
 /**
- * Decide one enemy's move. Captures the player if it can; otherwise steps to the
- * legal square closest to the player. Deterministic (first best in move order)
- * so the AI is predictable and testable. Returns a move or null (no legal move).
+ * Decide one guest's action. `dist` is the BFS distance map from the chef.
+ *  1. Attack if the chef is in reach.
+ *  2. Otherwise move to a square from which the chef would be in reach
+ *     (the closest such square), so sliders line up their shots.
+ *  3. Otherwise step to the legal square nearest the chef by path distance.
+ *  4. Hold still rather than drift away.
+ * Deterministic, so the AI is readable and testable.
+ * Returns { kind: 'attack' } | { kind: 'move', x, y } | null.
  */
-export function chooseEnemyMove(state, enemy) {
-  const moves = enemyMoves(state, enemy);
-  if (moves.length === 0) return null;
+export function chooseGuestAction(state, guest, dist) {
+  const moves = guestMoves(state, guest);
+  if (moves.some((m) => m.attack)) return { kind: 'attack' };
 
-  const capture = moves.find((m) => m.capture);
-  if (capture) return capture;
+  const playerKey = key(state.player.x, state.player.y);
+  // Path distance first; Manhattan distance breaks ties so a piece that is
+  // diagonally aligned still shuffles closer instead of freezing.
+  const score = (p) => {
+    const d = dist[idx(state.map, p.x, p.y)];
+    if (d === -1) return Infinity;
+    return d * 100 + Math.abs(p.x - state.player.x) + Math.abs(p.y - state.player.y);
+  };
+  const here = score(guest);
 
-  let best = null;
-  let bestDist = Infinity;
+  let setup = null;
+  let setupScore = Infinity;
+  let nearest = null;
+  let nearestScore = Infinity;
   for (const m of moves) {
-    const d = chebyshev(m, state.player);
-    if (d < bestDist) {
-      bestDist = d;
-      best = m;
+    if (m.attack) continue;
+    const s = score(m);
+    if (s === Infinity) continue;
+    if (s < setupScore && guestThreats(state, guest.type, m.x, m.y).has(playerKey)) {
+      setupScore = s;
+      setup = m;
+    }
+    if (s < nearestScore) {
+      nearestScore = s;
+      nearest = m;
     }
   }
-  // Don't drift away: staying put beats moving further from the player.
-  if (bestDist > chebyshev(enemy, state.player)) return null;
-  return best;
+
+  if (setup) return { kind: 'move', x: setup.x, y: setup.y };
+  if (nearest && nearestScore < here) return { kind: 'move', x: nearest.x, y: nearest.y };
+  return null;
 }
 
-/** Enemies act closest-first so the pressure feels fair and readable. */
-export function enemyOrder(state) {
-  return state.enemies
+/** Guests act closest-first so the pressure feels fair and readable. */
+export function guestOrder(state) {
+  return state.guests
     .slice()
     .sort((a, b) => chebyshev(a, state.player) - chebyshev(b, state.player) || a.id - b.id);
 }

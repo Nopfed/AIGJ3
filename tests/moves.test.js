@@ -1,107 +1,175 @@
 import { describe, it, expect } from 'vitest';
-import { playerMoves, enemyMoves, threatenedSquares } from '../src/game/moves.js';
-import { MODE, PIECE } from '../src/game/constants.js';
+import { playerMoves, guestMoves, guestThreats, threatenedSquares } from '../src/game/moves.js';
+import { chooseGuestAction } from '../src/game/ai.js';
+import { distanceMap, lineOfSight, computeVisible, firstStep, idx } from '../src/game/fov.js';
+import { GUEST } from '../src/game/constants.js';
 
-const mk = (player, enemies = [], pickups = []) => ({
+/** Build a tiny map from ASCII rows. Coordinates: x = column, y = row. */
+function mapOf(rows) {
+  return { w: rows[0].length, h: rows.length, tiles: rows };
+}
+
+const mk = (rows, player, guests = [], extra = {}) => ({
+  map: mapOf(rows),
   player,
-  enemies: enemies.map((e, i) => ({ id: i, ...e })),
-  pickups,
-});
-const sorted = (moves) => moves.map((m) => `${m.x},${m.y}${m.capture ? '!' : ''}`).sort();
-
-describe('playerMoves (normal pawn)', () => {
-  it('moves forward 1 or 2 from the home rank', () => {
-    expect(sorted(playerMoves(mk({ x: 3, y: 0 })))).toEqual(['3,1', '3,2']);
-  });
-
-  it('moves forward only 1 once off the home rank', () => {
-    expect(sorted(playerMoves(mk({ x: 3, y: 2 })))).toEqual(['3,3']);
-  });
-
-  it('is blocked by a piece directly ahead and cannot double-jump over one', () => {
-    const s = mk({ x: 3, y: 0 }, [{ type: PIECE.PAWN, x: 3, y: 1 }]);
-    expect(playerMoves(s)).toEqual([]);
-    const s2 = mk({ x: 3, y: 0 }, [{ type: PIECE.PAWN, x: 3, y: 2 }]);
-    expect(sorted(playerMoves(s2))).toEqual(['3,1']);
-  });
-
-  it('captures diagonally forward only', () => {
-    const s = mk({ x: 3, y: 2 }, [
-      { type: PIECE.PAWN, x: 2, y: 3 },
-      { type: PIECE.PAWN, x: 4, y: 3 },
-      { type: PIECE.PAWN, x: 2, y: 1 }, // behind — not capturable
-    ]);
-    expect(sorted(playerMoves(s))).toEqual(['2,3!', '3,3', '4,3!']);
-  });
-
-  it('has no moves on the top rank', () => {
-    expect(playerMoves(mk({ x: 0, y: 7 }))).toEqual([]);
-  });
+  guests: guests.map((g, i) => ({ id: i, aware: true, noticedOn: -1, hp: 3, ...g })),
+  items: [],
+  king: null,
+  ...extra,
 });
 
-describe('playerMoves (powered)', () => {
-  it('pepper mode gives knight jumps that can capture', () => {
-    const s = mk({ x: 0, y: 0 }, [{ type: PIECE.ROOK, x: 1, y: 2 }]);
-    expect(sorted(playerMoves(s, MODE.PEPPER))).toEqual(['1,2!', '2,1']);
+const sorted = (moves) => moves.map((m) => `${m.x},${m.y}${m.attack ? '!' : ''}`).sort();
+
+const OPEN = [
+  '#######',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#.....#',
+  '#######',
+];
+
+describe('playerMoves', () => {
+  it('steps in all eight directions but never into walls', () => {
+    const s = mk(OPEN, { x: 1, y: 1 });
+    expect(playerMoves(s).map((m) => `${m.x},${m.y}`).sort()).toEqual(['1,2', '2,1', '2,2']);
   });
 
-  it('curry mode gives king steps in all directions, including backwards', () => {
-    const s = mk({ x: 4, y: 4 }, [{ type: PIECE.BISHOP, x: 4, y: 3 }]);
-    const moves = playerMoves(s, MODE.CURRY);
+  it('marks adjacent guests and the King as bumps', () => {
+    const s = mk(OPEN, { x: 3, y: 3 }, [{ type: GUEST.PAGE, x: 4, y: 3 }], { king: { x: 2, y: 2 } });
+    const moves = playerMoves(s);
+    expect(moves.find((m) => m.x === 4 && m.y === 3).guest.type).toBe(GUEST.PAGE);
+    expect(moves.find((m) => m.x === 2 && m.y === 2).king).toBe(true);
     expect(moves).toHaveLength(8);
-    expect(moves.find((m) => m.x === 4 && m.y === 3).capture).toBe(true);
   });
 });
 
-describe('enemyMoves', () => {
-  it('enemy pawns move down and capture diagonally down', () => {
-    const s = mk({ x: 2, y: 4 }, [{ type: PIECE.PAWN, x: 3, y: 5 }]);
-    expect(sorted(enemyMoves(s, s.enemies[0]))).toEqual(['2,4!', '3,4']);
+describe('guestMoves in a dungeon', () => {
+  it('pages step orthogonally and attack only diagonally', () => {
+    const s = mk(OPEN, { x: 4, y: 4 }, [{ type: GUEST.PAGE, x: 3, y: 3 }]);
+    expect(sorted(guestMoves(s, s.guests[0]))).toEqual(['2,3', '3,2', '3,4', '4,3', '4,4!']);
+    // Orthogonally adjacent chef is NOT attackable by a page.
+    const s2 = mk(OPEN, { x: 3, y: 4 }, [{ type: GUEST.PAGE, x: 3, y: 3 }]);
+    expect(guestMoves(s2, s2.guests[0]).some((m) => m.attack)).toBe(false);
   });
 
-  it('rooks slide until blocked by a friendly piece and stop on the player', () => {
-    const s = mk({ x: 0, y: 3 }, [
-      { type: PIECE.ROOK, x: 0, y: 7 },
-      { type: PIECE.PAWN, x: 2, y: 7 },
+  it('rooks slide until a wall and stop at other guests', () => {
+    const s = mk(OPEN, { x: 5, y: 5 }, [
+      { type: GUEST.ROOK, x: 1, y: 3 },
+      { type: GUEST.PAGE, x: 4, y: 3 },
     ]);
-    const moves = sorted(enemyMoves(s, s.enemies[0]));
-    expect(moves).toEqual(['0,3!', '0,4', '0,5', '0,6', '1,7']);
+    expect(sorted(guestMoves(s, s.guests[0]))).toEqual(['1,1', '1,2', '1,4', '1,5', '2,3', '3,3']);
   });
 
-  it('knights jump over pieces and cannot land on friendlies', () => {
-    const s = mk({ x: 7, y: 7 }, [
-      { type: PIECE.KNIGHT, x: 0, y: 0 },
-      { type: PIECE.PAWN, x: 1, y: 2 },
-    ]);
-    expect(sorted(enemyMoves(s, s.enemies[0]))).toEqual(['2,1']);
+  it('bishops attack the chef along an open diagonal', () => {
+    const s = mk(OPEN, { x: 4, y: 4 }, [{ type: GUEST.BISHOP, x: 1, y: 1 }]);
+    expect(guestMoves(s, s.guests[0])).toContainEqual({ x: 4, y: 4, attack: true });
+    expect(guestMoves(s, s.guests[0])).not.toContainEqual({ x: 5, y: 5, attack: false });
+  });
+
+  it('knights jump over walls but need floor to land on', () => {
+    const rows = [
+      '#######',
+      '#.#...#',
+      '#.#...#',
+      '#.#...#',
+      '#######',
+    ];
+    const s = mk(rows, { x: 3, y: 2 }, [{ type: GUEST.KNIGHT, x: 1, y: 1 }]);
+    // (1,1) -> (3,2) is an L over the wall column; (2,3) and (3,0) are walls.
+    expect(sorted(guestMoves(s, s.guests[0]))).toEqual(['3,2!']);
   });
 
   it('queens combine rook and bishop lines', () => {
-    const s = mk({ x: 7, y: 7 }, [{ type: PIECE.QUEEN, x: 0, y: 0 }]);
-    const moves = enemyMoves(s, s.enemies[0]);
-    expect(moves).toHaveLength(21); // 7 up + 7 right + 7 diagonal
-    expect(moves.filter((m) => m.capture)).toHaveLength(1);
+    const s = mk(OPEN, { x: 5, y: 5 }, [{ type: GUEST.QUEEN, x: 3, y: 3 }]);
+    const moves = guestMoves(s, s.guests[0]);
+    expect(moves).toContainEqual({ x: 3, y: 1, attack: false });
+    expect(moves).toContainEqual({ x: 1, y: 1, attack: false });
+    expect(moves).toContainEqual({ x: 5, y: 5, attack: true });
+  });
+
+  it('rejects unknown guest types', () => {
+    const s = mk(OPEN, { x: 5, y: 5 }, [{ type: 'dragon', x: 3, y: 3 }]);
+    expect(() => guestMoves(s, s.guests[0])).toThrow();
   });
 });
 
-describe('threatenedSquares', () => {
-  it('marks pawn diagonals even when empty, and never the square ahead', () => {
-    const s = mk({ x: 7, y: 0 }, [{ type: PIECE.PAWN, x: 3, y: 5 }]);
-    const t = threatenedSquares(s);
-    expect(t.has('2,4')).toBe(true);
-    expect(t.has('4,4')).toBe(true);
-    expect(t.has('3,4')).toBe(false);
+describe('threats', () => {
+  it('shows page diagonals and knight L-squares regardless of occupancy', () => {
+    const s = mk(OPEN, { x: 5, y: 5 }, [
+      { type: GUEST.PAGE, x: 1, y: 1 },
+      { type: GUEST.KNIGHT, x: 3, y: 3 },
+    ]);
+    expect([...guestThreats(s, GUEST.PAGE, 1, 1)].sort()).toEqual(['2,2']);
+    expect(guestThreats(s, GUEST.KNIGHT, 3, 3).size).toBe(8);
   });
 
-  it('marks slider lines up to the first blocker', () => {
-    const s = mk({ x: 7, y: 0 }, [
-      { type: PIECE.BISHOP, x: 0, y: 0 },
-      { type: PIECE.PAWN, x: 3, y: 3 },
-    ]);
-    const t = threatenedSquares(s);
-    expect(t.has('1,1')).toBe(true);
-    expect(t.has('2,2')).toBe(true);
-    expect(t.has('3,3')).toBe(false);
-    expect(t.has('4,4')).toBe(false);
+  it('only counts aware guests by default', () => {
+    const s = mk(OPEN, { x: 5, y: 5 }, [{ type: GUEST.ROOK, x: 1, y: 1, aware: false }]);
+    expect(threatenedSquares(s).size).toBe(0);
+    expect(threatenedSquares(s, s.guests).size).toBe(8);
+  });
+});
+
+describe('chooseGuestAction', () => {
+  it('attacks when the chef is in reach', () => {
+    const s = mk(OPEN, { x: 4, y: 1 }, [{ type: GUEST.ROOK, x: 1, y: 1 }]);
+    expect(chooseGuestAction(s, s.guests[0], distanceMap(s.map, s.player))).toEqual({ kind: 'attack' });
+  });
+
+  it('lines up a shot when it can', () => {
+    const s = mk(OPEN, { x: 4, y: 2 }, [{ type: GUEST.ROOK, x: 1, y: 1 }]);
+    const action = chooseGuestAction(s, s.guests[0], distanceMap(s.map, s.player));
+    expect(action.kind).toBe('move');
+    // Either (1,2) or (4,1) puts the chef on a rook line; nearest by path wins.
+    expect(['4,1', '1,2']).toContain(`${action.x},${action.y}`);
+    expect(guestThreats(s, GUEST.ROOK, action.x, action.y).has('4,2')).toBe(true);
+  });
+
+  it('otherwise steps closer, and holds rather than drift away', () => {
+    const s = mk(OPEN, { x: 5, y: 5 }, [{ type: GUEST.PAGE, x: 1, y: 1 }]);
+    const action = chooseGuestAction(s, s.guests[0], distanceMap(s.map, s.player));
+    expect(action.kind).toBe('move');
+    expect(['2,1', '1,2']).toContain(`${action.x},${action.y}`);
+
+    // A page orthogonally adjacent can't attack and can't get closer: hold.
+    const s2 = mk(OPEN, { x: 3, y: 3 }, [{ type: GUEST.PAGE, x: 3, y: 2 }]);
+    const a2 = chooseGuestAction(s2, s2.guests[0], distanceMap(s2.map, s2.player));
+    expect(a2 === null || guestThreats(s2, GUEST.PAGE, a2.x, a2.y).has('3,3')).toBe(true);
+  });
+});
+
+describe('fov and pathing', () => {
+  const rows = [
+    '#########',
+    '#...#...#',
+    '#...#...#',
+    '#.......#',
+    '#########',
+  ];
+  const map = mapOf(rows);
+
+  it('line of sight is blocked by walls', () => {
+    expect(lineOfSight(map, 1, 1, 3, 1)).toBe(true);
+    expect(lineOfSight(map, 1, 1, 7, 1)).toBe(false);
+    expect(lineOfSight(map, 1, 3, 7, 3)).toBe(true);
+  });
+
+  it('visible set includes the lit walls and excludes the far room', () => {
+    const vis = computeVisible(map, { x: 2, y: 2 }, 7);
+    expect(vis.has('4,2')).toBe(true); // the wall you are looking at
+    expect(vis.has('6,1')).toBe(false);
+    expect(vis.has('2,2')).toBe(true);
+  });
+
+  it('distance map walks around walls and marks unreachable tiles', () => {
+    const dist = distanceMap(map, { x: 1, y: 1 });
+    expect(dist[idx(map, 7, 1)]).toBe(6);
+    expect(dist[idx(map, 4, 1)]).toBe(-1);
+    const step = firstStep(map, { x: 1, y: 1 }, { x: 7, y: 1 });
+    expect(step.dx).toBe(1);
+    expect([0, 1]).toContain(step.dy);
+    expect(firstStep(map, { x: 1, y: 1 }, { x: 1, y: 1 })).toBeNull();
   });
 });

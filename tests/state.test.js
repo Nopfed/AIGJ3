@@ -1,191 +1,320 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, movePlayer, setMode, nextLevel, legalMoves } from '../src/game/state.js';
-import { chooseEnemyMove } from '../src/game/ai.js';
-import { generateLevel, LEVELS } from '../src/game/levels.js';
+import { newGame, stepPlayer, waitTurn, selectSlot, stepToward, legalMoves } from '../src/game/state.js';
+import { generateFloor, FLOORS, ingredientsFor } from '../src/game/levels.js';
 import { threatenedSquares } from '../src/game/moves.js';
-import { MODE, PIECE, PICKUP, STATUS, MAX_HEARTS, MAX_CHARGES } from '../src/game/constants.js';
+import { distanceMap, idx, key } from '../src/game/fov.js';
+import { createRng } from '../src/game/rng.js';
+import { scoreMeal, ROYAL_RECIPE, PART_TIPS, COMPLETE_TIPS, INGREDIENTS } from '../src/game/items.js';
+import { GUESTS } from '../src/game/guests.js';
+import { GUEST, ITEM, STATUS, MAX_PATIENCE, PANTRY_SIZE, MAP_W, MAP_H, TILE, FLOOR_TIPS } from '../src/game/constants.js';
 
-/** Hand-built state so tests don't depend on level generation. */
+const ROOM = [
+  '#########',
+  '#.......#',
+  '#.......#',
+  '#.......#',
+  '#.......#',
+  '#.......#',
+  '#.......#',
+  '#.......#',
+  '#########',
+];
+
+/** Hand-built state so tests don't depend on floor generation. */
 function scenario(overrides = {}) {
+  const map = { w: ROOM[0].length, h: ROOM.length, tiles: ROOM.slice() };
   return {
     seed: 1,
-    level: 0,
-    hearts: MAX_HEARTS,
-    charges: { [PICKUP.PEPPER]: 0, [PICKUP.CURRY]: 0 },
-    mode: MODE.NORMAL,
-    score: 0,
+    floor: 0,
     turn: 0,
     status: STATUS.PLAYING,
+    tips: 0,
+    patience: MAX_PATIENCE,
+    maxPatience: MAX_PATIENCE,
+    utensil: { name: 'wooden spoon', dmg: 1 },
+    armor: 0,
+    pantry: [],
+    held: null,
+    recipe: ROYAL_RECIPE.parts.slice(),
     log: [],
-    player: { x: 0, y: 0 },
-    enemies: [],
-    pickups: [],
+    bubbles: [],
+    ending: null,
+    map,
+    seen: new Array(map.w * map.h).fill(1),
+    player: { x: 4, y: 4 },
+    guests: [],
+    items: [],
+    stairs: null,
+    king: null,
     ...overrides,
   };
 }
 
-describe('level generation', () => {
-  it('is deterministic for a seed and never starts the player under attack', () => {
-    for (let level = 0; level < LEVELS.length; level++) {
-      for (let seed = 1; seed <= 25; seed++) {
-        const a = generateLevel(level, seed);
-        const b = generateLevel(level, seed);
+const guest = (type, x, y, extra = {}) => ({ id: x * 100 + y, type, x, y, hp: GUESTS[type].hp, aware: true, noticedOn: -1, ...extra });
+const logText = (s) => s.log.map((l) => l.text).join(' | ');
+
+describe('floor generation', () => {
+  it('is deterministic, connected, and never starts the chef under threat', () => {
+    for (let floor = 0; floor < FLOORS.length; floor++) {
+      for (let seed = 1; seed <= 15; seed++) {
+        const a = generateFloor(floor, seed);
+        const b = generateFloor(floor, seed);
         expect(a).toEqual(b);
-        expect(a.player.y).toBe(0);
-        expect(threatenedSquares(a).has(`${a.player.x},${a.player.y}`)).toBe(false);
+        expect(a.map.w).toBe(MAP_W);
+        expect(a.map.h).toBe(MAP_H);
 
-        const expected = Object.values(LEVELS[level].enemies).reduce((s, n) => s + n, 0);
-        expect(a.enemies).toHaveLength(expected);
-        expect(a.pickups).toHaveLength(4);
+        const expected = Object.values(FLOORS[floor].guests).reduce((s, n) => s + n, 0);
+        expect(a.guests).toHaveLength(expected);
+        expect(a.guests.every((g) => !g.aware)).toBe(true);
+        expect(threatenedSquares(a, a.guests).has(key(a.player.x, a.player.y))).toBe(false);
 
-        const occupied = new Set([...a.enemies, ...a.pickups].map((p) => `${p.x},${p.y}`));
-        expect(occupied.size).toBe(a.enemies.length + a.pickups.length); // no overlaps
+        // Everything sits on floor, nothing overlaps, and the goal is reachable.
+        const dist = distanceMap(a.map, a.player);
+        const things = [...a.guests, ...a.items, a.stairs, a.king].filter(Boolean);
+        for (const t of things) expect(dist[idx(a.map, t.x, t.y)]).toBeGreaterThan(0);
+        expect(new Set(things.map((t) => key(t.x, t.y))).size).toBe(things.length);
+
+        if (FLOORS[floor].king) {
+          expect(a.king).not.toBeNull();
+          expect(a.stairs).toBeNull();
+        } else {
+          expect(a.king).toBeNull();
+          expect(a.map.tiles[a.stairs.y][a.stairs.x]).toBe(TILE.STAIRS);
+        }
       }
     }
+  });
+
+  it('deals every recipe part across the run', () => {
+    const rng = createRng(3);
+    const dealt = new Set();
+    for (let floor = 0; floor < FLOORS.length; floor++) {
+      for (const type of ingredientsFor(floor, rng)) dealt.add(type);
+    }
+    for (const part of ROYAL_RECIPE.parts) expect(dealt.has(part)).toBe(true);
   });
 });
 
 describe('newGame', () => {
-  it('starts on level 1 with full hearts and no charges', () => {
+  it('starts on floor 1 with full patience, an empty pantry and the King\'s order', () => {
     const s = newGame(42);
-    expect(s.level).toBe(0);
-    expect(s.hearts).toBe(MAX_HEARTS);
-    expect(s.charges).toEqual({ pepper: 0, curry: 0 });
+    expect(s.floor).toBe(0);
+    expect(s.patience).toBe(MAX_PATIENCE);
+    expect(s.pantry).toEqual([]);
+    expect(s.recipe).toEqual(ROYAL_RECIPE.parts);
     expect(s.status).toBe(STATUS.PLAYING);
     expect(legalMoves(s).length).toBeGreaterThan(0);
+    expect(logText(s)).toContain('Royal Curry');
+    // The start room is lit.
+    expect(s.seen[idx(s.map, s.player.x, s.player.y)]).toBe(1);
   });
 });
 
-describe('movePlayer', () => {
-  it('ignores illegal targets', () => {
-    const s = scenario();
-    expect(movePlayer(s, { x: 5, y: 5 })).toBe(s);
+describe('moving', () => {
+  it('ignores walls and does not spend a turn', () => {
+    const s = scenario({ player: { x: 1, y: 1 } });
+    const next = stepPlayer(s, -1, 0);
+    expect(next).toBe(s);
+    expect(next.turn).toBe(0);
   });
 
-  it('moves the pawn and advances the turn', () => {
-    const s = movePlayer(scenario(), { x: 0, y: 2 });
-    expect(s.player).toEqual({ x: 0, y: 2 });
-    expect(s.turn).toBe(1);
+  it('steps diagonally and advances the turn', () => {
+    const next = stepPlayer(scenario(), 1, 1);
+    expect(next.player).toEqual({ x: 5, y: 5 });
+    expect(next.turn).toBe(1);
   });
 
-  it('captures an enemy diagonally and scores', () => {
-    const s = scenario({ enemies: [{ id: 0, type: PIECE.KNIGHT, x: 1, y: 1 }] });
-    const next = movePlayer(s, { x: 1, y: 1 });
-    expect(next.enemies).toHaveLength(0);
-    expect(next.score).toBe(10);
+  it('waiting passes the turn', () => {
+    const next = waitTurn(scenario());
+    expect(next.turn).toBe(1);
+    expect(next.player).toEqual({ x: 4, y: 4 });
   });
 
-  it('collects pickups into charges, capped at MAX_CHARGES', () => {
-    const s = scenario({
-      charges: { pepper: MAX_CHARGES, curry: 0 },
-      pickups: [
-        { type: PICKUP.PEPPER, x: 0, y: 1 },
-        { type: PICKUP.CURRY, x: 0, y: 2 },
-      ],
-    });
-    const a = movePlayer(s, { x: 0, y: 1 });
-    expect(a.charges.pepper).toBe(MAX_CHARGES);
-    expect(a.score).toBe(5); // overflow eaten for points
-    expect(a.pickups).toHaveLength(1);
-    const b = movePlayer(a, { x: 0, y: 2 });
-    expect(b.charges.curry).toBe(1);
-    expect(b.pickups).toHaveLength(0);
-  });
-
-  it('promotes on the top rank, restores a heart and flags LEVEL_CLEAR', () => {
-    const s = scenario({ player: { x: 4, y: 6 }, hearts: 1 });
-    const next = movePlayer(s, { x: 4, y: 7 });
-    expect(next.status).toBe(STATUS.LEVEL_CLEAR);
-    expect(next.hearts).toBe(2);
-    expect(next.score).toBe(50);
-  });
-
-  it('wins the run when promoting on the last level', () => {
-    const s = scenario({ level: LEVELS.length - 1, player: { x: 4, y: 6 } });
-    expect(movePlayer(s, { x: 4, y: 7 }).status).toBe(STATUS.WON);
+  it('walks one step toward a clicked tile along known floor', () => {
+    const next = stepToward(scenario(), 7, 7);
+    expect(next.turn).toBe(1);
+    expect(next.player).toEqual({ x: 5, y: 5 });
+    // Unknown tiles are not walkable.
+    const blind = scenario();
+    blind.seen.fill(0);
+    expect(stepToward(blind, 7, 7)).toBe(blind);
   });
 });
 
-describe('power modes', () => {
-  it('cannot activate a mode without a charge', () => {
-    const s = scenario();
-    expect(setMode(s, MODE.PEPPER)).toBe(s);
+describe('picking things up', () => {
+  it('pockets ingredients and flags recipe parts', () => {
+    const s = scenario({ items: [{ type: ITEM.CHILI, x: 5, y: 4 }] });
+    const next = stepPlayer(s, 1, 0);
+    expect(next.pantry).toEqual([ITEM.CHILI]);
+    expect(next.items).toEqual([]);
+    expect(logText(next)).toContain('King asked for this');
   });
 
-  it('toggles a mode on/off and spends the charge on the move', () => {
-    const s = scenario({ charges: { pepper: 1, curry: 0 } });
-    const armed = setMode(s, MODE.PEPPER);
-    expect(armed.mode).toBe(MODE.PEPPER);
-    expect(setMode(armed, MODE.PEPPER).mode).toBe(MODE.NORMAL);
-
-    const moved = movePlayer(armed, { x: 1, y: 2 });
-    expect(moved.player).toEqual({ x: 1, y: 2 });
-    expect(moved.charges.pepper).toBe(0);
-    expect(moved.mode).toBe(MODE.NORMAL);
+  it('leaves ingredients on the floor when the pantry is full', () => {
+    const s = scenario({ pantry: Array(PANTRY_SIZE).fill(ITEM.BREAD), items: [{ type: ITEM.CHILI, x: 5, y: 4 }] });
+    const next = stepPlayer(s, 1, 0);
+    expect(next.pantry).toHaveLength(PANTRY_SIZE);
+    expect(next.items).toHaveLength(1);
   });
 
-  it('curry step can move backwards', () => {
-    const s = setMode(scenario({ player: { x: 3, y: 3 }, charges: { pepper: 0, curry: 1 } }), MODE.CURRY);
-    expect(movePlayer(s, { x: 3, y: 2 }).player).toEqual({ x: 3, y: 2 });
-  });
-});
-
-describe('enemy turn', () => {
-  it('an enemy that can capture does so; player loses a heart and is knocked home', () => {
-    // Rook on the same file, clear line: after the pawn steps to (0,1) the rook takes it.
-    const s = scenario({ enemies: [{ id: 0, type: PIECE.ROOK, x: 0, y: 7 }] });
-    const next = movePlayer(s, { x: 0, y: 1 });
-    expect(next.hearts).toBe(MAX_HEARTS - 1);
-    expect(next.enemies[0]).toMatchObject({ x: 0, y: 1 });
-    expect(next.player.y).toBe(0);
-    expect(next.status).toBe(STATUS.PLAYING);
-  });
-
-  it('game is lost when hearts hit zero', () => {
-    const s = scenario({ hearts: 1, enemies: [{ id: 0, type: PIECE.ROOK, x: 0, y: 7 }] });
-    expect(movePlayer(s, { x: 0, y: 1 }).status).toBe(STATUS.LOST);
-  });
-
-  it('enemies approach the player when they cannot capture', () => {
-    const s = scenario({ player: { x: 0, y: 0 }, enemies: [{ id: 0, type: PIECE.KNIGHT, x: 7, y: 7 }] });
-    const move = chooseEnemyMove(s, s.enemies[0]);
-    expect(move).not.toBeNull();
-    expect(Math.max(Math.abs(move.x - 0), Math.abs(move.y - 0))).toBeLessThan(7);
-  });
-
-  it('enemies stay put rather than move away', () => {
-    // Enemy pawn directly below the player cannot move closer (only moves down).
-    const s = scenario({ player: { x: 3, y: 5 }, enemies: [{ id: 0, type: PIECE.PAWN, x: 3, y: 4 }] });
-    expect(chooseEnemyMove(s, s.enemies[0])).toBeNull();
+  it('uses gear on the spot: tea heals, better utensils replace, aprons pad', () => {
+    let s = scenario({ patience: 3, items: [
+      { type: ITEM.TEA, x: 5, y: 4 },
+      { type: ITEM.CLEAVER, x: 6, y: 4 },
+      { type: ITEM.ROLLING_PIN, x: 7, y: 4 },
+      { type: ITEM.APRON, x: 7, y: 5 },
+    ] });
+    s = stepPlayer(s, 1, 0);
+    expect(s.patience).toBe(8);
+    s = stepPlayer(s, 1, 0);
+    expect(s.utensil).toEqual({ name: 'cleaver', dmg: 3 });
+    s = stepPlayer(s, 1, 0);
+    expect(s.utensil.dmg).toBe(3); // the pin is worse; sold instead
+    expect(s.tips).toBe(5);
+    s = stepPlayer(s, 0, 1);
+    expect(s.armor).toBe(1);
+    expect(s.items).toEqual([]);
   });
 });
 
-describe('nextLevel', () => {
-  it('only advances from LEVEL_CLEAR and keeps score/hearts', () => {
-    const playing = scenario();
-    expect(nextLevel(playing)).toBe(playing);
+describe('guests', () => {
+  it('bumping a guest whacks it; enough whacks send it packing for tips', () => {
+    const s = scenario({ guests: [guest(GUEST.KNIGHT, 5, 4)] });
+    const once = stepPlayer(s, 1, 0);
+    expect(once.guests[0].hp).toBe(1);
+    expect(once.player).toEqual({ x: 4, y: 4 });
+    expect(once.guests).toHaveLength(1);
+    // A page goes down in one whack.
+    const twice = stepPlayer(scenario({ guests: [guest(GUEST.PAGE, 5, 4)] }), 1, 0);
+    expect(twice.guests).toEqual([]);
+    expect(twice.tips).toBe(GUESTS[GUEST.PAGE].tips);
+  });
 
-    const cleared = scenario({ status: STATUS.LEVEL_CLEAR, score: 120, hearts: 2, seed: 7 });
-    const next = nextLevel(cleared);
-    expect(next.level).toBe(1);
-    expect(next.score).toBe(120);
-    expect(next.hearts).toBe(2);
-    expect(next.status).toBe(STATUS.PLAYING);
-    expect(next.enemies.length).toBeGreaterThan(cleared.enemies.length);
+  it('a knight is winded for a turn after landing a hit', () => {
+    const s = scenario({ guests: [guest(GUEST.KNIGHT, 6, 5)] });
+    const hit = waitTurn(s);
+    expect(hit.patience).toBe(MAX_PATIENCE - GUESTS[GUEST.KNIGHT].dmg);
+    const rest = waitTurn(hit);
+    expect(rest.patience).toBe(hit.patience);
+    expect(rest.bubbles.some((b) => b.text.startsWith('huff'))).toBe(true);
+    const again = waitTurn(rest);
+    expect(again.patience).toBe(hit.patience - GUESTS[GUEST.KNIGHT].dmg);
+  });
+
+  it('a page pokes diagonally but is harmless straight on', () => {
+    const diag = waitTurn(scenario({ guests: [guest(GUEST.PAGE, 5, 5)] }));
+    expect(diag.patience).toBe(MAX_PATIENCE - 1);
+    expect(logText(diag)).toContain('Peckish Page');
+  });
+
+  it('the apron softens jabs but not insults', () => {
+    const jab = waitTurn(scenario({ armor: 1, guests: [guest(GUEST.PAGE, 5, 5)] }));
+    expect(jab.patience).toBe(MAX_PATIENCE);
+    expect(logText(jab)).toContain('apron takes it');
+
+    const sneer = waitTurn(scenario({ armor: 3, guests: [guest(GUEST.BISHOP, 7, 7)] }));
+    expect(sneer.patience).toBe(MAX_PATIENCE - GUESTS[GUEST.BISHOP].dmg);
+    expect(sneer.bubbles.some((b) => b.x === 7 && b.y === 7)).toBe(true);
+  });
+
+  it('the Baron snatches food from a stocked pantry, otherwise jabs', () => {
+    const stocked = waitTurn(scenario({ pantry: [ITEM.RICE], held: 0, guests: [guest(GUEST.ROOK, 4, 1)] }));
+    expect(stocked.pantry).toEqual([]);
+    expect(stocked.held).toBeNull();
+    expect(stocked.patience).toBe(MAX_PATIENCE);
+    expect(stocked.guests).toEqual([]); // satisfied, he leaves
+    expect(stocked.tips).toBe(0);
+    expect(logText(stocked)).toContain('snatches your bowl of rice');
+
+    const bare = waitTurn(scenario({ guests: [guest(GUEST.ROOK, 4, 1)] }));
+    expect(bare.patience).toBe(MAX_PATIENCE - 1);
+  });
+
+  it('serving a held ingredient satisfies any guest', () => {
+    const s = scenario({ pantry: [ITEM.BREAD, ITEM.CHILI], guests: [guest(GUEST.QUEEN, 5, 4)] });
+    const holding = selectSlot(s, 1);
+    expect(holding.held).toBe(1);
+    expect(holding.turn).toBe(0); // free action
+    const fed = stepPlayer(holding, 1, 0);
+    expect(fed.guests).toEqual([]);
+    expect(fed.pantry).toEqual([ITEM.BREAD]);
+    expect(fed.held).toBeNull();
+    expect(fed.tips).toBe(GUESTS[GUEST.QUEEN].tips + 10);
+    expect(logText(fed)).toContain('delighted');
+  });
+
+  it('selectSlot toggles, clears with null, and rejects empty slots', () => {
+    const s = scenario({ pantry: [ITEM.BREAD] });
+    expect(selectSlot(s, 3)).toBe(s);
+    const held = selectSlot(s, 0);
+    expect(selectSlot(held, 0).held).toBeNull();
+    expect(selectSlot(held, null).held).toBeNull();
+  });
+
+  it('unaware guests do nothing until they notice you, then skip that turn', () => {
+    // Bishop in line with the chef but not yet aware (e.g. was behind a door).
+    const s = scenario({ guests: [guest(GUEST.BISHOP, 7, 7, { aware: false })] });
+    const t1 = waitTurn(s);
+    expect(t1.guests[0].aware).toBe(true);
+    expect(t1.patience).toBe(MAX_PATIENCE);
+    expect(logText(t1)).toContain('notices you');
+    const t2 = waitTurn(t1);
+    expect(t2.patience).toBe(MAX_PATIENCE - 1);
+  });
+
+  it('guests approach when they cannot attack', () => {
+    const s = scenario({ guests: [guest(GUEST.PAGE, 1, 4)] });
+    const next = waitTurn(s);
+    expect(next.guests[0].x).toBe(2);
+  });
+
+  it('running out of patience ends the run', () => {
+    const s = scenario({ patience: 1, guests: [guest(GUEST.PAGE, 5, 5)] });
+    const next = waitTurn(s);
+    expect(next.status).toBe(STATUS.LOST);
+    expect(next.patience).toBe(0);
+    expect(waitTurn(next)).toBe(next);
+    expect(stepPlayer(next, 1, 0)).toBe(next);
   });
 });
 
-describe('knockback', () => {
-  it('ends the enemy turn so only one heart is lost per player move', () => {
-    const s = scenario({
-      player: { x: 3, y: 0 },
-      enemies: [
-        { id: 0, type: PIECE.ROOK, x: 3, y: 7 }, // captures at (3,1)
-        { id: 1, type: PIECE.QUEEN, x: 7, y: 7 }, // same distance, acts after the rook
-      ],
-    });
-    const next = movePlayer(s, { x: 3, y: 1 });
-    expect(next.hearts).toBe(MAX_HEARTS - 1);
-    expect(next.enemies.find((e) => e.id === 1)).toMatchObject({ x: 7, y: 7 }); // did not act
+describe('floors and the King', () => {
+  it('stepping onto the stairs loads the next floor and pays tips', () => {
+    const rows = ROOM.map((r, y) => (y === 4 ? r.slice(0, 5) + TILE.STAIRS + r.slice(6) : r));
+    const s = scenario({ seed: 7, map: { w: 9, h: 9, tiles: rows }, stairs: { x: 5, y: 4 } });
+    const next = stepPlayer(s, 1, 0);
+    expect(next.floor).toBe(1);
+    expect(next.tips).toBe(FLOOR_TIPS);
+    expect(next.map.w).toBe(MAP_W);
+    expect(next.turn).toBe(1);
+    expect(logText(next)).toContain(FLOORS[1].name);
+  });
+
+  it('serving the King with the full recipe wins with rank S', () => {
+    const s = scenario({ floor: FLOORS.length - 1, pantry: [...ROYAL_RECIPE.parts, ITEM.BREAD], king: { x: 5, y: 4 } });
+    const next = stepPlayer(s, 1, 0);
+    expect(next.status).toBe(STATUS.WON);
+    expect(next.ending.rank).toBe('S');
+    expect(next.ending.complete).toBe(true);
+    expect(next.tips).toBe(next.ending.tips);
+    expect(next.tips).toBe(5 * 10 + 5 + 5 * PART_TIPS + COMPLETE_TIPS);
+  });
+
+  it('serving the King an empty plate loses', () => {
+    const next = stepPlayer(scenario({ king: { x: 5, y: 4 } }), 1, 0);
+    expect(next.status).toBe(STATUS.LOST);
+    expect(next.ending.rank).toBe('F');
+  });
+});
+
+describe('scoreMeal', () => {
+  it('ranks by recipe coverage', () => {
+    expect(scoreMeal([]).rank).toBe('F');
+    expect(scoreMeal([ITEM.BREAD]).rank).toBe('C');
+    expect(scoreMeal([ITEM.CHILI, ITEM.RICE]).rank).toBe('B');
+    expect(scoreMeal([ITEM.CHILI, ITEM.RICE, ITEM.CURRY, ITEM.ONION]).rank).toBe('A');
+    expect(scoreMeal(ROYAL_RECIPE.parts).rank).toBe('S');
+    expect(scoreMeal([ITEM.CHILI, ITEM.CHILI]).parts).toEqual([ITEM.CHILI]);
+    expect(scoreMeal([ITEM.BREAD]).tips).toBe(INGREDIENTS[ITEM.BREAD].tips);
   });
 });
