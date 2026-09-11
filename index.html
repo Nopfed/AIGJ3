@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pepper the Pawn</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bree+Serif&display=swap" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="topbar">
+        <h1>Pepper the Pawn</h1>
+        <p class="tagline">One spicy pawn. Eight ranks. Reach the top and promote.</p>
+      </header>
+
+      <section class="layout">
+        <div class="board-frame">
+          <div id="board" class="board" aria-label="Game board"></div>
+        </div>
+
+        <aside class="panel">
+          <div class="stat"><span class="label">Level</span><span id="level"></span></div>
+          <div class="stat"><span class="label">Hearts</span><span id="hearts" class="hearts"></span></div>
+          <div class="stat"><span class="label">Score</span><span id="score"></span></div>
+          <div class="stat"><span class="label">Turn</span><span id="turn"></span></div>
+
+          <div class="powers">
+            <button id="btn-pepper" class="power" type="button">
+              <span id="pepper-icon" class="power-icon"></span>
+              <span class="name">Pepper</span>
+              <span class="hint">Knight jump · key 1</span>
+              <span id="pepper-count" class="count"></span>
+            </button>
+            <button id="btn-curry" class="power" type="button">
+              <span id="curry-icon" class="power-icon"></span>
+              <span class="name">Curry</span>
+              <span class="hint">King step · key 2</span>
+              <span id="curry-count" class="count"></span>
+            </button>
+          </div>
+
+          <div id="log" class="log"></div>
+
+          <div class="actions">
+            <button id="btn-next" class="primary" type="button" hidden>Next level ▶</button>
+            <button id="btn-restart" type="button">Restart run</button>
+          </div>
+
+          <details class="help">
+            <summary>How to play</summary>
+            <ul>
+              <li>Click a highlighted square to move. Pawn rules: forward 1 (2 from home), capture diagonally.</li>
+              <li>Red squares are attacked by enemy pieces. Enemies move after you, using real chess moves.</li>
+              <li>Pepper lets your next move be a knight jump. Curry lets it be a king step. Both can capture.</li>
+              <li>Getting captured costs a heart and knocks you back to your home rank.</li>
+              <li>Reach the gold rank to promote and clear the level. Clear all five to win.</li>
+            </ul>
+          </details>
+        </aside>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

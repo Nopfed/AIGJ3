@@ -1,0 +1,248 @@
+/* Paper cut-out art direction — reference sheet: https://claude.ai/code/artifact/d72c6a09-f8b3-4a13-86a9-62024a593e7c */
+:root {
+  --kraft: #cfb48f;
+  --paper: #f3e6cc;
+  --cream: #fbf3e4;
+  --charcoal: #2e2a2a;
+  --ink-muted: #6b4a2b;
+  --light-sq: #e9d8b8;
+  --dark-sq: #c69a6a;
+  --wood-hi: #b8895a;
+  --wood-lo: #a5764a;
+  --chili: #d9412f;
+  --turmeric: #e0a526;
+  --gold: #f2b134;
+  --leaf: #6aa84f;
+  --orange: #e8542f;
+  --shadow: rgba(40, 20, 5, 0.35);
+  --shadow-soft: rgba(40, 20, 5, 0.2);
+  /* Paper grain: percent-encoded SVG turbulence so it needs no quotes. */
+  --grain: url(data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27160%27%20height%3D%27160%27%3E%3Cfilter%20id%3D%27n%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%270.9%27%20numOctaves%3D%272%27%20stitchTiles%3D%27stitch%27%2F%3E%3CfeColorMatrix%20values%3D%270%200%200%200%200%20%200%200%200%200%200%20%200%200%200%200%200%20%200%200%200%200.10%200%27%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%27100%25%27%20height%3D%27100%25%27%20filter%3D%27url%28%23n%29%27%2F%3E%3C%2Fsvg%3E);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Bree Serif', Georgia, 'Times New Roman', serif;
+  background: var(--grain), var(--kraft);
+  color: var(--charcoal);
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.tagline {
+  margin: 4px 0 18px;
+  color: var(--ink-muted);
+}
+
+.layout {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* Cutting-board frame around the squares. */
+.board-frame {
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--grain), linear-gradient(180deg, var(--wood-hi), var(--wood-lo));
+  box-shadow: 4px 6px 0 var(--shadow);
+  user-select: none;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(560px, 100vw - 52px);
+  aspect-ratio: 1;
+}
+
+.sq {
+  position: relative;
+  overflow: visible;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+.sq.light { background: var(--grain), var(--light-sq); }
+.sq.dark { background: var(--grain), var(--dark-sq); }
+.sq.move { cursor: pointer; }
+.sq.move:hover { filter: brightness(1.08); }
+
+/* Board markers, each a little piece of paper. */
+.layer {
+  position: absolute;
+  pointer-events: none;
+}
+.layer.threat {
+  inset: 6%;
+  background: rgba(217, 65, 47, 0.5);
+  transform: rotate(2deg);
+  box-shadow: 1px 2px 0 var(--shadow-soft);
+}
+.layer.goal {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14%;
+  background: var(--gold);
+  box-shadow: 0 2px 0 rgba(40, 20, 5, 0.25);
+}
+.layer.dot {
+  left: 35%;
+  top: 35%;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: var(--leaf);
+  box-shadow: 2px 3px 0 var(--shadow);
+}
+.layer.capture {
+  inset: 6%;
+  border-radius: 50%;
+  border: 5px solid var(--orange);
+  filter: drop-shadow(2px 3px 0 var(--shadow));
+  transform: rotate(-3deg);
+}
+
+/* Pieces and pickups: flat paper silhouettes with a hard offset shadow. */
+.piece,
+.pickup {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(var(--tilt, 0deg));
+  filter: drop-shadow(3px 4px 0 var(--shadow));
+  pointer-events: none;
+}
+.piece { width: 74%; height: 74%; }
+.pickup { width: 58%; height: 58%; }
+.piece.player { fill: var(--cream); }
+.piece.enemy { fill: var(--charcoal); }
+.leaf { fill: var(--leaf); }
+.chili { fill: var(--chili); }
+.mound { fill: var(--turmeric); }
+.dish { fill: var(--cream); }
+.steam {
+  fill: none;
+  stroke: var(--cream);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+/* Side panel: a strip of cream paper. */
+.panel {
+  flex: 1 1 260px;
+  min-width: 240px;
+  padding: 14px 16px;
+  background: var(--grain), var(--paper);
+  box-shadow: 3px 4px 0 var(--shadow);
+  transform: rotate(-0.6deg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.05rem;
+}
+.stat .label { color: var(--ink-muted); }
+
+.hearts {
+  display: flex;
+  gap: 3px;
+  filter: drop-shadow(1px 2px 0 var(--shadow));
+}
+.heart { width: 22px; height: 22px; }
+.heart.full { fill: var(--chili); }
+.heart.empty { fill: #d8c4a0; }
+
+.powers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.power {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 10px 10px;
+  border: 0;
+  background: var(--cream);
+  color: var(--charcoal);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 2px 3px 0 var(--shadow);
+  transform: rotate(-1.2deg);
+}
+.power + .power { transform: rotate(1deg); }
+.power:disabled { opacity: 0.55; cursor: not-allowed; }
+.power.active { background: var(--charcoal); color: var(--cream); }
+.power.active .hint { color: #cdbca3; }
+.power.active .count { color: var(--gold); }
+.power-icon .icon { width: 26px; height: 26px; }
+.power .name { font-size: 1rem; }
+.power .hint { font-size: 0.72rem; color: var(--ink-muted); }
+.power .count {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.log {
+  min-height: 64px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(46, 42, 42, 0.12);
+  font-size: 0.95rem;
+}
+.log p { margin: 2px 0; }
+.log .win { color: #3f7a2f; }
+.log .lose { color: var(--chili); }
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+.actions button {
+  flex: 1;
+  padding: 10px;
+  border: 0;
+  background: var(--cream);
+  color: var(--charcoal);
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 2px 3px 0 var(--shadow);
+}
+.actions button.primary { background: var(--orange); color: var(--cream); }
+.actions button:hover { filter: brightness(1.05); }
+.actions button:active { transform: translate(1px, 1px); box-shadow: 1px 2px 0 var(--shadow); }
+
+.help summary { cursor: pointer; color: var(--ink-muted); }
+.help ul { padding-left: 18px; margin: 8px 0 0; font-size: 0.88rem; }
+.help li { margin-bottom: 4px; }
