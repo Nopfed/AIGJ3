@@ -1,0 +1,175 @@
+using SpiceWizard.Core;
+
+namespace SpiceWizard.Core.Tests;
+
+/// <summary>
+/// A headless, reasonably competent player. It is used to check that the numbers in
+/// <see cref="Balance"/> give a game of the intended length and that nothing soft-locks.
+/// </summary>
+public sealed class GreedyBot
+{
+    public GameState State { get; }
+    public int MaxDays { get; }
+    public List<string> Log { get; } = new();
+
+    public GreedyBot(ulong seed, int maxDays = 80)
+    {
+        State = GameState.NewGame(seed);
+        MaxDays = maxDays;
+    }
+
+    /// <summary>Plays until level 20 or the day cap. Returns the day mastery was reached, or -1.</summary>
+    public int Play()
+    {
+        while (!State.Won && State.Clock.Day <= MaxDays)
+        {
+            PlayDay();
+            Assert.True(State.Peppercorns >= 0, "peppercorns went negative");
+            DayTick.Sleep(State);
+        }
+        return State.Won ? State.WonOnDay : -1;
+    }
+
+    void PlayDay()
+    {
+        var s = State;
+        for (int i = 0; i < Garden.MaxPlots; i++) Actions.Harvest(s, i);
+        for (int i = 0; i < FermentShelf.MaxJars; i++) Actions.EmptyJar(s, i);
+
+        CookEverything();
+        for (int i = s.Inventory.Sauces.Count - 1; i >= 0 && !s.Crate.IsFull; i--) Actions.Ship(s, i);
+
+        FillJars();
+        PlantSeeds();
+        TendPlants();
+    }
+
+    void CookEverything()
+    {
+        var s = State;
+        var recipes = RecipeBook.UnlockedAt(s.Level).OrderByDescending(r => r.BaseValue).ToList();
+        bool progress = true;
+        while (progress && s.Spice.CanSpend(Balance.CookSpiceCost))
+        {
+            progress = false;
+            foreach (var r in recipes)
+            {
+                // Avoid boring the town: at most two of the same sauce in the crate.
+                if (s.Inventory.Sauces.Count(x => x.RecipeId == r.Id) + s.Crate.Sauces.Count(x => x.RecipeId == r.Id) >= 2) continue;
+                if (!TryGather(r)) continue;
+                bool extra = s.Peppercorns > 25;
+                var res = Actions.Cook(s, r.Id, extra);
+                if (res.Ok) { progress = true; break; }
+            }
+        }
+        // Spend spare spice on eating only when a cook is one pepper away.
+        if (!s.Spice.CanSpend(Balance.CookSpiceCost) && s.Inventory.Pepper(PepperSpecies.Bell) > 4)
+            Actions.Eat(s, PepperSpecies.Bell);
+    }
+
+    /// <summary>Buys spices and grinds powder so that <paramref name="r"/> can be cooked. False if mash or peppers are missing.</summary>
+    bool TryGather(Recipe r)
+    {
+        var s = State;
+        int peppercornsNeeded = 0;
+        foreach (var ing in r.Ingredients)
+        {
+            int have = Actions.Have(s, ing);
+            switch (ing.Kind)
+            {
+                case IngredientKind.Peppercorn: peppercornsNeeded += ing.Count; break;
+                case IngredientKind.Mash:
+                case IngredientKind.Pepper:
+                    if (have < ing.Count) return false;
+                    break;
+                case IngredientKind.Powder:
+                    while (have < ing.Count)
+                    {
+                        if (!Actions.Grind(s, (PepperSpecies)ing.Index).Ok) return false;
+                        have++;
+                    }
+                    break;
+                case IngredientKind.Spice:
+                    while (have < ing.Count)
+                    {
+                        if (s.Peppercorns - SpiceInfo.Price((Spice)ing.Index) < peppercornsNeeded + 5) return false;
+                        if (!Actions.BuySpice(s, (Spice)ing.Index).Ok) return false;
+                        have++;
+                    }
+                    break;
+            }
+        }
+        return s.Peppercorns >= peppercornsNeeded;
+    }
+
+    void FillJars()
+    {
+        var s = State;
+        for (int j = 0; j < s.UnlockedJars; j++)
+        {
+            if (!s.Shelf.Jars[j].IsEmpty) continue;
+            // Prefer the hottest species we have a hot-sauce recipe for and enough peppers of.
+            foreach (var sp in new[] { PepperSpecies.Ghost, PepperSpecies.Bonnet, PepperSpecies.Banana, PepperSpecies.Bell })
+            {
+                bool hasRecipe = RecipeBook.UnlockedAt(s.Level).Any(r => r.Ingredients.Any(i => i.Kind == IngredientKind.Mash && i.Index == (int)sp));
+                if (!hasRecipe) continue;
+                // Keep two peppers back for curries that use fresh peppers or powder.
+                int spare = s.Inventory.Pepper(sp) - (sp == PepperSpecies.Bell ? 2 : 1);
+                if (spare >= Jar.PeppersPerJar && Actions.FillJar(s, j, sp).Ok) break;
+            }
+        }
+    }
+
+    void PlantSeeds()
+    {
+        var s = State;
+        for (int p = 0; p < s.UnlockedPlots; p++)
+        {
+            if (!s.Garden.Plots[p].IsEmpty) continue;
+            // Best unlocked species we can afford while keeping a small float for spices.
+            foreach (var info in Species.All.OrderByDescending(i => i.UnlockLevel))
+            {
+                if (info.UnlockLevel > s.Level) continue;
+                if (s.Inventory.Seed(info.Species) == 0)
+                {
+                    if (s.Peppercorns - info.SeedCost < 8) continue;
+                    if (!Actions.BuySeed(s, info.Species).Ok) continue;
+                }
+                if (Actions.PlantSeed(s, p, info.Species).Ok) break;
+            }
+        }
+    }
+
+    void TendPlants()
+    {
+        var s = State;
+        for (int p = 0; p < s.UnlockedPlots; p++)
+        {
+            var plant = s.Garden.Plots[p].Plant;
+            if (plant == null || plant.IsMature) continue;
+            bool water = plant.Species switch
+            {
+                PepperSpecies.Ghost => !plant.WateredYesterday,
+                PepperSpecies.Banana => !plant.WateredYesterday,
+                _ => true,
+            };
+            bool pep = plant.Species switch
+            {
+                PepperSpecies.Bonnet => true,
+                PepperSpecies.Banana => s.Spice.Current > Balance.PepTalkSpiceCost,
+                _ => false,
+            };
+            if (water)
+            {
+                if (s.Garden.BucketWater == 0) Actions.RefillBucket(s);
+                Actions.Water(s, p);
+            }
+            if (pep && !Actions.PepTalk(s, p).Ok && plant.Species == PepperSpecies.Bonnet)
+            {
+                // A bonnet without its pep talk stalls; eat something to afford the speech.
+                foreach (var sp in new[] { PepperSpecies.Bell, PepperSpecies.Banana })
+                    if (Actions.Eat(s, sp).Ok) { Actions.PepTalk(s, p); break; }
+            }
+        }
+    }
+}

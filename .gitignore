@@ -1,26 +1,12 @@
-# Dependencies
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.swp
+TestResults/
+
+# Leftovers from the old JS build
 node_modules/
-
-# Build output
 dist/
-dist-ssr/
-
-# Test / coverage
-coverage/
-.vitest/
-
-# Logs
-*.log
-npm-debug.log*
-
-# Editor / OS
-.vscode/*
-!.vscode/extensions.json
-.idea/
-.DS_Store
-Thumbs.db
-
-# Env
-.env
-.env.*
-!.env.example

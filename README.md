@@ -1,120 +1,124 @@
-# The King's Chef
+# Spice Wizard
 
-An arcade-style roguelike built for a weekend game jam around the themes **Curry** and **Pepper**.
+A one-screen, pixel-art cooking and farming simulator built for a weekend game jam around the themes **Curry** and **Pepper**. Runs in the browser on the [KNI engine](https://github.com/kniEngine/kni) (Blazor WebAssembly).
 
-You are the King's chef. Dinner is late, the castle is full of guests, and the guests are chess pieces. They know the rules; you don't. So you move like a roguelike hero — one tile in any of eight directions — while the guests slide, jump and poke you exactly the way chess pieces would. Gather ingredients on the way down, survive the guests' forks, insults and demands for snacks, find the King in the Dining Hall and serve him whatever you managed to keep in your pantry.
+You are the Spice Wizard. Grow peppers in the garden outside your tower, ferment and grind them, brew hot sauces and curries in the cauldron, and ship them to the nearby town. The town rates every bottle, pays you in peppercorns and posts a weekly request on the notice board. Climb from level 1 to level 20 and the whole town turns up to celebrate the new **Master Spice Wizard**.
 
 ## Play
 
+Requires the .NET 8 SDK (or newer).
+
 ```bash
-npm install
-npm run dev      # opens a local dev server
+dotnet run --project src/SpiceWizard.Web
 ```
 
-Open the printed URL in a browser. Add `?seed=123` to replay a specific castle layout.
+Open the printed URL (`http://localhost:5259` by default). The whole game is one screen: click anything in the yard to use it.
 
-The dev and preview servers bind to `127.0.0.1` only (see [vite.config.js](vite.config.js)), so the game is reachable solely from this machine and is never exposed on the local network. Ports are fixed (`5173` dev, `4173` preview) and the server fails fast rather than hopping ports if one is busy.
+```bash
+dotnet test                                    # simulation tests + balance bot
+dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
+```
+
+Add `?demo` to the URL for a mid-game state, or `?demo=master` to be one night away from winning.
 
 ## Controls
 
-| Action | Keys |
+| Action | Input |
 | --- | --- |
-| Move / bump (8 directions) | Arrows, `WASD` (+ `QEZC` diagonals), numpad, or vi-keys `hjklyubn` |
-| Wait a turn | `Space`, `.`, numpad `5` |
-| Hold a pantry ingredient to serve | `1`–`8` (press again to put it down), `Esc` to put it down |
-| New run | `R` |
-| Mouse | Click a lit tile to walk one step toward it; click an adjacent guest to bump it; click a pantry slot to hold it |
+| Use a station | Click it — the wizard walks over and a panel opens |
+| Close a panel | The `x` button or `Esc` |
+| Help | The `?` button in the top-right corner |
 
-## Rules
+Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off.
 
-| Thing | Behaviour |
+## The day
+
+A day runs from 06:00 to 22:00 in four real minutes. The clock pauses while a panel is open, so reading and shopping are free. At 22:00 (or when you click the tower door) you sleep, and the night moves everything on at once:
+
+1. Jars ferment one night and plants grow.
+2. The cart takes whatever is in the shipping crate to town; each sauce is rated and paid for.
+3. On the first morning of a week the previous quota is judged and a new one is posted.
+4. Your spice refills, and the morning report shows what happened.
+
+## The yard
+
+| Station | What it does |
 | --- | --- |
-| **The chef** | Steps one tile in any direction. Bumping a guest whacks it with your utensil. Bumping the King serves dinner. |
-| **Patience** | Your health (12). Guests wear it down with jabs, insults and demands. At zero you tear off your apron and storm out. |
-| **Fog of war** | You see 7 tiles with line of sight; explored rooms stay on the map, dimmed. Guests only act once they've noticed you (you see them, or you clatter within earshot) and skip the turn they notice you on. |
-| **Threat overlay** | Red tissue marks every tile a guest that knows you're there could hit next turn. Guests attack *from where they stand* along their chess lines — they don't need to reach you. |
-| **Utensil** | Your attack. Wooden spoon (1) → rolling pin (2) → cleaver (3). Better ones swap in automatically. |
-| **Apron** | Your armour. Each leather apron pads jabs by 1 (max 3). Insults ignore aprons entirely. |
-| **Pantry** | Holds 8 ingredients. Everything in it ends up on the King's plate — unless you feed some to a guest, or a Baron snatches it. |
-| **Serving a guest** | Hold an ingredient (`1`–`8`) and bump any guest: they leave delighted, worth their tips +10. Instant, safe, and it works on the Duchess. |
-| **Gear** | Tea (+5 patience), utensils and aprons are used the moment you step on them. |
-| **Stairs** | Step on them to descend (+25 tips). Three floors down is the Dining Hall. |
-| **The King** | Bump him to serve. The meal is judged on what's in your pantry. |
+| **Garden plots** | Plant a seed, water it, give it a pep talk, harvest it. 4 plots to start, 8 by level 12. |
+| **Well** | Refills the watering bucket (4 waters). |
+| **Merchant cart** | Sells seeds and spices for peppercorns. Higher-level goods unlock as you level. |
+| **Notice board** | This week's quota and its progress. |
+| **Cauldron** | Cooks the eight recipes. Costs 3 spice per sauce. |
+| **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash. 2 jars to start, 4 by level 10. |
+| **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. |
+| **Pantry** | Everything you own. Eat peppers here to restore spice. |
+| **Shipping crate** | Holds up to 6 sauces for tonight's delivery. |
+| **Tower door** | Go to bed early. |
 
-### The guests
+## Resources
 
-| Guest | Piece | Moves | Attack |
-| --- | --- | --- | --- |
-| **The Peckish Page** | pawn | steps straight, pokes diagonally | jab, 1 · 1 hp |
-| **Sir Ladle** | knight | jumps in an L, even over walls; can't hit anyone adjacent | jab, 2 · 2 hp · winded for a turn after each hit |
-| **The Bishop of Basil** | bishop | slides diagonally | insult, 1 · 2 hp |
-| **Baron Peppermill** | rook | slides straight | demands food: snatches an ingredient and leaves with it, or jabs for 1 if your pantry is empty · 3 hp |
-| **Duchess Toque** | queen | slides any direction | insult, 2 · 4 hp · pauses for breath between tirades |
+- **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
+- **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, grinding 1, a pep talk 1. Sleep refills it; eating a pepper restores its heat value.
+- **Spices** from the merchant: Cumin 3, Cinnamon 3, Curry Leaves 4, Coriander 3, Ginger 4 (level 1); Cardamom 6 (level 3); Cloves 6 and Fenugreek 5 (level 5). Meeting a quota also grants one rare spice.
 
-Each turn a guest attacks if it can, otherwise moves to a square from which it could, otherwise closes in. Closest guests act first.
+## Peppers
 
-### The meal
+Each pepper looks like its name and has its own temperament. Growth is counted in points earned overnight.
 
-The King has ordered a **Royal Curry**: chili pepper, curry paste, bowl of rice, chicken leg, onion. Bread rolls are the only other ingredient and count for tips only. Recipe parts are dealt across the floors so a full curry is always possible.
+| Pepper | Looks like | Growth needed | Grows when | Yield | Heat | Seed | Unlocks |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Bell** | a bronze bell | 3 | watered today (+1). Ignores pep talks. | 3 | +1 | 5 pc | level 1 |
+| **Banana** | a banana | 4 | watered today or yesterday (+1), +1 more if pep-talked | 2 | +2 | 8 pc | level 1 |
+| **Bonnet** | a frilly bonnet hat | 6 | pep-talked (+1), +1 more if watered. No pep talk, no growth. | 2 | +3 | 12 pc | level 4 |
+| **Ghost** | the ghost of a chili | 4 | watered exactly once in the last two days (+1). Over-watering stalls it; a pep talk scares it into hiding. | 1 | +5 | 20 pc | level 8 |
 
-| Plate | Rank | Tips |
-| --- | --- | --- |
-| Every recipe part | **S** | ingredients + 5 × 20 + 100 |
-| 4 parts | A | ingredients + parts × 20 |
-| 2–3 parts | B | ingredients + parts × 20 |
-| Something, but not much | C | ingredients |
-| Nothing | F | shown to the moat (run lost) |
+Watering and pep talks are once per plant per day. A harvested plot is empty again.
 
-Other tips: +5 (page) to +30 (duchess) for sending a guest packing, +10 on top of that for feeding one, +25 per floor, +5 for surplus gear. Your best score is remembered in the browser.
+## Recipes
 
-### Floors
+Hot sauces need fermented mash; curries need fresh peppers or powder.
 
-1. The Cellar — 3 pages, 1 knight
-2. The Kitchens — 3 pages, 1 knight, 2 bishops · rolling pin
-3. The Great Hall — 2 pages, 1 knight, 1 bishop, 2 barons · leather apron
-4. The Dining Hall — 2 pages, 1 knight, 2 bishops, 1 baron, the Duchess · cleaver · the King
+| Sauce | Type | Ingredients | Value | Unlocks |
+| --- | --- | --- | --- | --- |
+| Bell Hot Sauce | hot | Bell mash, 1 peppercorn | 12 | level 1 |
+| Golden Curry | curry | 2 Bell peppers, Cumin, Coriander, Curry Leaves | 16 | level 1 |
+| Banana Blaze | hot | Banana mash, Ginger, 1 peppercorn | 20 | level 2 |
+| Sunset Curry | curry | Banana powder, Cinnamon, Cardamom, Ginger | 24 | level 3 |
+| Bonnet Fire | hot | Bonnet mash, Coriander, Cumin, 2 peppercorns | 32 | level 5 |
+| Bonnet Curry | curry | Bonnet powder, Fenugreek, Cumin, Curry Leaves, Cloves | 40 | level 6 |
+| Phantom Sauce | hot | Ghost mash, Cloves, Cinnamon, 2 peppercorns | 55 | level 9 |
+| Spectral Curry | curry | Ghost powder, Cardamom, Cloves, Fenugreek, 3 peppercorns | 70 | level 11 |
 
-Every floor is a seeded rooms-and-corridors castle (30×18). You start alone in a room and are never in a guest's line of fire at the top of the stairs; the stairs (or the King) are in the room farthest from you. Each floor carries three ingredients and a pot of tea.
+Every sauce is bottled with a **quality** of 1–5 stars: 3 by default, +1 for aged mash, +1 for adding an extra peppercorn, −1 while the recipe is new to you (below its unlock level + 2), +1 once mastered (unlock level + 6).
 
-## Art direction
+## Selling
 
-**Paper cut-out**: flat SVG silhouettes on cream/charcoal "paper" with hard offset shadows and a stable per-tile rotation jitter, on a kraft-and-wood cutting board. Guests are kitchen-twisted chess pieces (page = pawn, knight = ladle, bishop = spice jar, rook = pepper grinder, queen = chef's toque); the chef is a pawn in a toque with a chili pinned to the band, the King wears a gold crown. Floors are paper chess squares, walls are dark paper blocks, unexplored castle is bare kraft. Markers: red tissue = threatened, orange ring = guest you can bump, gold ring = the King, cream strips = speech bubbles.
+Overnight the town rates each bottle in the crate: quality, **+1 star** if the sauce is on this week's notice, **−1 star** if the town has already had two of that sauce in the last three days. Pay is the sauce's value × 0.5 / 0.8 / 1 / 1.4 / 2 for 1–5 stars; fame (XP) is stars × recipe tier × 6.
 
-All art is inline SVG in [src/art/sprites.js](src/art/sprites.js) (colours from CSS variables in [src/style.css](src/style.css)); there are no image assets. The heading font is Bree Serif from Google Fonts with a Georgia fallback — the only network request the page makes.
+## Weekly quota
 
-The piece sheet and the unchosen style explorations live on a design canvas: https://claude.ai/code/artifact/d72c6a09-f8b3-4a13-86a9-62024a593e7c
+Every week the notice board asks for two or three sauces you can already cook. Deliver them all by the end of day 7 for a bonus of 40 + 25 × week peppercorns, 30 + 10 × week fame and a rare spice.
 
-## Development
+## Progression
 
-```bash
-npm test         # vitest unit tests (game logic)
-npm run build    # production build to dist/
-npm run preview  # serve the production build
-```
+Fame to the next level is 25 + 15 × (level − 1). Levels unlock recipes, seeds, spices, garden plots (3, 6, 9, 12), jars (5, 10) and spice capacity. Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 30.
 
-### Project layout
+## Project structure
 
 ```
-index.html            page shell + HUD markup
-src/main.js           keyboard/mouse wiring, best-score storage, ?seed= handling
-src/render.js         draws the castle floor + side panel from state
-src/art/sprites.js    inline-SVG paper cut-out sprites (chef, guests, King, items, stairs) + tilt hash
-src/style.css         paper palette, grain texture, board and HUD styling
-src/game/constants.js map size, enums (tiles, guests, items, status), tuning numbers
-src/game/rng.js       seedable PRNG
-src/game/dungeon.js   rooms-and-corridors generator
-src/game/fov.js       line of sight, visible set, BFS distance maps, path steps
-src/game/guests.js    guest roster: stats, attack kinds, insults
-src/game/items.js     ingredients, gear, the Royal Curry recipe, meal scoring
-src/game/moves.js     chef moves, guest chess moves inside the dungeon, threat sets
-src/game/ai.js        guest decision making (attack > line up > close in > hold)
-src/game/levels.js    floor roster + seeded floor generation
-src/game/state.js     pure game reducer: newGame / stepPlayer / waitTurn / selectSlot / stepToward
-tests/                vitest suites for moves+fov, state, sprites
+SpiceWizard.sln
+src/SpiceWizard.Core/          pure simulation, no engine references
+  Species.cs, Plant.cs, Garden.cs (plots + jars), Recipes.cs (+ Balance),
+  Town.cs (ratings, quota), Progression.cs (+ SpiceMeter, GameClock),
+  Actions.cs (every player verb), DayTick.cs (night resolution), SaveSystem.cs
+src/SpiceWizard.Web/           KNI Blazor WebAssembly host
+  Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers
+  Scene/    layout of the single screen, renderer, day/night, wizard, particles, crowd
+  Ui/       immediate-mode widgets, station panels, HUD/title/celebration overlays
+  SpiceWizardGame.cs, DemoState.cs, Pages/Index.razor(.cs), wwwroot/index.html
+tests/SpiceWizard.Core.Tests/  xunit: one file per system + GreedyBot balance playthrough
 ```
 
-The game logic under `src/game/` is pure and DOM-free, so it can be tested, fuzzed and tuned without a browser.
+All art is generated at start-up from text sprites and a shared palette, so there is no content pipeline; the KNI packages are pulled from NuGet.
 
-## Tech
-
-Vanilla JavaScript (ES modules), [Vite](https://vitejs.dev) for dev/build, [Vitest](https://vitest.dev) for tests. No runtime dependencies.
+Balance numbers live in `Balance` (`src/SpiceWizard.Core/Recipes.cs`), `Species.All` and `RecipeBook.All`. Change them, then run `dotnet test` — `BotPlaythroughTests` asserts the game is still winnable in a sensible number of days.
