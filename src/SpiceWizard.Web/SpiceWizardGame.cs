@@ -96,7 +96,9 @@ namespace SpiceWizard.Web
                 RequestQuit = QuitToTitle,
                 SettingsChanged = SaveSettings,
                 PlaySfx = _mixer.Play,
+                OnAffirm = _mixer.Affirm,
             };
+            _wizard.OnStep = _mixer.Footstep;
             _ui.OnClick = () => _mixer.Play(Sfx.Click);
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _session.Panel = PanelKind.Title;
@@ -116,7 +118,7 @@ namespace SpiceWizard.Web
             _clearSaveHook?.Invoke();
             _session.HasSave = false;
             _crowd.Stop();
-            _wizard = new WizardActor(Layout.WizardStart);
+            _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep };
             _session.Open(PanelKind.Help);
             _session.Say("Welcome to your tower. Click the garden to begin!");
         }
@@ -199,6 +201,8 @@ namespace SpiceWizard.Web
             _scene.Update(_dt);
             _crowd.Update(_dt);
             bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
+            _mixer.WizardFeet = _wizard.Feet;
+            _mixer.Deliberating = _session.PanelOpen && !paused && _session.Panel != PanelKind.Celebration;
             _mixer.Update(_dt, _state, paused, _session.Panel == PanelKind.Title);
             _scene.Wind = _mixer.Wind;
 
@@ -262,10 +266,10 @@ namespace SpiceWizard.Web
                     _fade = 1f;
                     var report = DayTick.Sleep(_state);
                     Save();
-                    _mixer.Play(Sfx.Chime);
+                    _mixer.Play(report.LevelsGained > 0 ? Sfx.LevelUp : Sfx.Chime);
                     _sleepPhase = 2;
                     _cartTimer = 2f;
-                    _wizard = new WizardActor(new Point(Layout.Door.X + 7, Layout.Tower.Bottom + 8));
+                    _wizard = new WizardActor(new Point(Layout.Door.X + 7, Layout.Tower.Bottom + 8)) { OnStep = _mixer.Footstep };
                     if (report.BecameMaster) { _crowd.Start(); }
                 }
             }
@@ -296,7 +300,7 @@ namespace SpiceWizard.Web
                 case StationKind.Plot: _session.Open(PanelKind.Plot, st.Index); break;
                 case StationKind.Well:
                     var r = Actions.RefillBucket(_state);
-                    _session.Say(r);
+                    _session.Say(r, Sfx.Bucket);
                     if (r.Ok) _particles.Water(new Point(Layout.Bucket.X + 4, Layout.Bucket.Y + 2));
                     break;
                 case StationKind.Board: _session.Open(PanelKind.Board); break;

@@ -13,7 +13,10 @@ namespace SpiceWizard.Web.Scene
         public Vector2 Feet;
         public bool FacingLeft;
         public bool Walking => _target.HasValue;
+        /// <summary>Fires once per stride while walking, for footstep sounds.</summary>
+        public Action OnStep;
         float _anim;
+        int _stride;
         Vector2? _target;
         Action _onArrive;
 
@@ -46,6 +49,8 @@ namespace SpiceWizard.Web.Scene
             {
                 delta.Normalize();
                 Feet += delta * step;
+                int stride = (int)(_anim * 8);
+                if (stride != _stride) { _stride = stride; OnStep?.Invoke(); }
             }
         }
 

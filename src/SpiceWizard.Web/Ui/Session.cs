@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 using SpiceWizard.Core;
+using SpiceWizard.Web.Audio;
 using SpiceWizard.Web.Scene;
 
 namespace SpiceWizard.Web.Ui
@@ -33,25 +34,39 @@ namespace SpiceWizard.Web.Ui
         public Action RequestQuit;
         public Action SettingsChanged;
         public Action<string> PlaySfx;
+        /// <summary>The wizard is pleased with himself: called after actions that went well.</summary>
+        public Action OnAffirm;
 
         public bool PanelOpen => Panel != PanelKind.None;
         public bool PausesClock => Panel != PanelKind.None;
 
         public void Open(PanelKind kind, int index = 0)
         {
+            if (kind != Panel && kind != PanelKind.Title) PlaySfx?.Invoke(Sfx.Open);
             Panel = kind;
             Index = index;
             Scroll = 0;
             ContentHeight = 0;
         }
 
-        public void Close() => Panel = PanelKind.None;
+        public void Close()
+        {
+            if (Panel != PanelKind.None && Panel != PanelKind.Title) PlaySfx?.Invoke(Sfx.Close);
+            Panel = PanelKind.None;
+        }
 
-        public void Say(ActionResult result)
+        /// <summary>Toasts the result; a success plays its own sound (and may earn an "a-ha"), a failure buzzes.</summary>
+        public void Say(ActionResult result, string okSfx = null)
         {
             Toast = result.Message;
             ToastTime = 3f;
             ToastColor = result.Ok ? Art.Palette.White : Art.Palette.Yellow;
+            if (!result.Ok) PlaySfx?.Invoke(Sfx.Denied);
+            else
+            {
+                if (okSfx != null) PlaySfx?.Invoke(okSfx);
+                OnAffirm?.Invoke();
+            }
         }
 
         public void Say(string message, bool good = true)

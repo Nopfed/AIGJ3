@@ -17,11 +17,12 @@ namespace SpiceWizard.Web.Audio
             return (float)Math.Max(0, Math.Min(1, w));
         }
 
-        static SoundEffect _wind, _crickets;
+        static SoundEffect _wind, _crickets, _cauldron;
         static SoundEffect[] _birds;
 
         public static SoundEffect Wind => _wind ??= RenderWind();
         public static SoundEffect Crickets => _crickets ??= RenderCrickets();
+        public static SoundEffect Cauldron => _cauldron ??= RenderCauldron();
 
         public static SoundEffect Bird(int variant)
         {
@@ -80,6 +81,41 @@ namespace SpiceWizard.Web.Audio
                 }
                 t += len + 0.15 + rng.NextDouble() * 0.6;
             }
+        }
+
+        /// <summary>A simmering pot: a low rumbling fizz with bubbles surfacing at random. Loops every 3 s.</summary>
+        static SoundEffect RenderCauldron()
+        {
+            const double len = 3;
+            var buf = Synth.Buffer(len);
+            var rng = new Random(23);
+            // The simmer: brown noise, wobbling in level so it rolls rather than hisses.
+            float b = 0;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                b += (float)(rng.NextDouble() * 2 - 1) * 0.1f;
+                b *= 0.97f;
+                double t = i / (double)Synth.Rate;
+                buf[i] = b * (0.7f + 0.3f * (float)Math.Sin(t * Math.PI * 2 * 2 / len + 0.5 * Math.Sin(t * 7)));
+            }
+            Synth.LowPass(buf, 0.06f);
+            Synth.Normalize(buf, 0.35f);
+            // Bubbles, wrapped so the ones near the end spill over into the start of the loop.
+            for (int k = 0; k < 14; k++)
+            {
+                double f0 = 250 + rng.Next(450), t0 = rng.NextDouble() * len, decay = 25 + rng.Next(20);
+                float vol = 0.15f + (float)rng.NextDouble() * 0.2f;
+                int i0 = (int)(t0 * Synth.Rate), n = (int)(0.12 * Synth.Rate);
+                double phase = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    double t = i / (double)Synth.Rate;
+                    phase += f0 * (1 + t * 7) / Synth.Rate;
+                    buf[(i0 + i) % buf.Length] += (float)Math.Sin(phase * Math.PI * 2) * vol * (float)Math.Exp(-t * decay);
+                }
+            }
+            Synth.FadeEnds(buf, 0.01);
+            return Synth.ToSoundEffect(buf);
         }
 
         static SoundEffect RenderBird(int variant)

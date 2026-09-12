@@ -2,6 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using SpiceWizard.Core;
 using SpiceWizard.Web.Art;
+using SpiceWizard.Web.Audio;
 using SpiceWizard.Web.Scene;
 
 namespace SpiceWizard.Web.Ui
@@ -89,7 +90,7 @@ namespace SpiceWizard.Web.Ui
                         if (ui.Button(new Rectangle(Left + 200, y, 56, 13), "Plant", seeds > 0, tip))
                         {
                             var r = Actions.PlantSeed(s, i, info.Species);
-                            ss.Say(r);
+                            ss.Say(r, Sfx.Plant);
                             if (r.Ok) ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y + 4), Palette.LightGreen);
                         }
                     }
@@ -140,7 +141,7 @@ namespace SpiceWizard.Web.Ui
                 if (ui.Button(new Rectangle(Left + 172, by, 80, 16), "Harvest", plant.IsMature, "Yields " + sp.Yield))
                 {
                     var r = Actions.Harvest(s, i);
-                    ss.Say(r);
+                    ss.Say(r, Sfx.Harvest);
                     if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Yellow); ss.Close(); }
                 }
                 return by + 16;
@@ -197,7 +198,7 @@ namespace SpiceWizard.Web.Ui
                     ui.Label(Left + 56, y1 + 1, info.SeedCost + "pc", Palette.Outline);
                     if (!unlocked) ui.Label(Left + 86, y1 + 1, "Lv" + info.UnlockLevel, Palette.Grey);
                     else if (ui.Button(new Rectangle(Left + 84, y1 - 1, 30, 11), "Buy", s.Peppercorns >= info.SeedCost, info.CareHint))
-                        ss.Say(Actions.BuySeed(s, info.Species));
+                        ss.Say(Actions.BuySeed(s, info.Species), Sfx.Coin);
                     ui.Label(Left + 120, y1 + 1, "x" + s.Inventory.Seed(info.Species), Palette.Grey);
                 }
 
@@ -213,7 +214,7 @@ namespace SpiceWizard.Web.Ui
                     ui.Label(sx + 84, y2 + 1, SpiceInfo.Price(spice) + "pc", Palette.Outline);
                     if (!unlocked) ui.Label(sx + 112, y2 + 1, "Lv" + SpiceInfo.UnlockLevel(spice), Palette.Grey);
                     else if (ui.Button(new Rectangle(sx + 110, y2 - 1, 30, 11), "Buy", s.Peppercorns >= SpiceInfo.Price(spice)))
-                        ss.Say(Actions.BuySpice(s, spice));
+                        ss.Say(Actions.BuySpice(s, spice), Sfx.Coin);
                     ui.Label(sx + 146, y2 + 1, "x" + s.Inventory.SpiceOf(spice), Palette.Grey);
                 }
 
@@ -236,7 +237,7 @@ namespace SpiceWizard.Web.Ui
                 {
                     var r = RecipeBook.All[k];
                     bool unlocked = r.UnlockLevel <= s.Level;
-                    var rowRect = new Rectangle(Left, y1 - 1, 162, 11);
+                    var rowRect = new Rectangle(Left, y1 - 1, 128, 11); // stops short of the Cook button so the row does not swallow its click
                     bool selected = ss.SelectedRecipe == r.Id;
                     if (selected) ui.C.Rect(rowRect, Palette.Yellow * 0.5f);
                     ui.IconLabel(Left + 2, y1, ItemArt.SauceIcon(r), unlocked ? ItemArt.SauceColor(r.Id) : Palette.Grey, r.Name, unlocked ? Palette.Outline : Palette.Grey);
@@ -246,7 +247,7 @@ namespace SpiceWizard.Web.Ui
                     if (unlocked && ui.Button(new Rectangle(Left + 130, y1 - 1, 34, 11), "Cook", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.CookSpiceCost + " spice" : blocker))
                     {
                         var res = Actions.Cook(s, r.Id, ss.ExtraPeppercorn);
-                        ss.Say(res);
+                        ss.Say(res, Sfx.Cook);
                         if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2), ItemArt.SauceColor(r.Id));
                     }
                 }
@@ -304,13 +305,13 @@ namespace SpiceWizard.Web.Ui
                             var sp = (PepperSpecies)k;
                             int have = s.Inventory.Pepper(sp);
                             if (ui.Button(new Rectangle(Left + 16 + k * 60, y + 15, 56, 12), Species.NameOf(sp) + " " + have, have >= Jar.PeppersPerJar, "Pack " + Jar.PeppersPerJar + " " + Species.NameOf(sp) + " peppers"))
-                                ss.Say(Actions.FillJar(s, j, sp));
+                                ss.Say(Actions.FillJar(s, j, sp), Sfx.Jar);
                         }
                     }
                     else if (jar.IsReady)
                     {
                         if (ui.Button(new Rectangle(Left + 16, y + 15, 84, 12), "Collect mash", true, jar.IsAged ? "Aged mash: +1 star when cooked" : "Leave it " + (Jar.NightsToAge - jar.Nights) + " more nights to age"))
-                            ss.Say(Actions.EmptyJar(s, j));
+                            ss.Say(Actions.EmptyJar(s, j), Sfx.Jar);
                     }
                     else ui.Label(Left + 16, y + 17, "Bubbling away...", Palette.Grey);
                 }
@@ -340,8 +341,8 @@ namespace SpiceWizard.Web.Ui
                     ui.IconLabel(Left, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " " + s.Inventory.Pepper(sp), Palette.Outline);
                     ui.IconLabel(Left + 66, y, "ic_powder", ItemArt.SpeciesColor(sp), "x" + s.Inventory.PowderOf(sp), Palette.Outline);
                     if (ui.Button(new Rectangle(Left + 100, y - 1, 34, 11), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost), "One pepper to one powder for " + Balance.GrindSpiceCost + " spice"))
-                        ss.Say(Actions.Grind(s, sp));
-                    PinchButton(ui, s, draft, ing, Left + 138, y, unlocked && room);
+                        ss.Say(Actions.Grind(s, sp), Sfx.Grind);
+                    PinchButton(ui, ss, s, draft, ing, Left + 138, y, unlocked && room);
                 }
                 y += 2;
                 for (int k = 0; k < Inventory.SpiceCount; k++, y += 11)
@@ -350,10 +351,10 @@ namespace SpiceWizard.Web.Ui
                     var ing = Ingredient.Of(spice);
                     int have = s.Inventory.SpiceOf(spice);
                     ui.IconLabel(Left, y, "ic_pouch", ItemArt.SpiceColor(spice), SpiceInfo.Name(spice) + " x" + have, have > 0 ? Palette.Outline : Palette.Grey);
-                    PinchButton(ui, s, draft, ing, Left + 138, y, unlocked && room);
+                    PinchButton(ui, ss, s, draft, ing, Left + 138, y, unlocked && room);
                 }
                 ui.IconLabel(Left, y, "ic_peppercorn", Color.White, "Peppercorn x" + s.Peppercorns, Palette.Outline);
-                PinchButton(ui, s, draft, Ingredient.Peppercorns(1), Left + 138, y, unlocked && room);
+                PinchButton(ui, ss, s, draft, Ingredient.Peppercorns(1), Left + 138, y, unlocked && room);
                 int y1 = y + 11;
 
                 ui.Label(rx, top, "Your blend", Palette.DarkRed);
@@ -369,7 +370,7 @@ namespace SpiceWizard.Web.Ui
                     if (draft.Pinches == 0) py = ui.Paragraph(rx, py, 30, "Click + to add pinches. Two to five make a blend the town has never tasted.", Palette.Grey);
                     foreach (var ing in draft.Ingredients)
                     {
-                        if (ui.Button(new Rectangle(rx, py - 1, 12, 11), "-", true, "Take one pinch out")) draft.Adjust(ing, -1);
+                        if (ui.Button(new Rectangle(rx, py - 1, 12, 11), "-", true, "Take one pinch out")) { draft.Adjust(ing, -1); ss.PlaySfx?.Invoke(Sfx.Pinch); }
                         string icon = ing.Kind == IngredientKind.Powder ? "ic_powder" : ing.Kind == IngredientKind.Spice ? "ic_pouch" : "ic_peppercorn";
                         var tint = ing.Kind == IngredientKind.Powder ? ItemArt.SpeciesColor((PepperSpecies)ing.Index) : ing.Kind == IngredientKind.Spice ? ItemArt.SpiceColor((Spice)ing.Index) : Color.White;
                         ui.IconLabel(rx + 16, py, icon, tint, ing.Count + " " + ing.Name, Palette.Outline);
@@ -408,7 +409,7 @@ namespace SpiceWizard.Web.Ui
                 if (ui.Button(new Rectangle(rx, Frame.Bottom - 22, 72, 16), "Blend (" + Balance.BlendSpiceCost + ")", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.BlendSpiceCost + " spice" : blocker))
                 {
                     var res = Actions.MakeBlend(s, draft);
-                    ss.Say(res);
+                    ss.Say(res, Sfx.Blend);
                     if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Mortar.X + 8, Layout.Mortar.Y), ItemArt.BlendColor(draft));
                 }
                 if (ui.Button(new Rectangle(rx + 78, Frame.Bottom - 22, 44, 16), "Clear", draft.Pinches > 0)) draft.Clear();
@@ -416,11 +417,11 @@ namespace SpiceWizard.Web.Ui
         }
 
         /// <summary>The little + that drops one pinch of an ingredient into the draft, if the pantry has a spare one.</summary>
-        static void PinchButton(Ui ui, GameState s, Blend draft, Ingredient ing, int x, int y, bool enabled)
+        static void PinchButton(Ui ui, Session ss, GameState s, Blend draft, Ingredient ing, int x, int y, bool enabled)
         {
             int spare = Actions.Have(s, ing) - draft.CountOf(ing);
             if (ui.Button(new Rectangle(x, y - 1, 12, 11), "+", enabled && spare > 0, spare > 0 ? "Add a pinch" : "None spare in the pantry"))
-                draft.Adjust(ing, 1);
+            { draft.Adjust(ing, 1); ss.PlaySfx?.Invoke(Sfx.Pinch); }
         }
 
         // ---- Pantry (inventory) -----------------------------------------------------------------
@@ -441,7 +442,7 @@ namespace SpiceWizard.Web.Ui
                     int y = top + 12 + k * Row;
                     ui.IconLabel(c1, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " x" + inv.Pepper(sp), Palette.Outline);
                     if (ui.Button(new Rectangle(c1 + 66, y - 1, 44, 11), "Eat +" + Species.Get(sp).Heat, inv.Pepper(sp) > 0 && s.Spice.Current < s.Spice.Max, "Eat one to restore spice"))
-                        ss.Say(Actions.Eat(s, sp));
+                        ss.Say(Actions.Eat(s, sp), Sfx.Eat);
                 }
                 int seedsY = top + 12 + 4 * Row + 4;
                 ui.Label(c1, seedsY, "Seeds", Palette.DarkRed);
@@ -501,7 +502,7 @@ namespace SpiceWizard.Web.Ui
                     ui.IconLabel(Left, y1, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
                     ui.Stars(Left + 96, y1, sauce.Quality);
                     if (ui.Button(new Rectangle(Left + 134, y1 - 1, 12, 11), ">", !s.Crate.IsFull, "Ship to town"))
-                        ss.Say(Actions.Ship(s, k));
+                        ss.Say(Actions.Ship(s, k), Sfx.Ship);
                 }
 
                 int cx = Left + 160;
@@ -512,7 +513,7 @@ namespace SpiceWizard.Web.Ui
                 for (int k = 0; k < s.Crate.Sauces.Count; k++, y2 += Row)
                 {
                     var sauce = s.Crate.Sauces[k];
-                    if (ui.Button(new Rectangle(cx, y2 - 1, 12, 11), "<", true, "Take back")) ss.Say(Actions.Unship(s, k));
+                    if (ui.Button(new Rectangle(cx, y2 - 1, 12, 11), "<", true, "Take back")) ss.Say(Actions.Unship(s, k), Sfx.Unship);
                     ui.IconLabel(cx + 16, y2, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
                     ui.Stars(cx + 112, y2, sauce.Quality);
                 }
@@ -536,7 +537,7 @@ namespace SpiceWizard.Web.Ui
             ui.Label(Left, Top + 28, "Jars fermenting: " + fermenting + ".   Sauces in the crate: " + s.Crate.Sauces.Count + ".");
             ui.Label(Left, Top + 40, "Sleeping refills your spice to " + s.Spice.Max + ".", Palette.Grey);
             if (s.Clock.DayOfWeek == 7) ui.Label(Left, Top + 52, "The week ends tonight! The quota is judged at dawn.", Palette.DarkRed);
-            if (ui.Button(new Rectangle(Left, Top + 70, 90, 16), "Sleep", true)) { ss.Close(); ss.RequestSleep?.Invoke(); }
+            if (ui.Button(new Rectangle(Left, Top + 70, 90, 16), "Sleep", true)) { ss.Close(); ss.PlaySfx?.Invoke(Sfx.Yawn); ss.RequestSleep?.Invoke(); }
             if (ui.Button(new Rectangle(Left + 100, Top + 70, 90, 16), "Not yet", true)) ss.Close();
         }
 

@@ -99,6 +99,57 @@ namespace SpiceWizard.Web.Audio
 
         public static void LowPass(float[] buf, float cutoff) => LowPass(buf, _ => cutoff);
 
+        /// <summary>One-pole high-pass, in place: what LowPass would have removed.</summary>
+        public static void HighPass(float[] buf, float cutoff)
+        {
+            float y = 0;
+            for (int i = 0; i < buf.Length; i++)
+            {
+                y += cutoff * (buf[i] - y);
+                buf[i] -= y;
+            }
+        }
+
+        /// <summary>
+        /// Two-pole resonator: returns src rung at freq Hz with the given bandwidth. Several of these in
+        /// parallel over a buzzy source make the vowel-ish formants the wizard's voice is built from.
+        /// </summary>
+        public static float[] Resonate(float[] src, double freq, double bandwidth, float gain)
+        {
+            var dst = new float[src.Length];
+            double r = Math.Exp(-Math.PI * bandwidth / Rate);
+            double a1 = 2 * r * Math.Cos(TwoPi * freq / Rate), a2 = -r * r;
+            float g = (float)((1 - r) * gain);
+            double y1 = 0, y2 = 0;
+            for (int i = 0; i < src.Length; i++)
+            {
+                double y = src[i] * g + a1 * y1 + a2 * y2;
+                y2 = y1; y1 = y;
+                dst[i] = (float)y;
+            }
+            return dst;
+        }
+
+        public static void Mix(float[] dst, float[] src, float gain)
+        {
+            int n = Math.Min(dst.Length, src.Length);
+            for (int i = 0; i < n; i++) dst[i] += src[i] * gain;
+        }
+
+        /// <summary>A burst of filtered noise with an exponential tail: the basis of taps, steps and crunches.</summary>
+        public static void Burst(float[] buf, Random rng, double start, double len, float vol, float lowpass, double decay)
+        {
+            int i0 = (int)(start * Rate), n = (int)(len * Rate);
+            float y = 0;
+            for (int i = 0; i < n && i0 + i < buf.Length; i++)
+            {
+                double t = i / (double)Rate;
+                float x = (float)(rng.NextDouble() * 2 - 1);
+                y += lowpass * (x - y);
+                buf[i0 + i] += y * vol * (float)Math.Exp(-t * decay) * (t < 0.002 ? (float)(t / 0.002) : 1f);
+            }
+        }
+
         /// <summary>Simple feedback delay for a bit of room.</summary>
         public static void Delay(float[] buf, double seconds, float feedback, float mix)
         {
