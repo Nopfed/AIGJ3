@@ -85,6 +85,8 @@ namespace SpiceWizard.Web.Scene
         public Color Color;
         public int Size;
         public float Gravity;
+        /// <summary>Extra pixels of size gained over the particle's life (smoke puffs swell as they rise).</summary>
+        public int Grow;
     }
 
     public sealed class Particles
@@ -116,6 +118,22 @@ namespace SpiceWizard.Web.Scene
             Spawn(new Vector2(at.X + _rng.Next(-8, 9), at.Y), new Vector2(_rng.Next(-4, 5), -12), 1.2f, Palette.LightGrey * 0.7f, 2);
         }
 
+        /// <summary>A fat, slow puff of wood smoke from the fire that swells and thins as it climbs past the cauldron.</summary>
+        public void Smoke(Point at)
+        {
+            var p = new Particle
+            {
+                Pos = new Vector2(at.X + _rng.Next(-3, 4), at.Y),
+                Vel = new Vector2(3 + _rng.Next(0, 5), -14 - _rng.Next(6)),
+                Life = 3.6f + (float)_rng.NextDouble() * 1.2f,
+                Color = Palette.Grey * 0.6f,
+                Size = 3,
+                Grow = 5,
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
         public void Confetti(int left, int right, int top)
         {
             Color[] colors = { Palette.Red, Palette.Yellow, Palette.LightGreen, Palette.Sky, Palette.Pink, Palette.LightPurple };
@@ -139,8 +157,10 @@ namespace SpiceWizard.Web.Scene
         {
             foreach (var p in _list)
             {
-                float a = Math.Min(1f, p.Life / p.MaxLife * 2f);
-                c.Rect((int)p.Pos.X, (int)p.Pos.Y, p.Size, p.Size, p.Color * a);
+                // Growing particles (smoke) thin out steadily as they swell; the rest hold full until half-life.
+                float a = p.Grow > 0 ? p.Life / p.MaxLife : Math.Min(1f, p.Life / p.MaxLife * 2f);
+                int size = p.Size + (int)(p.Grow * (1f - p.Life / p.MaxLife));
+                c.Rect((int)p.Pos.X - (size - p.Size) / 2, (int)p.Pos.Y, size, size, p.Color * a);
             }
         }
     }

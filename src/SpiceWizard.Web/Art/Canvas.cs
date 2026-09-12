@@ -132,6 +132,24 @@ namespace SpiceWizard.Web.Art
 
         public void Rect(Rectangle r, Color color) => Rect(r.X, r.Y, r.Width, r.Height, color);
 
+        /// <summary>Soft ambient light: nested ellipses that fade toward the edge, for lamplight and firelight.
+        /// The centre reaches the full <paramref name="color"/>; each ring out is a step dimmer.</summary>
+        public void Glow(int cx, int cy, int rx, int ry, Color color, int layers = 3)
+        {
+            var step = color * (1f / layers);
+            for (int l = layers; l >= 1; l--)
+            {
+                float frac = l / (float)layers;
+                int hx = (int)Math.Round(rx * frac), hy = (int)Math.Round(ry * frac);
+                for (int dy = -hy; dy <= hy; dy++)
+                {
+                    float t = hy == 0 ? 0f : dy / (float)(hy + 0.5f);
+                    int half = (int)Math.Round(hx * Math.Sqrt(Math.Max(0f, 1f - t * t)));
+                    Rect(cx - half, cy + dy, half * 2 + 1, 1, step);
+                }
+            }
+        }
+
         public void Border(Rectangle r, Color color)
         {
             Rect(r.X, r.Y, r.Width, 1, color);

@@ -447,7 +447,7 @@ namespace SpiceWizard.Web.Scene
             bool lit = WindowsLit || f > 0.8 || f < 0.06;
             foreach (var w in Layout.Windows)
             {
-                if (lit) _c.Rect(w.X - 2, w.Y - 2, 12, 13, Palette.Glow);
+                if (lit) _c.Glow(w.X + 4, w.Y + 5, 11, 10, Palette.Glow);
                 _c.Sprite(lit ? "window_lit" : "window", w.X, w.Y);
                 _c.Rect(w.X + 1, w.Y + 10, 7, 1, Palette.Shadow);
             }
@@ -575,13 +575,14 @@ namespace SpiceWizard.Web.Scene
             if (s.Crate.Sauces.Count > 0)
                 _c.TextShadow(s.Crate.Sauces.Count.ToString(), Layout.Crate.X + 20, Layout.Crate.Y + 2, Palette.White);
 
-            // Cauldron over a fire, with a flickering glow on the ground.
+            // Cauldron standing over a log fire: the logs sit on the ground under its feet and a
+            // flickering pool of firelight spreads out around them.
             var cp = Layout.Cauldron;
             float flicker = 0.7f + 0.3f * (float)Math.Sin(_time * 11) * (float)Math.Cos(_time * 7);
-            _c.Rect(cp.X - 3, cp.Y + 17, 30, 7, Palette.Glow * flicker);
-            _c.Rect(cp.X + 1, cp.Y + 22, 22, 2, Palette.Shadow);
+            _c.Glow(cp.X + 12, cp.Y + 20, 24, 6, Palette.Glow * flicker);
+            _c.Rect(cp.X + 1, cp.Y + 20, 22, 2, Palette.Shadow);
             string fire = (int)(_time * 6) % 2 == 0 ? "fire0" : "fire1";
-            StationSprite(Hot(StationKind.Cauldron), fire, cp.X, cp.Y + 16);
+            StationSprite(Hot(StationKind.Cauldron), fire, cp.X - 2, cp.Y + 11);
             StationSprite(Hot(StationKind.Cauldron), "cauldron", cp.X, cp.Y);
             string bubbles = "bubbles" + ((int)(_time * 3) % 3);
             StationSprite(Hot(StationKind.Cauldron), bubbles, cp.X, cp.Y - 2, Palette.LightGreen);

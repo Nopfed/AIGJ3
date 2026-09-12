@@ -48,6 +48,7 @@ namespace SpiceWizard.Web
         bool _escape;
         float _dt;
         float _time;
+        float _smokeTimer;
 
         // Bedtime, in order: 0 awake, 3 walking to the door, 4 door opening, 5 stepping inside,
         // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out).
@@ -256,8 +257,10 @@ namespace SpiceWizard.Web
                 if (_confettiTimer <= 0) { _confettiTimer = 0.05f; _particles.Confetti(Camera.Left, Camera.Right, Camera.Top); }
             }
 
-            // Cauldron steam while a fire is going.
+            // Cauldron steam while a fire is going, and the odd puff of wood smoke that rises past the pot.
             if ((int)(_time * 10) % 4 == 0) _particles.Steam(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2));
+            _smokeTimer -= _dt;
+            if (_smokeTimer <= 0) { _smokeTimer = 0.55f; _particles.Smoke(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y - 6)); }
 
             _hover = null;
             if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Camera.Top + Layout.HudHeight)

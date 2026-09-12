@@ -495,7 +495,8 @@ namespace SpiceWizard.Web.Art
                 ".KKKKKKKKKKKKKKKK.",
                 "qqqqqqqqqqqqqqqqqq",
             },
-            // Round-bellied iron cauldron; the green brew shows at the rim, bubbles are drawn on top.
+            // Round-bellied iron cauldron standing on four legs; the green brew shows at the rim,
+            // bubbles are drawn on top and the fire sprite goes underneath, between the legs.
             ["cauldron"] = new[]
             {
                 "........................",
@@ -516,30 +517,38 @@ namespace SpiceWizard.Web.Art
                 "......KKKKKKKKKKKK......",
                 ".....KxK........KxK.....",
                 ".....KxK........KxK.....",
+                ".....KxK........KxK.....",
+                ".....KxK........KxK.....",
                 "....KKKKK......KKKKK....",
                 "........................",
             },
+            // Log fire, 2px wider than the cauldron on each side: the logs lie on the ground under the
+            // legs, the middle flames burn between them and the outer tongues lick up the belly.
             ["fire0"] = new[]
             {
-                "........................",
-                "........o.......o.......",
-                ".......oyo.....oyo......",
-                "......oyZyo...oyZyo.o...",
-                ".....oyZZZyo.oyZZZyo.o..",
-                "....royZZZyorroyZZZyoro.",
-                "...rrooooooorrrooooooorr",
-                "..KdBdBdBdBdBdBdBdBdBdK.",
+                "............................",
+                "..o.........................",
+                ".oyo......................o.",
+                ".oyo.........o...........oyo",
+                "oyZyo.......oyo.....o..oyZyo",
+                "oyZyo......oyZyo...oyo.oyZyo",
+                "royZyorrrroyZZZZyorrrroyZyor",
+                "rroyorrrrrroyZZyorrrrrroyorr",
+                ".rrrrrrrrrroooooooorrrrrrrr.",
+                "..KdBdBdBdBdBdBdBdBdBdBdK...",
             },
             ["fire1"] = new[]
             {
-                "........................",
-                "..........o......o......",
-                ".........oyo....oyo.....",
-                "....o...oyZyo..oyZyo....",
-                "...o.o.oyZZZyo.oyZZZyo..",
-                "..royoroyZZZyorroyZZZyor",
-                "..rrooooooorrrooooooorrr",
-                "..KdBdBdBdBdBdBdBdBdBdK.",
+                "............................",
+                ".........................o..",
+                ".o......................oyo.",
+                "oyo..........o..........oyo.",
+                "oyZyo.......oyo....o...oyZyo",
+                "oyZyo......oyZyo..oyo..oyZyo",
+                "royZyorrrroyZZZZyorrrroyZyor",
+                "rroyorrrrrroyZZyorrrrrroyorr",
+                ".rrrrrrrrrroooooooorrrrrrrr.",
+                "..KdBdBdBdBdBdBdBdBdBdBdK...",
             },
             ["bubbles0"] = new[]
             {
