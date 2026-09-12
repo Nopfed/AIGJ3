@@ -70,6 +70,11 @@ public static class DayTick
             report.NewQuotaPosted = true;
         }
 
+        // 7. Tomorrow's sky. Rain does the morning watering.
+        s.Weather = WeatherInfo.Roll(s.Clock.Day, s.Rng);
+        WeatherInfo.ApplyRain(s);
+        report.Weather = s.Weather;
+
         report.PlantsReady = s.Garden.MatureCount;
         report.JarsReady = s.Shelf.Jars.Count(j => j.IsReady);
         s.LastReport = report;

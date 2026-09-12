@@ -9,8 +9,17 @@ namespace SpiceWizard.Web.Scene
     /// <summary>Sky colours, sun and moon positions and the night tint, all keyed off the clock.</summary>
     public static class DayNight
     {
-        public static Color SkyTop(double f) => Blend(f, Palette.Navy, new Color(240, 150, 110), Palette.Sky, Palette.Sky, new Color(230, 120, 90), Palette.Navy);
-        public static Color SkyBottom(double f) => Blend(f, new Color(60, 50, 90), new Color(250, 200, 140), new Color(190, 225, 245), new Color(190, 225, 245), new Color(250, 170, 110), new Color(60, 50, 90));
+        /// <summary>0 on a clear day, 1 under rain clouds; set by the scene each frame and folded into the sky and the haze.</summary>
+        public static float Overcast;
+        static readonly Color OvercastTop = new Color(96, 106, 124);
+        static readonly Color OvercastBottom = new Color(150, 158, 170);
+        static readonly Color OvercastHaze = new Color(120, 130, 146);
+
+        public static Color SkyTop(double f) => Cloudy(Blend(f, Palette.Navy, new Color(240, 150, 110), Palette.Sky, Palette.Sky, new Color(230, 120, 90), Palette.Navy), OvercastTop, f);
+        public static Color SkyBottom(double f) => Cloudy(Blend(f, new Color(60, 50, 90), new Color(250, 200, 140), new Color(190, 225, 245), new Color(190, 225, 245), new Color(250, 170, 110), new Color(60, 50, 90)), OvercastBottom, f);
+
+        /// <summary>Greys a daytime colour under cloud; the night sky is dark whatever the weather.</summary>
+        static Color Cloudy(Color c, Color grey, double f) => Color.Lerp(c, grey, Overcast * (1f - Darkness(f)));
 
         /// <summary>Overlay drawn over the whole scene; alpha is folded into the colour.</summary>
         public static Color Tint(double f)
@@ -32,7 +41,7 @@ namespace SpiceWizard.Web.Scene
         }
 
         /// <summary>Distant colours fade toward the night sky.</summary>
-        public static Color Haze(Color c, double f) => Color.Lerp(c, Palette.Navy, 0.7f * Darkness(f));
+        public static Color Haze(Color c, double f) => Color.Lerp(Color.Lerp(c, OvercastHaze, 0.35f * Overcast), Palette.Navy, 0.7f * Darkness(f));
 
         public static Point SunPos(double f)
         {
@@ -66,6 +75,14 @@ namespace SpiceWizard.Web.Scene
         public float CartX = Layout.CartPark.X;
         /// <summary>0..1 gust strength, set each frame by the audio mixer so the meadow leans with the sound.</summary>
         public float Wind;
+        /// <summary>Today's sky, read off the game state each frame.</summary>
+        public Weather Weather;
+        // The weather eases in over a couple of seconds rather than snapping when the day turns.
+        float _windy, _overcast;
+        /// <summary>Sideways push on smoke, steam and leaves right now, in pixels per second.</summary>
+        public float WindPush => Wind * 6f + _windy * 26f;
+        /// <summary>True while it is blowing hard enough for leaves to come loose.</summary>
+        public bool Blustery => _windy > 0.5f;
         /// <summary>The tower door stands open while the wizard goes in or comes out.</summary>
         public bool DoorOpen;
         /// <summary>Lights the windows whatever the hour (the wizard is up and about inside).</summary>
@@ -89,7 +106,18 @@ namespace SpiceWizard.Web.Scene
 
         public SceneRenderer(Canvas canvas) { _c = canvas; }
 
-        public void Update(float dt) { _time += dt; }
+        public void Update(float dt)
+        {
+            _time += dt;
+            float windy = Weather == Weather.Windy ? 1f : Weather == Weather.Rain ? 0.35f : 0f;
+            float overcast = Weather == Weather.Rain ? 1f : 0f;
+            _windy = Approach(_windy, windy, dt * 0.5f);
+            _overcast = Approach(_overcast, overcast, dt * 0.5f);
+            DayNight.Overcast = _overcast;
+        }
+
+        static float Approach(float v, float target, float step) =>
+            v < target ? Math.Min(target, v + step) : Math.Max(target, v - step);
 
         /// <summary>Small deterministic hash so scattered details stay put from frame to frame.</summary>
         static int Hash(int x, int y, int salt = 0)
@@ -105,6 +133,7 @@ namespace SpiceWizard.Web.Scene
         public void Draw(GameState s, WizardActor wizard, Particles particles, Crowd crowd, Station hover)
         {
             double f = s.Clock.DayFraction;
+            Weather = s.Weather;
             if (_propsFor != Camera.View) BuildProps();
             _hover = hover;
             _hoverParts.Clear();
@@ -122,8 +151,48 @@ namespace SpiceWizard.Web.Scene
             crowd.Draw(_c);
             if (!wizard.InDoorway) wizard.Draw(_c);
             particles.Draw(_c);
+            // Under rain clouds the whole yard goes a shade cooler and dimmer, then the rain falls over it.
+            if (_overcast > 0.01f) _c.Rect(Camera.View, new Color(60, 76, 110) * (0.2f * _overcast * (1f - DayNight.Darkness(f))));
+            DrawRain();
             var tint = DayNight.Tint(f);
             if (tint.A > 0) _c.Rect(Camera.View, tint);
+        }
+
+        // ---- Rain --------------------------------------------------------------------------------
+
+        /// <summary>Streaks falling over the whole window, slanting with the wind, and drops bouncing off the
+        /// ground. Everything is hashed off time so there is nothing to keep track of between frames.</summary>
+        void DrawRain()
+        {
+            if (_overcast < 0.05f) return;
+            var view = Camera.View;
+            int w = Math.Max(1, view.Width), h = Math.Max(1, view.Height);
+            int slant = _windy > 0.5f ? 1 : 0;
+            float drift = 12f + 40f * _windy;
+            var streak = Palette.PaleBlue * (0.7f * _overcast);
+            var streakDim = Palette.Sky * (0.4f * _overcast);
+            int n = w * h / 520;
+            for (int i = 0; i < n; i++)
+            {
+                int hh = Hash(i, 51);
+                float speed = 190f + (hh % 60);
+                int y0 = (hh >> 6) % h, x0 = (hh >> 14) % w;
+                int y = view.Top + (int)((y0 + _time * speed) % h);
+                int x = view.Left + (int)((x0 + _time * drift + (y - view.Top) * slant) % w);
+                var col = i % 3 == 0 ? streakDim : streak;
+                for (int r = 0; r < 3; r++) _c.Rect(x + r * slant, y - r, 1, 1, col);
+            }
+            // Splashes: little flicks that wink on and off wherever a drop lands on grass, soil or road.
+            int rows = Math.Max(1, view.Bottom - Layout.Horizon);
+            var splash = Palette.PaleBlue * (0.6f * _overcast);
+            for (int i = 0; i < n / 3; i++)
+            {
+                int hh = Hash(i, 52);
+                int x = view.Left + (hh >> 4) % w, y = Layout.Horizon + (hh >> 13) % rows;
+                int beat = ((int)(_time * 9) + hh) % 7;
+                if (beat == 0) _c.Rect(x, y, 1, 1, splash);
+                else if (beat == 1) { _c.Rect(x - 1, y - 1, 1, 1, splash); _c.Rect(x + 1, y - 1, 1, 1, splash); }
+            }
         }
 
         bool Hot(StationKind kind, int index = 0) => _hover != null && _hover.Kind == kind && _hover.Index == index;
@@ -159,9 +228,9 @@ namespace SpiceWizard.Web.Scene
                 _c.Rect(view.Left, y0, view.Width, y1 - y0, Color.Lerp(top, bottom, i / (float)(bands - 1)));
             }
             float dark = DayNight.Darkness(f);
-            if (dark > 0.3f)
+            if (dark > 0.3f && _overcast < 0.95f)
             {
-                float a = (dark - 0.3f) / 0.7f;
+                float a = (dark - 0.3f) / 0.7f * (1f - _overcast);
                 int rows = Layout.Horizon - 30 - view.Top;
                 for (int i = 0; i < 140; i++)
                 {
@@ -171,17 +240,18 @@ namespace SpiceWizard.Web.Scene
                     if (i % 9 == 0) { _c.Rect(sx - 1, sy, 3, 1, Palette.White * (0.25f * a)); _c.Rect(sx, sy - 1, 1, 3, Palette.White * (0.25f * a)); }
                 }
             }
-            if (f > 0.02 && f < 0.98)
+            float clear = 1f - _overcast;
+            if (f > 0.02 && f < 0.98 && clear > 0.01f)
             {
                 var sun = DayNight.SunPos(f);
-                _c.Rect(sun.X - 2, sun.Y + 1, 14, 8, Palette.LightYellow * 0.18f);
-                _c.Rect(sun.X + 1, sun.Y - 2, 8, 14, Palette.LightYellow * 0.18f);
-                _c.Sprite("sun", sun.X, sun.Y);
+                _c.Rect(sun.X - 2, sun.Y + 1, 14, 8, Palette.LightYellow * (0.18f * clear));
+                _c.Rect(sun.X + 1, sun.Y - 2, 8, 14, Palette.LightYellow * (0.18f * clear));
+                _c.Sprite("sun", sun.X, sun.Y, Color.White * clear);
             }
-            if (f > 0.85 || f < 0.05)
+            if ((f > 0.85 || f < 0.05) && clear > 0.01f)
             {
                 var m = DayNight.MoonPos(f < 0.05 ? 1 : f);
-                _c.Sprite("moon", m.X, m.Y);
+                _c.Sprite("moon", m.X, m.Y, Color.White * clear);
             }
             // Clouds drift at a few heights; the higher ones only show when the window is tall.
             // Each one lives in world space and repeats every CloudPeriod pixels, so the window
@@ -191,18 +261,41 @@ namespace SpiceWizard.Web.Scene
             int[] speed = { 3, 5, 4, 6, 3 };
             string[] kind = { "cloud_big", "cloud", "cloud_big", "cloud", "cloud" };
             float[] alpha = { 0.6f, 0.9f, 0.75f, 0.85f, 0.7f };
-            var cloudTint = Color.Lerp(Color.White, Palette.Navy, 0.5f * dark);
+            var cloudTint = Color.Lerp(Color.Lerp(Color.White, new Color(150, 156, 168), _overcast), Palette.Navy, 0.5f * dark);
+            // Wind hurries the clouds along; the timer below keeps their spacing when the speed changes.
+            float hurry = 1f + 3f * _windy;
+            _cloudTime += hurry * (_time - _cloudClock); _cloudClock = _time;
             for (int i = 0; i < dy.Length; i++)
             {
                 int y = Layout.Horizon + dy[i];
                 if (y < view.Top - 12) continue;
                 int w = _c.Size(kind[i]).X;
-                int x = (int)(_time * speed[i] + i * 137) % CloudPeriod;
+                int x = (int)(_cloudTime * speed[i] + i * 137) % CloudPeriod;
                 while (x + w > view.Left) x -= CloudPeriod;
                 for (x += CloudPeriod; x < view.Right; x += CloudPeriod)
                     _c.Sprite(kind[i], x, y, cloudTint * alpha[i]);
             }
+            // The rain deck: a low, close-packed layer of dark cloud that slides in over the hills.
+            if (_overcast > 0.01f)
+            {
+                var deck = Color.Lerp(new Color(88, 96, 114), Palette.Navy, 0.6f * dark) * _overcast;
+                var deckLit = Color.Lerp(new Color(112, 120, 138), Palette.Navy, 0.6f * dark) * _overcast;
+                const int DeckPeriod = 236;
+                int[] ddy = { -64, -52, -44 };
+                int[] dsp = { 9, 7, 11 };
+                for (int i = 0; i < ddy.Length; i++)
+                {
+                    string k = i == 1 ? "cloud" : "cloud_big";
+                    int y = Layout.Horizon + ddy[i] - (int)(14 * (1f - _overcast));
+                    int w = _c.Size(k).X;
+                    int x = (int)(_cloudTime * dsp[i] + i * 91) % DeckPeriod;
+                    while (x + w > view.Left) x -= DeckPeriod;
+                    for (x += DeckPeriod; x < view.Right; x += DeckPeriod)
+                        _c.Sprite(k, x + (i == 2 ? 60 : 0), y, i == 0 ? deck : deckLit);
+                }
+            }
         }
+        float _cloudTime, _cloudClock;
 
         // ---- Distance: hills, tree line, the town ----------------------------------------
 
@@ -445,8 +538,11 @@ namespace SpiceWizard.Web.Scene
             if (sprite == "rock") return 0f;
             float max = sprite == "tree_big" ? 2.5f : sprite == "tree" ? 2f : 1.2f;
             float phase = (Hash(x, y, 5) % 628) / 100f - x * 0.02f;
-            float ripple = 0.55f + 0.45f * (float)Math.Sin(_time * 1.7 + phase);
-            return Wind * ripple * max;
+            float ripple = 0.55f + 0.45f * (float)Math.Sin(_time * (1.7 + 2.3 * _windy) + phase);
+            // On windy days long gusts roll across the meadow from the left on top of the everyday breeze.
+            float gust = 0.5f + 0.5f * (float)Math.Sin(_time * 1.1 - x * 0.012);
+            float strength = Wind * (1f + 0.5f * _windy) + _windy * (0.8f + 0.9f * gust);
+            return strength * ripple * max;
         }
 
         // ---- The tower -------------------------------------------------------------------------

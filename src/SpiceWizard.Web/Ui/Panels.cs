@@ -592,6 +592,11 @@ namespace SpiceWizard.Web.Ui
                     y += 12;
                 }
                 if (r.NewQuotaPosted) { ui.Label(Left, y, "A new request is pinned to the notice board.", Palette.Purple); y += 12; }
+                if (r.Weather != Weather.Clear)
+                {
+                    ui.IconLabel(Left, y, r.Weather == Weather.Rain ? "ic_rain" : "ic_wind", Color.White, WeatherInfo.Describe(r.Weather), r.Weather == Weather.Rain ? Palette.Blue : Palette.Grey);
+                    y += 12;
+                }
                 if (r.LevelsGained > 0)
                 {
                     ui.Label(Left, y, "Level up! Now a level " + r.NewLevel + " " + Progression.Title(r.NewLevel) + ".", Palette.Purple);
@@ -614,7 +619,7 @@ namespace SpiceWizard.Web.Ui
             string[] lines =
             {
                 "Click anything in the yard to use it. A day lasts eight minutes; at 22:00 you sleep and the night moves everything on.",
-                "GROW  Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament.",
+                "GROW  Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament. Rainy days do the watering for you.",
                 "FERMENT  Two peppers in a jar become mash after two nights.",
                 "GRIND  The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",
                 "COOK  The cauldron brews hot sauces and curries for spice.",

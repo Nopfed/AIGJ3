@@ -1311,6 +1311,39 @@ namespace SpiceWizard.Web.Art
                 "KKKKKKKK",
             },
 
+            ["ic_sun"] = new[]
+            {
+                "........",
+                ".y.yy.y.",
+                "..yZZy..",
+                ".yZZZZy.",
+                ".yZZZZy.",
+                "..yZZy..",
+                ".y.yy.y.",
+                "........",
+            },
+            ["ic_rain"] = new[]
+            {
+                "..gWWg..",
+                ".gWWWWg.",
+                "gWWWWWWg",
+                ".GGGGGG.",
+                "..c..c..",
+                ".c..c..c",
+                "..c..c..",
+                ".c..c...",
+            },
+            ["ic_wind"] = new[]
+            {
+                "........",
+                "..WWWg..",
+                ".W....g.",
+                "WWWWWg..",
+                "........",
+                "..WWWWWg",
+                ".W....Wg",
+                "WWWWWg..",
+            },
             ["ic_check"] = new[]
             {
                 "........",

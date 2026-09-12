@@ -23,7 +23,9 @@ namespace SpiceWizard.Web.Audio
         /// <summary>A panel is open: the wizard is deliberating, so his idle noises turn to "hmm".</summary>
         public bool Deliberating;
 
-        SoundEffectInstance _music, _wind, _crickets, _cauldron;
+        SoundEffectInstance _music, _wind, _crickets, _cauldron, _rain;
+        float _rainLevel;           // rain fade 0..1
+        float _windyLevel;          // windy-day fade 0..1
         int _track = -1;
         float _musicLevel;          // current fade 0..1 toward daylight
         float _duck = 1f;           // lowered while paused
@@ -98,7 +100,7 @@ namespace SpiceWizard.Web.Audio
             try
             {
                 UpdateMusic(dt, s, onTitle, dark);
-                UpdateAmbience(dt, onTitle, dark);
+                UpdateAmbience(dt, s, onTitle, dark);
                 UpdateCauldron(dt, onTitle);
                 UpdateVoice(dt, onTitle, paused);
             }
@@ -176,9 +178,19 @@ namespace SpiceWizard.Web.Audio
             }
         }
 
-        void UpdateAmbience(float dt, bool onTitle, float dark)
+        void UpdateAmbience(float dt, GameState s, bool onTitle, float dark)
         {
             float amb = Settings.Ambience * _duck * (onTitle ? 0.5f : 1f);
+            _rainLevel = Approach(_rainLevel, !onTitle && s.Weather == Weather.Rain ? 1f : 0f, dt / 2f);
+            _windyLevel = Approach(_windyLevel, !onTitle && s.Weather == Weather.Windy ? 1f : 0f, dt / 2f);
+
+            if (_rain == null)
+            {
+                _rain = Ambience.Rain.CreateInstance();
+                _rain.IsLooped = true;
+                _rain.Play();
+            }
+            _rain.Volume = Math.Clamp(amb * 0.7f * _rainLevel, 0f, 1f);
 
             if (_wind == null)
             {
@@ -187,7 +199,7 @@ namespace SpiceWizard.Web.Audio
                 _wind.Play();
                 _windTime = 0;
             }
-            _wind.Volume = amb * 0.8f;
+            _wind.Volume = Math.Clamp(amb * (0.8f + 0.2f * _windyLevel + 0.1f * _rainLevel), 0f, 1f);
 
             if (_crickets == null)
             {
@@ -197,8 +209,8 @@ namespace SpiceWizard.Web.Audio
             }
             _crickets.Volume = amb * 0.5f * dark;
 
-            // Birds are one-shots at random intervals, quieter and rarer toward dusk.
-            if (dark < 0.7f)
+            // Birds are one-shots at random intervals, quieter and rarer toward dusk; they shelter from the rain.
+            if (dark < 0.7f && _rainLevel < 0.5f)
             {
                 _birdTimer -= dt;
                 if (_birdTimer <= 0f)

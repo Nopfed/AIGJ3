@@ -32,7 +32,10 @@ namespace SpiceWizard.Web.Pages
         {
             if (_game == null)
             {
-                string demo = Nav.Uri.Contains("demo=master") ? "master" : Nav.Uri.Contains("demo=night") ? "night" : Nav.Uri.Contains("demo") ? "mid" : null;
+                string demo = null;
+                foreach (var flag in new[] { "master", "night", "rain", "windy" })
+                    if (Nav.Uri.Contains("demo=" + flag)) demo = flag;
+                if (demo == null && Nav.Uri.Contains("demo")) demo = "mid";
                 _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo, _savedSettings, SaveSettings);
                 _game.Run();
             }

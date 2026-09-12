@@ -26,6 +26,8 @@ public sealed class GameState
     public Stats Stats { get; set; } = new();
     /// <summary>The hasten spell has been cast today; it comes back at dawn.</summary>
     public bool HastenedToday { get; set; }
+    /// <summary>Today's sky. Rain waters the garden; wind just blows.</summary>
+    public Weather Weather { get; set; }
     public bool Won { get; set; }
     public int WonOnDay { get; set; }
     public MorningReport? LastReport { get; set; }
@@ -71,4 +73,5 @@ public sealed class MorningReport
     public int PlantsReady { get; set; }
     public int JarsReady { get; set; }
     public bool BecameMaster { get; set; }
+    public Weather Weather { get; set; }
 }

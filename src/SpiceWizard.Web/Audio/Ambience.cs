@@ -17,12 +17,13 @@ namespace SpiceWizard.Web.Audio
             return (float)Math.Max(0, Math.Min(1, w));
         }
 
-        static SoundEffect _wind, _crickets, _cauldron;
+        static SoundEffect _wind, _crickets, _cauldron, _rain;
         static SoundEffect[] _birds;
 
         public static SoundEffect Wind => _wind ??= RenderWind();
         public static SoundEffect Crickets => _crickets ??= RenderCrickets();
         public static SoundEffect Cauldron => _cauldron ??= RenderCauldron();
+        public static SoundEffect Rain => _rain ??= RenderRain();
 
         public static SoundEffect Bird(int variant)
         {
@@ -50,6 +51,38 @@ namespace SpiceWizard.Web.Audio
             for (int i = 0; i < buf.Length; i++)
                 buf[i] *= 0.3f + WindStrength(i / (double)Synth.Rate);
             Synth.Normalize(buf, 0.7f);
+            return Synth.ToSoundEffect(buf);
+        }
+
+        /// <summary>Steady rain: a soft hiss of filtered noise with drops pattering on the roof at random. Loops every 4 s.</summary>
+        static SoundEffect RenderRain()
+        {
+            const double len = 4;
+            var buf = Synth.Buffer(len);
+            var rng = new Random(31);
+            Synth.Noise(buf, rng, 0.5f);
+            Synth.LowPass(buf, 0.22f);
+            Synth.HighPass(buf, 0.02f);
+            // The hiss swells and eases so it never reads as a flat tone.
+            for (int i = 0; i < buf.Length; i++)
+            {
+                double t = i / (double)Synth.Rate;
+                buf[i] *= 0.75f + 0.25f * (float)Math.Sin(t * Math.PI * 2 / len + 0.7 * Math.Sin(t * 3.1));
+            }
+            Synth.Normalize(buf, 0.3f);
+            // Individual drops: short bright ticks, wrapped so the loop seam is as busy as the middle.
+            for (int k = 0; k < 90; k++)
+            {
+                int i0 = rng.Next(buf.Length), n = (int)(0.012 * Synth.Rate);
+                float vol = 0.08f + (float)rng.NextDouble() * 0.16f;
+                double decay = 400 + rng.Next(500);
+                for (int i = 0; i < n; i++)
+                {
+                    double t = i / (double)Synth.Rate;
+                    buf[(i0 + i) % buf.Length] += (float)(rng.NextDouble() * 2 - 1) * vol * (float)Math.Exp(-t * decay);
+                }
+            }
+            Synth.FadeEnds(buf, 0.01);
             return Synth.ToSoundEffect(buf);
         }
 

@@ -16,7 +16,8 @@ public static class Actions
         if (s.Inventory.Seed(species) <= 0) return ActionResult.Fail("No " + Species.NameOf(species) + " seeds.");
         s.Inventory.Seeds[(int)species]--;
         p.Plant = new Plant(species);
-        return ActionResult.Success("Planted a " + Species.NameOf(species) + " seed.");
+        WeatherInfo.ApplyRain(s);
+        return ActionResult.Success("Planted a " + Species.NameOf(species) + " seed." + (s.Weather == Weather.Rain ? " The rain soaks it in." : ""));
     }
 
     public static ActionResult Water(GameState s, int plot)
@@ -24,7 +25,7 @@ public static class Actions
         var plant = PlantAt(s, plot);
         if (plant == null) return ActionResult.Fail("Nothing to water.");
         if (plant.IsMature) return ActionResult.Fail("It is done growing. Harvest it!");
-        if (plant.WateredToday) return ActionResult.Fail("Already watered today.");
+        if (plant.WateredToday) return ActionResult.Fail(s.Weather == Weather.Rain ? "The rain has that covered." : "Already watered today.");
         if (s.Garden.BucketWater <= 0) return ActionResult.Fail("The bucket is empty. Refill at the well.");
         s.Garden.BucketWater--;
         plant.WateredToday = true;

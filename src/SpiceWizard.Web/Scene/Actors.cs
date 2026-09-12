@@ -87,6 +87,8 @@ namespace SpiceWizard.Web.Scene
         public float Gravity;
         /// <summary>Extra pixels of size gained over the particle's life (smoke puffs swell as they rise).</summary>
         public int Grow;
+        /// <summary>Vertical flutter, in pixels per second, for leaves tumbling on the wind.</summary>
+        public float Wobble;
     }
 
     public sealed class Particles
@@ -95,6 +97,8 @@ namespace SpiceWizard.Web.Scene
         readonly Random _rng = new Random();
 
         public int Count => _list.Count;
+        /// <summary>Sideways push, in pixels per second, on anything light enough to be carried (smoke, steam, leaves).</summary>
+        public float Wind;
 
         public void Spawn(Vector2 pos, Vector2 vel, float life, Color color, int size = 1, float gravity = 0f)
         {
@@ -134,6 +138,24 @@ namespace SpiceWizard.Web.Scene
             _list.Add(p);
         }
 
+        /// <summary>A leaf torn loose somewhere off the left edge, to tumble the width of the window on the wind.</summary>
+        public void Leaf(int left, int top, int bottom)
+        {
+            Color[] colors = { Palette.LightGreen, Palette.Tan, Palette.Yellow, Palette.LightTan, Palette.Orange };
+            var p = new Particle
+            {
+                Pos = new Vector2(left - 4, _rng.Next(top, bottom)),
+                Vel = new Vector2(40 + _rng.Next(35), -6 + _rng.Next(14)),
+                Life = 14f,
+                Color = colors[_rng.Next(colors.Length)],
+                Size = _rng.Next(4) == 0 ? 1 : 2,
+                Gravity = 4f,
+                Wobble = 10f + _rng.Next(12),
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
         public void Confetti(int left, int right, int top)
         {
             Color[] colors = { Palette.Red, Palette.Yellow, Palette.LightGreen, Palette.Sky, Palette.Pink, Palette.LightPurple };
@@ -149,6 +171,8 @@ namespace SpiceWizard.Web.Scene
                 if (p.Life <= 0) { _list.RemoveAt(i); continue; }
                 p.Vel.Y += p.Gravity * dt;
                 p.Pos += p.Vel * dt;
+                if (p.Gravity < 5f) p.Pos.X += Wind * dt;
+                if (p.Wobble > 0) p.Pos.Y += (float)Math.Sin(p.Life * 5f) * p.Wobble * dt;
                 _list[i] = p;
             }
         }

@@ -49,6 +49,7 @@ namespace SpiceWizard.Web
         float _dt;
         float _time;
         float _smokeTimer;
+        float _leafTimer;
 
         // Bedtime, in order: 0 awake, 3 walking to the door, 4 door opening, 5 stepping inside,
         // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out).
@@ -110,6 +111,8 @@ namespace SpiceWizard.Web
             {
                 _state = DemoState.Build(_demo == "master");
                 if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
+                if (_demo == "windy") _state.Weather = Weather.Windy;
+                if (_demo == "rain") { _state.Weather = Weather.Rain; WeatherInfo.ApplyRain(_state); }
                 _session.Close();
                 _mixer.Unlock();
             }
@@ -220,6 +223,8 @@ namespace SpiceWizard.Web
             _mixer.Deliberating = _session.PanelOpen && !paused && _session.Panel != PanelKind.Celebration;
             _mixer.Update(_dt, _state, paused, _session.Panel == PanelKind.Title);
             _scene.Wind = _mixer.Wind;
+            _scene.Weather = _state.Weather;
+            _particles.Wind = _scene.WindPush;
 
             if (_session.Panel == PanelKind.Title) { base.Update(gameTime); return; }
 
@@ -261,6 +266,13 @@ namespace SpiceWizard.Web
             if ((int)(_time * 10) % 4 == 0) _particles.Steam(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2));
             _smokeTimer -= _dt;
             if (_smokeTimer <= 0) { _smokeTimer = 0.55f; _particles.Smoke(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y - 6)); }
+
+            // On windy days leaves blow in from the left and tumble across the whole yard.
+            if (_scene.Blustery)
+            {
+                _leafTimer -= _dt;
+                if (_leafTimer <= 0) { _leafTimer = 0.3f; _particles.Leaf(Camera.Left, Layout.Horizon - 30, Camera.Bottom); }
+            }
 
             _hover = null;
             if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Camera.Top + Layout.HudHeight)
