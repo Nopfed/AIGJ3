@@ -91,6 +91,25 @@ namespace SpiceWizard.Web.Art
                 flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
         }
 
+        /// <summary>Draws a sprite leaning in the wind: the rows are drawn in bands, each shifted sideways by a
+        /// share of <paramref name="lean"/> that grows toward the top, so the base stays rooted. Whole pixels only.</summary>
+        public void SpriteSway(string name, int x, int y, float lean, Color tint)
+        {
+            var src = Atlas[name];
+            if (Math.Abs(lean) < 0.5f) { Batch.Draw(Atlas.Texture, new Vector2(x, y), src, tint); return; }
+            const int band = 3;
+            for (int row = 0; row < src.Height; row += band)
+            {
+                int h = Math.Min(band, src.Height - row);
+                // The band's top edge as a fraction of the height from the base (1 at the top, 0 at the bottom).
+                float up = 1f - (row + h) / (float)src.Height;
+                int dx = (int)Math.Round(lean * up * up);
+                Batch.Draw(Atlas.Texture, new Vector2(x + dx, y + row), new Rectangle(src.X, src.Y + row, src.Width, h), tint);
+            }
+        }
+
+        public void SpriteSway(string name, int x, int y, float lean) => SpriteSway(name, x, y, lean, Color.White);
+
         public Point Size(string name) { var r = Atlas[name]; return new Point(r.Width, r.Height); }
 
         public void Rect(int x, int y, int w, int h, Color color)

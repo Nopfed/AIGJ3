@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SpiceWizard.Core;
 using SpiceWizard.Web.Art;
+using SpiceWizard.Web.Audio;
 using SpiceWizard.Web.Scene;
 using SpiceWizard.Web.Ui;
 
@@ -19,6 +20,8 @@ namespace SpiceWizard.Web
         readonly string _savedJson;
         readonly Action<string> _saveHook;
         readonly Action _clearSaveHook;
+        readonly string _savedSettings;
+        readonly Action<string> _saveSettingsHook;
         readonly Func<int[]> _pollClicks;
         readonly string _demo;
 
@@ -32,6 +35,7 @@ namespace SpiceWizard.Web
         WizardActor _wizard;
         Particles _particles;
         Crowd _crowd;
+        AudioMixer _mixer;
         GameState _state;
 
         MouseState _prevMouse;
@@ -39,6 +43,7 @@ namespace SpiceWizard.Web
         Point _mouse;
         int _wheel;
         bool _clicked;
+        bool _down;
         bool _clickLatch;
         bool _escape;
         float _dt;
@@ -51,9 +56,12 @@ namespace SpiceWizard.Web
         float _confettiTimer;
         Station _hover;
 
-        public SpiceWizardGame(string savedJson, Action<string> saveHook, Action clearSaveHook, Func<int[]> pollClicks, string demo = null)
+        public SpiceWizardGame(string savedJson, Action<string> saveHook, Action clearSaveHook, Func<int[]> pollClicks, string demo = null,
+            string savedSettings = null, Action<string> saveSettingsHook = null)
         {
             _demo = demo;
+            _savedSettings = savedSettings;
+            _saveSettingsHook = saveSettingsHook;
             _graphics = new GraphicsDeviceManager(this);
             _savedJson = savedJson;
             _saveHook = saveHook;
@@ -73,17 +81,23 @@ namespace SpiceWizard.Web
             _particles = new Particles();
             _crowd = new Crowd();
             _wizard = new WizardActor(Layout.WizardStart);
+            _mixer = new AudioMixer { Settings = Settings.Parse(_savedSettings) };
 
             _session = new Session
             {
                 Particles = _particles,
+                Settings = _mixer.Settings,
                 HasSave = SaveSystem.FromJson(_savedJson) != null,
-                OnWatered = p => _particles.Water(p),
-                OnSparkle = (p, color) => _particles.Sparkle(p, color),
+                OnWatered = p => { _particles.Water(p); _mixer.Play(Sfx.Splash); },
+                OnSparkle = (p, color) => { _particles.Sparkle(p, color); _mixer.Play(Sfx.Sparkle); },
                 RequestSleep = StartSleep,
                 RequestNewGame = NewGame,
                 RequestContinue = Continue,
+                RequestQuit = QuitToTitle,
+                SettingsChanged = SaveSettings,
+                PlaySfx = _mixer.Play,
             };
+            _ui.OnClick = () => _mixer.Play(Sfx.Click);
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _session.Panel = PanelKind.Title;
             if (_demo != null)
@@ -91,11 +105,13 @@ namespace SpiceWizard.Web
                 _state = DemoState.Build(_demo == "master");
                 if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
                 _session.Close();
+                _mixer.Unlock();
             }
         }
 
         void NewGame()
         {
+            _mixer.Unlock();
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _clearSaveHook?.Invoke();
             _session.HasSave = false;
@@ -107,11 +123,25 @@ namespace SpiceWizard.Web
 
         void Continue()
         {
+            _mixer.Unlock();
             var loaded = SaveSystem.FromJson(_savedJson);
             if (loaded == null) { NewGame(); return; }
             _state = loaded;
             _session.Close();
             _session.Say("Welcome back, " + Progression.Title(_state.Level) + ".");
+        }
+
+        void QuitToTitle()
+        {
+            Save();
+            _crowd.Stop();
+            _session.Open(PanelKind.Title);
+        }
+
+        void SaveSettings()
+        {
+            try { _saveSettingsHook?.Invoke(_mixer.Settings.Serialize()); }
+            catch (Exception) { /* preferences are a nicety */ }
         }
 
         void Save()
@@ -140,6 +170,7 @@ namespace SpiceWizard.Web
             var mouse = Mouse.GetState();
             _mouse = _camera.ToVirtual(mouse.X, mouse.Y);
             _clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
+            _down = mouse.LeftButton == ButtonState.Pressed;
             _wheel = mouse.ScrollWheelValue - _prevMouse.ScrollWheelValue;
             _prevMouse = mouse;
             // Clicks queued by the page (pointerdown events) catch taps shorter than one frame.
@@ -167,10 +198,18 @@ namespace SpiceWizard.Web
             _particles.Update(_dt);
             _scene.Update(_dt);
             _crowd.Update(_dt);
+            bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
+            _mixer.Update(_dt, _state, paused, _session.Panel == PanelKind.Title);
+            _scene.Wind = _mixer.Wind;
 
             if (_session.Panel == PanelKind.Title) { base.Update(gameTime); return; }
 
-            if (_escape && _session.PanelOpen && _session.Panel != PanelKind.Celebration) _session.Close();
+            if (_escape)
+            {
+                if (_session.Panel == PanelKind.Options) _session.Open(PanelKind.Pause);
+                else if (_session.PanelOpen && _session.Panel != PanelKind.Celebration) _session.Close();
+                else if (!_session.PanelOpen && _sleepPhase == 0) _session.Open(PanelKind.Pause);
+            }
 
             UpdateSleep();
 
@@ -223,6 +262,7 @@ namespace SpiceWizard.Web
                     _fade = 1f;
                     var report = DayTick.Sleep(_state);
                     Save();
+                    _mixer.Play(Sfx.Chime);
                     _sleepPhase = 2;
                     _cartTimer = 2f;
                     _wizard = new WizardActor(new Point(Layout.Door.X + 7, Layout.Tower.Bottom + 8));
@@ -275,7 +315,7 @@ namespace SpiceWizard.Web
             GraphicsDevice.Clear(Palette.Outline);
             _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
 
-            _ui.Begin(_mouse, _clicked, _wheel);
+            _ui.Begin(_mouse, _clicked, _wheel, _down);
             _scene.Draw(_state, _wizard, _particles, _crowd, _hover);
 
             if (_session.Panel == PanelKind.Title)
@@ -286,6 +326,8 @@ namespace SpiceWizard.Web
             {
                 Overlays.Hud(_ui, _state, _session);
                 if (_session.Panel == PanelKind.Celebration) Overlays.Celebration(_ui, _state, _session, _time);
+                else if (_session.Panel == PanelKind.Pause) Overlays.Pause(_ui, _session);
+                else if (_session.Panel == PanelKind.Options) Overlays.Options(_ui, _session);
                 else Panels.Draw(_ui, _state, _session);
                 if (_hover != null && !_session.PanelOpen) _ui.Tooltip = _hover.Name + ": " + _hover.Hint;
                 HandleSceneClick();

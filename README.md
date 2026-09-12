@@ -29,9 +29,20 @@ The yard is drawn at 384x216 pixels and scaled up by the largest whole number th
 | --- | --- |
 | Use a station | Click it — the wizard walks over and a panel opens |
 | Close a panel | The `x` button or `Esc` |
+| Pause | `Esc` with nothing open: **Resume**, **Options** or **Quit to title** |
 | Help | The `?` button in the top-right corner |
 
-Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off.
+Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off. Quitting to the title from the pause menu also saves.
+
+## Options and sound
+
+The pause menu's **Options** screen has three volume sliders — **Music**, **Ambience** and **SFX** — which are remembered in local storage separately from the save.
+
+- **Music**: three tunes, one per day in rotation (*Morning Meadow*, a G major waltz; *Simmering Pot*, a bouncing D dorian tune with bubbling blips; *Turmeric Sun*, slow F lydian pads). Music plays in daylight only, fading out at dusk and back in at dawn.
+- **Ambience**: the wind always blows in slow gusts; birds chirp by day and crickets take over at night.
+- **SFX**: clicks, watering splashes, sparkles and the morning chime.
+
+The gusts you hear are the same ones that sway the trees, bushes, flowers and garden plants — the meadow leans with the wind. Everything is synthesised in code at start-up; there are no audio files.
 
 ## The day
 
@@ -125,11 +136,12 @@ src/SpiceWizard.Core/          pure simulation, no engine references
 src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers
   Scene/    layout of the single screen, renderer, day/night, wizard, particles, crowd
-  Ui/       immediate-mode widgets, station panels, HUD/title/celebration overlays
+  Ui/       immediate-mode widgets, station panels, HUD/title/pause/options overlays, settings
+  Audio/    software synth, the three music tracks, wind/birds/crickets, effects, mixer
   SpiceWizardGame.cs, DemoState.cs, Pages/Index.razor(.cs), wwwroot/index.html
 tests/SpiceWizard.Core.Tests/  xunit: one file per system + GreedyBot balance playthrough
 ```
 
-All art is generated at start-up from text sprites and a shared palette, so there is no content pipeline; the KNI packages are pulled from NuGet.
+All art is generated at start-up from text sprites and a shared palette, and all sound is rendered from note lists and noise by a tiny synth, so there is no content pipeline; the KNI packages are pulled from NuGet.
 
 Balance numbers live in `Balance` (`src/SpiceWizard.Core/Recipes.cs`), `Species.All` and `RecipeBook.All`. Change them, then run `dotnet test` — `BotPlaythroughTests` asserts the game is still winnable in a sensible number of days.

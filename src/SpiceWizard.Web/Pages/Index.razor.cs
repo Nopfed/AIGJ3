@@ -8,9 +8,11 @@ namespace SpiceWizard.Web.Pages
     public partial class Index
     {
         const string SaveKey = "spicewizard.save";
+        const string SettingsKey = "spicewizard.settings";
 
         Game _game;
         string _savedJson;
+        string _savedSettings;
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
@@ -19,6 +21,8 @@ namespace SpiceWizard.Web.Pages
 
             try { _savedJson = await JsRuntime.InvokeAsync<string>("localStorage.getItem", SaveKey); }
             catch (Exception) { _savedJson = null; }
+            try { _savedSettings = await JsRuntime.InvokeAsync<string>("localStorage.getItem", SettingsKey); }
+            catch (Exception) { _savedSettings = null; }
 
             await JsRuntime.InvokeAsync<object>("initRenderJS", DotNetObjectReference.Create(this));
         }
@@ -29,7 +33,7 @@ namespace SpiceWizard.Web.Pages
             if (_game == null)
             {
                 string demo = Nav.Uri.Contains("demo=master") ? "master" : Nav.Uri.Contains("demo=night") ? "night" : Nav.Uri.Contains("demo") ? "mid" : null;
-                _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo);
+                _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo, _savedSettings, SaveSettings);
                 _game.Run();
             }
 
@@ -45,6 +49,11 @@ namespace SpiceWizard.Web.Pages
         void Save(string json)
         {
             _ = JsRuntime.InvokeVoidAsync("localStorage.setItem", SaveKey, json);
+        }
+
+        void SaveSettings(string text)
+        {
+            _ = JsRuntime.InvokeVoidAsync("localStorage.setItem", SettingsKey, text);
         }
 
         void ClearSave()

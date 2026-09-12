@@ -100,6 +100,16 @@
             // Returns [escapeCount, x0, y0, x1, y1, ...] and clears the queue.
             window.swPollClicks = () => { const c = [window.swEscapes, ...window.swClicks]; window.swClicks = []; window.swEscapes = 0; return c; };
 
+            // Browsers keep an AudioContext suspended until the page is touched: resume every one KNI creates.
+            window.swAudioContexts = [];
+            var nkCreate = window.nkAudioContext.Create, nkCreate1 = window.nkAudioContext.Create1;
+            var swTrack = function(uid) { try { window.swAudioContexts.push(nkJSObject.GetObject(uid)); } catch (e) {} return uid; };
+            window.nkAudioContext.Create = function() { return swTrack(nkCreate.apply(this, arguments)); };
+            window.nkAudioContext.Create1 = function() { return swTrack(nkCreate1.apply(this, arguments)); };
+            var swResume = function() { window.swAudioContexts.forEach(function(ac) { if (ac.state === "suspended") ac.resume(); }); };
+            window.addEventListener("pointerdown", swResume);
+            window.addEventListener("keydown", swResume);
+
             // begin game loop
             window.requestAnimationFrame(tickJS);
         };

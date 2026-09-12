@@ -67,7 +67,46 @@ namespace SpiceWizard.Web.Ui
             if (ss.HasSave && ui.Button(new Rectangle(cx - 50, y + 20, 100, 16), "Continue", true)) ss.RequestContinue?.Invoke();
             c.TextCentered("Grow peppers, brew sauces, feed the town.", cx, 164, Palette.Cream);
             c.TextCentered("Become the Master Spice Wizard by level 20.", cx, 174, Palette.Cream);
-            c.TextCentered("Mouse to play. Esc closes a panel.", cx, 190, Palette.LightGrey);
+            c.TextCentered("Mouse to play. Esc pauses or closes a panel.", cx, 190, Palette.LightGrey);
+        }
+
+        public static void Pause(Ui ui, Session ss)
+        {
+            var c = ui.C;
+            int cx = Camera.Width / 2;
+            var box = new Rectangle(cx - 60, 60, 120, 96);
+            c.Rect(Camera.View, Palette.Outline * 0.55f);
+            c.Rect(box.X + 3, box.Y + 3, box.Width, box.Height, Palette.Shadow);
+            c.NineSlice("frame", box);
+            BigText(c, "PAUSED", cx, box.Y + 8, 2, Palette.Yellow);
+            int y = box.Y + 30;
+            if (ui.Button(new Rectangle(cx - 50, y, 100, 16), "Resume", true)) ss.Close();
+            if (ui.Button(new Rectangle(cx - 50, y + 20, 100, 16), "Options", true)) ss.Open(PanelKind.Options);
+            if (ui.Button(new Rectangle(cx - 50, y + 40, 100, 16), "Quit to title", true, "Saves the day so far")) ss.RequestQuit?.Invoke();
+        }
+
+        public static void Options(Ui ui, Session ss)
+        {
+            var c = ui.C;
+            int cx = Camera.Width / 2;
+            var box = new Rectangle(cx - 90, 48, 180, 120);
+            if (ui.Panel(box, "Options")) { ss.Open(PanelKind.Pause); return; }
+            var st = ss.Settings;
+            int y = box.Y + 26;
+            bool changed = false;
+            changed |= VolumeRow(ui, box, y, "Music", ref st.Music);
+            changed |= VolumeRow(ui, box, y + 22, "Ambience", ref st.Ambience);
+            changed |= VolumeRow(ui, box, y + 44, "SFX", ref st.Sfx);
+            if (changed) ss.SettingsChanged?.Invoke();
+            if (ui.Button(new Rectangle(cx - 30, box.Bottom - 22, 60, 14), "Back", true)) ss.Open(PanelKind.Pause);
+        }
+
+        static bool VolumeRow(Ui ui, Rectangle box, int y, string label, ref float value)
+        {
+            ui.C.Text(label, box.X + 10, y + 3, Palette.Outline);
+            bool changed = ui.Slider(new Rectangle(box.X + 62, y, 80, 11), ref value);
+            ui.C.TextRight((int)Math.Round(value * 100) + "%", box.Right - 10, y + 3, Palette.Outline);
+            return changed;
         }
 
         public static void Celebration(Ui ui, GameState s, Session ss, float time)

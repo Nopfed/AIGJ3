@@ -5,7 +5,7 @@ using SpiceWizard.Web.Scene;
 
 namespace SpiceWizard.Web.Ui
 {
-    public enum PanelKind { None, Title, Help, Plot, Board, Market, Cauldron, Shelf, Mortar, Pantry, Crate, Door, Morning, Celebration }
+    public enum PanelKind { None, Title, Help, Plot, Board, Market, Cauldron, Shelf, Mortar, Pantry, Crate, Door, Morning, Celebration, Pause, Options }
 
     /// <summary>Everything about the current sitting that is not game state: which panel is open, the toast, effects.</summary>
     public sealed class Session
@@ -18,6 +18,7 @@ namespace SpiceWizard.Web.Ui
         public bool ExtraPeppercorn;
         public Blend Draft = new Blend();   // the blend being pinched together at the mortar
         public bool HasSave;
+        public Settings Settings = new Settings();
 
         public string Toast;
         public float ToastTime;
@@ -29,6 +30,9 @@ namespace SpiceWizard.Web.Ui
         public Action RequestSleep;
         public Action RequestNewGame;
         public Action RequestContinue;
+        public Action RequestQuit;
+        public Action SettingsChanged;
+        public Action<string> PlaySfx;
 
         public bool PanelOpen => Panel != PanelKind.None;
         public bool PausesClock => Panel != PanelKind.None;

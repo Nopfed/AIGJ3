@@ -12,16 +12,19 @@ namespace SpiceWizard.Web.Ui
         public Canvas C { get; }
         public Point Mouse { get; private set; }
         public bool Clicked { get; private set; }
+        public bool Down { get; private set; }
+        public System.Action OnClick;
         public string Tooltip { get; set; }
         int _wheel;
         Rectangle? _hitClip;
 
         public Ui(Canvas canvas) { C = canvas; }
 
-        public void Begin(Point mouse, bool clicked, int wheel = 0)
+        public void Begin(Point mouse, bool clicked, int wheel = 0, bool down = false)
         {
             Mouse = mouse;
             Clicked = clicked;
+            Down = down;
             Tooltip = null;
             _wheel = wheel;
             _hitClip = null;
@@ -33,7 +36,7 @@ namespace SpiceWizard.Web.Ui
         /// <summary>Takes the click for this frame if the mouse is inside the rectangle.</summary>
         public bool Take(Rectangle r)
         {
-            if (Clicked && Hot(r)) { Clicked = false; return true; }
+            if (Clicked && Hot(r)) { Clicked = false; OnClick?.Invoke(); return true; }
             return false;
         }
 
@@ -123,6 +126,24 @@ namespace SpiceWizard.Web.Ui
             int w = (int)((r.Width - 2) * MathHelper.Clamp(fraction, 0, 1));
             C.Rect(r.X + 1, r.Y + 1, w, r.Height - 2, fill);
             if (w > 0) C.Rect(r.X + 1, r.Y + 1, w, 1, Color.Lerp(fill, Palette.White, 0.4f));
+        }
+
+        /// <summary>A horizontal slider: click or drag along the track to set a 0..1 value. Returns true while it changes.</summary>
+        public bool Slider(Rectangle r, ref float value)
+        {
+            bool hot = Hot(r);
+            Bar(new Rectangle(r.X, r.Y + r.Height / 2 - 3, r.Width, 7), value, Palette.Gold);
+            int kx = r.X + 1 + (int)((r.Width - 4) * MathHelper.Clamp(value, 0, 1));
+            var knob = new Rectangle(kx - 1, r.Y, 5, r.Height);
+            C.Rect(knob, hot ? Palette.Cream : Palette.Tan);
+            C.Border(knob, Palette.Outline);
+            if (hot && (Down || Clicked))
+            {
+                float v = MathHelper.Clamp((Mouse.X - r.X - 1) / (float)(r.Width - 3), 0f, 1f);
+                if (Clicked) { Clicked = false; }
+                if (System.Math.Abs(v - value) > 0.001f) { value = v; return true; }
+            }
+            return false;
         }
 
         const int WheelStep = 40; // virtual pixels scrolled per mouse-wheel notch (120 units)

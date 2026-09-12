@@ -64,6 +64,8 @@ namespace SpiceWizard.Web.Scene
         readonly Canvas _c;
         float _time;
         public float CartX = Layout.CartPark.X;
+        /// <summary>0..1 gust strength, set each frame by the audio mixer so the meadow leans with the sound.</summary>
+        public float Wind;
 
         // Scenery outside the 384x216 design box, generated once per window size.
         struct Prop { public string Sprite; public int X, Y; public int Base; }
@@ -344,12 +346,23 @@ namespace SpiceWizard.Web.Scene
 
         void DrawProps(double f)
         {
-            foreach (var p in _props) _c.Sprite(p.Sprite, p.X, p.Y);
-            foreach (var t in Layout.Trees) _c.Sprite("tree", t.X, t.Y);
-            foreach (var b in Layout.Bushes) _c.Sprite("bush", b.X, b.Y);
+            foreach (var p in _props) _c.SpriteSway(p.Sprite, p.X, p.Y, Sway(p.Sprite, p.X, p.Y));
+            foreach (var t in Layout.Trees) _c.SpriteSway("tree", t.X, t.Y, Sway("tree", t.X, t.Y));
+            foreach (var b in Layout.Bushes) _c.SpriteSway("bush", b.X, b.Y, Sway("bush", b.X, b.Y));
             for (int i = 0; i < Layout.FenceBays; i++) _c.Sprite("fence", Layout.Fence.X + i * 12, Layout.Fence.Y);
             _c.Rect(Layout.Fence.X + 1, Layout.Fence.Y + 10, Layout.FenceBays * 12, 1, Palette.Shadow);
-            foreach (var fl in Layout.Flowers) _c.Sprite(fl.Y % 2 == 0 ? "flower_yellow" : "flower_pink", fl.X, fl.Y);
+            foreach (var fl in Layout.Flowers) _c.SpriteSway(fl.Y % 2 == 0 ? "flower_yellow" : "flower_pink", fl.X, fl.Y, Sway("flower", fl.X, fl.Y));
+        }
+
+        /// <summary>How far (in pixels) the top of a plant leans right now: gusts times a per-plant ripple, so
+        /// the meadow moves as a wave rather than in lockstep. Rocks do not sway.</summary>
+        float Sway(string sprite, int x, int y)
+        {
+            if (sprite == "rock") return 0f;
+            float max = sprite == "tree_big" ? 2.5f : sprite == "tree" ? 2f : 1.2f;
+            float phase = (Hash(x, y, 5) % 628) / 100f - x * 0.02f;
+            float ripple = 0.55f + 0.45f * (float)Math.Sin(_time * 1.7 + phase);
+            return Wind * ripple * max;
         }
 
         // ---- The tower -------------------------------------------------------------------------
@@ -433,7 +446,7 @@ namespace SpiceWizard.Web.Scene
                         PlantStage.Budding => "bud",
                         _ => ItemArt.MatureSprite(plant.Species),
                     };
-                    _c.Sprite(sprite, p.X + 4, p.Y - 10);
+                    _c.SpriteSway(sprite, p.X + 4, p.Y - 10, plant.Stage == PlantStage.Seed ? 0f : Sway("plant", p.X, i));
                     if (plant.Stage == PlantStage.Mature && plant.Species == PepperSpecies.Ghost)
                     {
                         int bob = (int)(Math.Sin(_time * 3 + i) * 2);
