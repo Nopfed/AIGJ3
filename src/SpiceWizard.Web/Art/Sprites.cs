@@ -345,7 +345,7 @@ namespace SpiceWizard.Web.Art
             },
 
             // ---- Stations --------------------------------------------------------------
-            // Stone well with a shingled roof, two posts and a bucket on a rope.
+            // Well of stacked stone courses (offset joints, dark mortar) with a shingled roof, two posts and a bucket on a rope.
             ["well"] = new[]
             {
                 "......KKKKKKKK......",
@@ -362,15 +362,15 @@ namespace SpiceWizard.Web.Art
                 "..KKKKKKKKKKKKKKKK..",
                 ".KfffKKKKKKKKKKfffK.",
                 ".KffKnnnnnnnnnnKffK.",
-                ".KfffKKKKKKKKKKmmMK.",
-                ".KfmmmmmmmmmmmmmmMK.",
-                ".KfmMmmMmmmMmmMmmMK.",
-                ".KfmmmmmmmmmmmmmmMK.",
-                ".KfmmMmmmMmmmmMmmMK.",
-                ".KfmmmmmmmmmmmmmmMK.",
-                ".KfmMmmMmmmMmmMmmMK.",
-                ".KfmmmmmmmmmmmmmmMK.",
-                ".KfmmMmmmMmmmmMmmMK.",
+                ".KffffffffffffffffK.",
+                ".KfmmmMfmmmMfmmmMfK.",
+                ".KmmmMMmmmMMmmmMMmK.",
+                ".KMMMMMMMMMMMMMMMMK.",
+                ".KfmMfmmmMfmmmMfmmK.",
+                ".KmMMmmmMMmmmMMmmmK.",
+                ".KMMMMMMMMMMMMMMMMK.",
+                ".KfmmmMfmmmMfmmmMfK.",
+                ".KmmmMMmmmMMmmmMMmK.",
                 ".KMMMMMMMMMMMMMMMMK.",
                 "..KKKKKKKKKKKKKKKK..",
                 "qqqqqqqqqqqqqqqqqqqq",

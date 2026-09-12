@@ -252,8 +252,6 @@ namespace SpiceWizard.Web.Scene
             bool dark = DayNight.Darkness(f) > 0.5f;
             var wall = DayNight.Haze(Palette.LightStone, f);
             var wallShade = DayNight.Haze(Palette.Stone, f);
-            var roof = DayNight.Haze(Palette.DarkRed, f);
-            var roofLit = DayNight.Haze(Palette.Red, f);
             var outline = DayNight.Haze(Palette.Outline, f);
             int H = Layout.Horizon;
             for (int i = -60; i <= 7; i++)
@@ -268,21 +266,23 @@ namespace SpiceWizard.Web.Scene
                 _c.Rect(x + w - 3, H - hgt, 3, hgt, wallShade);
                 _c.Rect(x - 1, H - hgt, 1, hgt, outline);
                 _c.Rect(x + w, H - hgt, 1, hgt, outline);
-                // Gable roof.
-                int half = w / 2 + 1;
-                for (int r = 0; r < 4; r++)
+                // Gable roof in the house's own material, eaves overhanging the walls.
+                int rh = 4 + Hash(i, 6) % 3;
+                int cx = x + w / 2;
+                Roof(cx, H - hgt - rh, w / 2 + 2, rh, Hash(i, 7) % 3, f);
+                // Chimney poking out of the shaded slope.
+                if (Hash(i, 8) % 3 == 0)
                 {
-                    int rw = (half * (r + 1)) / 2;
-                    int cx = x + w / 2;
-                    _c.Rect(cx - rw - 1, H - hgt - 4 + r, rw * 2 + 3, 1, outline);
-                    _c.Rect(cx - rw, H - hgt - 4 + r, rw * 2 + 1, 1, r == 0 ? roofLit : roof);
+                    int chx = cx + w / 4 + 1, chy = H - hgt - rh + 1;
+                    _c.Rect(chx - 1, chy - 3, 4, 4, outline);
+                    _c.Rect(chx, chy - 2, 2, 3, wallShade);
+                    _c.Rect(chx, chy - 2, 1, 1, wall);
                 }
-                _c.Rect(x - 1, H - hgt - 1, w + 2, 1, outline);
                 // Door and a window.
                 _c.Rect(x + w - 5, H - 5, 3, 5, DayNight.Haze(Palette.DarkBrown, f));
                 _c.Rect(x + 3, H - hgt + 3, 2, 2, dark ? Palette.Yellow : DayNight.Haze(Palette.Navy, f));
                 if (dark) _c.Rect(x + 2, H - hgt + 2, 4, 4, Palette.Glow);
-                // The church spire.
+                // The church spire: a tall slate steeple with a cross.
                 if (i == 3)
                 {
                     int sx = x + w / 2;
@@ -290,11 +290,42 @@ namespace SpiceWizard.Web.Scene
                     _c.Rect(sx + 1, H - hgt - 16, 2, 13, wallShade);
                     _c.Rect(sx - 3, H - hgt - 16, 1, 13, outline);
                     _c.Rect(sx + 3, H - hgt - 16, 1, 13, outline);
-                    for (int r = 0; r < 4; r++) _c.Rect(sx - r + 1, H - hgt - 20 + r, 2 * r - 1 + 2, 1, r == 0 ? outline : roof);
-                    _c.Rect(sx, H - hgt - 23, 1, 3, outline);
-                    _c.Rect(sx - 1, H - hgt - 22, 3, 1, outline);
+                    Roof(sx, H - hgt - 24, 3, 8, 1, f);
+                    _c.Rect(sx, H - hgt - 27, 1, 3, outline);
+                    _c.Rect(sx - 1, H - hgt - 26, 3, 1, outline);
                 }
             }
+        }
+
+        // A pitched roof: apex at (cx, top), widening to `span` either side of centre at the
+        // eaves. Lit on the left slope, shaded on the right, with alternating tile courses,
+        // a ridge cap and a drip edge. Material 0 = red tile, 1 = slate, 2 = thatch.
+        void Roof(int cx, int top, int span, int rh, int material, double f)
+        {
+            Color lit, mid, dim;
+            switch (material)
+            {
+                case 0: lit = Palette.Red; mid = Palette.DarkRed; dim = Color.Lerp(Palette.DarkRed, Palette.Outline, 0.4f); break;
+                case 1: lit = Palette.Stone; mid = Palette.DarkStone; dim = Palette.Charcoal; break;
+                default: lit = Palette.Tan; mid = Palette.Brown; dim = Palette.DarkBrown; break;
+            }
+            lit = DayNight.Haze(lit, f); mid = DayNight.Haze(mid, f); dim = DayNight.Haze(dim, f);
+            var outline = DayNight.Haze(Palette.Outline, f);
+            for (int r = 0; r < rh; r++)
+            {
+                int rw = 1 + (span - 1) * r / Math.Max(1, rh - 1);
+                int y = top + r;
+                bool course = r % 2 == 1;
+                _c.Rect(cx - rw - 1, y, rw * 2 + 3, 1, outline);
+                _c.Rect(cx - rw, y, rw, 1, course ? mid : lit);
+                _c.Rect(cx, y, rw + 1, 1, course ? dim : mid);
+                // Tile ends picked out along each course.
+                if (course)
+                    for (int tx = cx - rw + 1; tx <= cx + rw; tx += 3)
+                        _c.Rect(tx, y, 1, 1, tx < cx ? lit : mid);
+            }
+            _c.Rect(cx - 1, top - 1, 3, 1, outline);          // ridge cap
+            _c.Rect(cx - span - 1, top + rh, span * 2 + 3, 1, outline); // drip edge
         }
 
         // ---- Ground ----------------------------------------------------------------------
