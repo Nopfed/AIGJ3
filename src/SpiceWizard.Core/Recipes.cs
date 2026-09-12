@@ -92,7 +92,7 @@ public static class Balance
     /// <summary>Peppercorn multiplier indexed by stars 1..5 (index 0 unused).</summary>
     public static readonly double[] StarMultiplier = { 0, 0.5, 0.8, 1.0, 1.4, 2.0 };
 
-    public const double DayLengthSeconds = 240;
+    public const double DayLengthSeconds = 480;
     public const int DayStartMinute = 6 * 60;
     public const int DayEndMinute = 22 * 60;
 

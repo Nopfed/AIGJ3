@@ -19,7 +19,9 @@ dotnet test                                    # simulation tests + balance bot
 dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
 ```
 
-Add `?demo` to the URL for a mid-game state, or `?demo=master` to be one night away from winning.
+Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, or `?demo=night` for the same mid-game state at dusk.
+
+The yard is drawn at 384x216 pixels and scaled up by the largest whole number that fits your window; whatever room is left is filled with more sky and meadow, so there are no black bars. Resize the window and the game follows.
 
 ## Controls
 
@@ -33,7 +35,7 @@ Mouse (or touch) only. The game autosaves every morning to your browser's local 
 
 ## The day
 
-A day runs from 06:00 to 22:00 in four real minutes. The clock pauses while a panel is open, so reading and shopping are free. At 22:00 (or when you click the tower door) you sleep, and the night moves everything on at once:
+A day runs from 06:00 to 22:00 in eight real minutes. The clock pauses while a panel is open, so reading and shopping are free. At 22:00 (or when you click the tower door) you sleep, and the night moves everything on at once:
 
 1. Jars ferment one night and plants grow.
 2. The cart takes whatever is in the shipping crate to town; each sauce is rated and paid for.

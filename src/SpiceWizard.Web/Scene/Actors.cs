@@ -55,7 +55,7 @@ namespace SpiceWizard.Web.Scene
                                    : ((int)(_anim * 1.5f) % 2 == 0 ? "wizard0" : "wizard1");
             int x = (int)Math.Round(Feet.X) - 6;
             int y = (int)Math.Round(Feet.Y) - 20;
-            c.Rect(x + 1, y + 19, 10, 2, Palette.DarkGrass);
+            c.Rect(x + 1, y + 19, 10, 2, Palette.Shadow);
             c.Sprite(frame, x, y, Color.White, FacingLeft);
         }
     }
@@ -98,10 +98,10 @@ namespace SpiceWizard.Web.Scene
             Spawn(new Vector2(at.X + _rng.Next(-8, 9), at.Y), new Vector2(_rng.Next(-4, 5), -12), 1.2f, Palette.LightGrey * 0.7f, 2);
         }
 
-        public void Confetti(int width)
+        public void Confetti(int left, int right, int top)
         {
             Color[] colors = { Palette.Red, Palette.Yellow, Palette.LightGreen, Palette.Sky, Palette.Pink, Palette.LightPurple };
-            Spawn(new Vector2(_rng.Next(width), 10), new Vector2(_rng.Next(-15, 16), 20 + _rng.Next(25)), 4f, colors[_rng.Next(colors.Length)], 2, 10f);
+            Spawn(new Vector2(_rng.Next(left, right), top + 10), new Vector2(_rng.Next(-15, 16), 20 + _rng.Next(25)), 4f, colors[_rng.Next(colors.Length)], 2, 10f);
         }
 
         public void Update(float dt)
@@ -177,6 +177,7 @@ namespace SpiceWizard.Web.Scene
             foreach (var p in _people)
             {
                 int hop = (int)(Math.Abs(Math.Sin(p.Bob * 6)) * 2);
+                c.Rect((int)p.Pos.X - 3, (int)p.Pos.Y - 2, 7, 2, Palette.Shadow);
                 c.Sprite("townsfolk" + p.Sprite, (int)p.Pos.X - 5, (int)p.Pos.Y - 16 - hop);
             }
         }

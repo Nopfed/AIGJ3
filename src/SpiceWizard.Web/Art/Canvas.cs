@@ -4,25 +4,44 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace SpiceWizard.Web.Art
 {
-    /// <summary>Integer-scaled 384x216 virtual screen, letterboxed in the browser canvas.</summary>
+    /// <summary>
+    /// The yard is designed at 384x216 virtual pixels. The camera picks the largest integer scale that fits
+    /// the browser window and then widens the visible area so the scene fills every pixel: the design sits
+    /// centred and the view extends into negative coordinates (more sky, more meadow) around it.
+    /// </summary>
     public sealed class Camera
     {
+        /// <summary>Design size: everything in <see cref="Scene.Layout"/> is placed inside this box.</summary>
         public const int Width = 384;
         public const int Height = 216;
 
         public int Scale { get; private set; } = 1;
-        public Point Offset { get; private set; }
+        /// <summary>Window pixel of the design origin (virtual 0,0).</summary>
+        public Point Origin { get; private set; }
+
+        /// <summary>The visible virtual area. Always contains the 384x216 design box.</summary>
+        public static Rectangle View { get; private set; } = new Rectangle(0, 0, Width, Height);
+        public static int Left => View.Left;
+        public static int Top => View.Top;
+        public static int Right => View.Right;
+        public static int Bottom => View.Bottom;
 
         public void Fit(int windowWidth, int windowHeight)
         {
             Scale = Math.Max(1, Math.Min(windowWidth / Width, windowHeight / Height));
-            Offset = new Point((windowWidth - Width * Scale) / 2, (windowHeight - Height * Scale) / 2);
+            // Round the view up so no window pixel is left uncovered; the overhang is at most Scale-1 pixels.
+            int vw = (windowWidth + Scale - 1) / Scale;
+            int vh = (windowHeight + Scale - 1) / Scale;
+            int left = -(vw - Width) / 2;
+            int top = -(vh - Height) / 2;
+            View = new Rectangle(left, top, vw, vh);
+            Origin = new Point((windowWidth - vw * Scale) / 2 - left * Scale, (windowHeight - vh * Scale) / 2 - top * Scale);
         }
 
-        public Matrix Transform => Matrix.CreateScale(Scale, Scale, 1) * Matrix.CreateTranslation(Offset.X, Offset.Y, 0);
+        public Matrix Transform => Matrix.CreateScale(Scale, Scale, 1) * Matrix.CreateTranslation(Origin.X, Origin.Y, 0);
 
         public Point ToVirtual(int windowX, int windowY) =>
-            new Point((windowX - Offset.X) / Scale, (windowY - Offset.Y) / Scale);
+            new Point((int)Math.Floor((windowX - Origin.X) / (double)Scale), (int)Math.Floor((windowY - Origin.Y) / (double)Scale));
     }
 
     /// <summary>All drawing goes through here so the rest of the code talks in sprite names and virtual pixels.</summary>

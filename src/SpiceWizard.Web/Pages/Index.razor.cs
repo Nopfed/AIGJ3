@@ -28,7 +28,7 @@ namespace SpiceWizard.Web.Pages
         {
             if (_game == null)
             {
-                string demo = Nav.Uri.Contains("demo=master") ? "master" : Nav.Uri.Contains("demo") ? "mid" : null;
+                string demo = Nav.Uri.Contains("demo=master") ? "master" : Nav.Uri.Contains("demo=night") ? "night" : Nav.Uri.Contains("demo") ? "mid" : null;
                 _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo);
                 _game.Run();
             }

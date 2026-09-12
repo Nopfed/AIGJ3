@@ -520,7 +520,7 @@ namespace SpiceWizard.Web.Ui
             if (!Open(ui, ss, "How to be a Spice Wizard")) return;
             string[] lines =
             {
-                "Click anything in the yard to use it. A day lasts four minutes; at 22:00 you sleep and the night moves everything on.",
+                "Click anything in the yard to use it. A day lasts eight minutes; at 22:00 you sleep and the night moves everything on.",
                 "GROW  Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament.",
                 "FERMENT  Two peppers in a jar become mash after two nights.",
                 "GRIND  The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",

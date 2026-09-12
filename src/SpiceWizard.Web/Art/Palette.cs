@@ -45,6 +45,25 @@ namespace SpiceWizard.Web.Art
         public static readonly Color Grass     = new Color(98, 160, 72);
         public static readonly Color DarkGrass = new Color(72, 128, 56);
         public static readonly Color Road      = new Color(196, 168, 120);
+        // Depth pass: highlights, shadows and distance haze.
+        public static readonly Color LightStone  = new Color(178, 176, 168);
+        public static readonly Color LightTan    = new Color(224, 194, 150);
+        public static readonly Color DeepSoil    = new Color(56, 36, 22);
+        public static readonly Color LightGrass  = new Color(126, 184, 90);
+        public static readonly Color FarHill     = new Color(118, 158, 168);
+        public static readonly Color MidHill     = new Color(92, 146, 104);
+        public static readonly Color LightCharcoal = new Color(84, 80, 84);
+        public static readonly Color DarkTeal    = new Color(36, 108, 96);
+        public static readonly Color DarkSkin    = new Color(214, 158, 118);
+        public static readonly Color LightYellow = new Color(252, 234, 160);
+        public static readonly Color DarkGold    = new Color(150, 105, 30);
+        public static readonly Color PaleBlue    = new Color(176, 214, 242);
+        public static readonly Color CloudShade  = new Color(204, 220, 238);
+        public static readonly Color DarkPink    = new Color(184, 96, 140);
+        public static readonly Color Lilac       = new Color(190, 165, 230);
+        public static readonly Color Shadow      = Outline * 0.3f;
+        public static readonly Color Glass       = PaleBlue * 0.3f;
+        public static readonly Color Glow        = new Color(255, 190, 90) * 0.35f;
 
         static readonly Dictionary<char, Color> Map = new Dictionary<char, Color>
         {
@@ -56,6 +75,10 @@ namespace SpiceWizard.Web.Art
             ['C'] = Blue,      ['n'] = Navy,      ['t'] = GhostPale,  ['T'] = GhostShade, ['k'] = Skin,
             ['i'] = Pink,      ['e'] = Teal,      ['x'] = Charcoal,   ['a'] = Grass,      ['A'] = DarkGrass,
             ['h'] = Road,
+            ['f'] = LightStone,['N'] = LightTan,  ['0'] = DeepSoil,   ['u'] = LightGrass, ['F'] = FarHill,
+            ['H'] = MidHill,   ['X'] = LightCharcoal, ['E'] = DarkTeal, ['U'] = DarkSkin, ['Z'] = LightYellow,
+            ['J'] = DarkGold,  ['j'] = PaleBlue,  ['z'] = CloudShade, ['I'] = DarkPink,   ['V'] = Lilac,
+            ['q'] = Shadow,    ['Q'] = Glass,     ['1'] = Glow,
         };
 
         public static bool TryGet(char c, out Color color) => Map.TryGetValue(c, out color);

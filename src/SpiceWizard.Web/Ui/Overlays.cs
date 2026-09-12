@@ -11,27 +11,31 @@ namespace SpiceWizard.Web.Ui
         public static void Hud(Ui ui, GameState s, Session ss)
         {
             var c = ui.C;
-            c.Rect(0, 0, Camera.Width, Scene.Layout.HudHeight, Palette.Outline * 0.75f);
-            c.Text("Day " + s.Clock.Day + " Wk" + s.Clock.Week + " d" + s.Clock.DayOfWeek + " " + s.Clock.TimeText(), 4, 4, Palette.Cream);
+            int top = Camera.Top, left = Camera.Left, right = Camera.Right;
+            c.Rect(left, top, Camera.View.Width, Scene.Layout.HudHeight, Palette.Outline * 0.75f);
+            c.Rect(left, top + Scene.Layout.HudHeight - 1, Camera.View.Width, 1, Palette.Gold * 0.5f);
+            c.Text("Day " + s.Clock.Day + " Wk" + s.Clock.Week + " d" + s.Clock.DayOfWeek + " " + s.Clock.TimeText(), left + 4, top + 4, Palette.Cream);
 
-            c.Sprite("ic_peppercorn", 126, 3);
-            c.Text(s.Peppercorns.ToString(), 137, 4, Palette.Yellow);
+            c.Sprite("ic_peppercorn", left + 126, top + 3);
+            c.Text(s.Peppercorns.ToString(), left + 137, top + 4, Palette.Yellow);
 
-            c.Sprite("ic_flame", 176, 3);
-            ui.Bar(new Rectangle(187, 4, 40, 7), s.Spice.Current / (float)s.Spice.Max, Palette.Orange);
-            c.Text(s.Spice.Current + "/" + s.Spice.Max, 230, 4, Palette.Cream);
-            if (ui.Hot(new Rectangle(176, 2, 80, 10))) ui.Tooltip = "Spice: cooking energy. Eat peppers or sleep.";
+            // The right-hand group hugs the right edge of the window.
+            int rx = right - Camera.Width;
+            c.Sprite("ic_flame", rx + 176, top + 3);
+            ui.Bar(new Rectangle(rx + 187, top + 4, 40, 7), s.Spice.Current / (float)s.Spice.Max, Palette.Orange);
+            c.Text(s.Spice.Current + "/" + s.Spice.Max, rx + 230, top + 4, Palette.Cream);
+            if (ui.Hot(new Rectangle(rx + 176, top + 2, 80, 10))) ui.Tooltip = "Spice: cooking energy. Eat peppers or sleep.";
 
-            c.Sprite("ic_hat", 268, 3);
-            c.Text("Lv " + s.Level, 279, 4, Palette.LightPurple);
-            ui.Bar(new Rectangle(312, 4, 46, 7), (float)s.Progression.Fraction, Palette.LightPurple);
-            if (ui.Hot(new Rectangle(268, 2, 90, 10)))
+            c.Sprite("ic_hat", rx + 268, top + 3);
+            c.Text("Lv " + s.Level, rx + 279, top + 4, Palette.LightPurple);
+            ui.Bar(new Rectangle(rx + 312, top + 4, 46, 7), (float)s.Progression.Fraction, Palette.LightPurple);
+            if (ui.Hot(new Rectangle(rx + 268, top + 2, 90, 10)))
             {
                 string next = Progression.UnlockAt(s.Level + 1);
                 ui.Tooltip = s.Progression.IsMaster ? "Master Spice Wizard" : s.Progression.Xp + "/" + s.Progression.XpToNext + " fame" + (next.Length > 0 ? ". Next: " + next : "");
             }
 
-            if (ui.Button(new Rectangle(366, 2, 14, 10), "?", true, "How to play")) ss.Open(PanelKind.Help);
+            if (ui.Button(new Rectangle(rx + 366, top + 2, 14, 10), "?", true, "How to play")) ss.Open(PanelKind.Help);
         }
 
         public static void Toast(Ui ui, Session ss)
@@ -39,7 +43,7 @@ namespace SpiceWizard.Web.Ui
             if (ss.ToastTime <= 0 || string.IsNullOrEmpty(ss.Toast)) return;
             float a = Math.Min(1f, ss.ToastTime / 0.5f);
             int w = PixelFont.Measure(ss.Toast) + 10;
-            int x = (Camera.Width - w) / 2, y = Camera.Height - 16;
+            int x = Camera.Width / 2 - w / 2, y = Camera.Bottom - 16;
             ui.C.Rect(x, y, w, 12, Palette.Outline * (0.85f * a));
             ui.C.Text(ss.Toast, x + 5, y + 2, ss.ToastColor * a);
         }
@@ -47,8 +51,10 @@ namespace SpiceWizard.Web.Ui
         public static void Title(Ui ui, Session ss, float time)
         {
             var c = ui.C;
-            c.Rect(0, 0, Camera.Width, Camera.Height, Palette.Outline * 0.55f);
+            c.Rect(Camera.View, Palette.Outline * 0.55f);
             int cx = Camera.Width / 2;
+            c.Rect(Camera.Left, 34, Camera.View.Width, 50, Palette.Outline * 0.45f);
+            c.Rect(Camera.Left, 160, Camera.View.Width, 40, Palette.Outline * 0.45f);
             BigText(c, "SPICE WIZARD", cx, 40, 3, Palette.Yellow);
             c.TextCentered("a cooking and farming tale", cx, 72, Palette.Cream);
             int bob = (int)(Math.Sin(time * 2) * 2);

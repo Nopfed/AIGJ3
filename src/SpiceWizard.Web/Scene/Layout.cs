@@ -29,7 +29,7 @@ namespace SpiceWizard.Web.Scene
         public const int RoadBottom = 108;
 
         public static readonly Rectangle Tower = new Rectangle(300, 50, 48, 120);
-        public static readonly Point Roof = new Point(300, 27);
+        public static readonly Point Roof = new Point(298, 27);   // 52 wide: overhangs the 48px wall by 2 each side
         public static readonly Point Door = new Point(317, 144);
         public static readonly Point[] Windows = { new Point(310, 66), new Point(330, 82) };
 
@@ -41,13 +41,17 @@ namespace SpiceWizard.Web.Scene
         public static readonly Point Cauldron = new Point(262, 174);
         public static readonly Point Shelf = new Point(302, 100);
         public static readonly Point Stump = new Point(356, 186);
-        public static readonly Point Mortar = new Point(358, 176);
+        public static readonly Point Mortar = new Point(358, 178);
         public static readonly Point Pantry = new Point(354, 152);
         public static readonly Point Crate = new Point(236, 150);
         public static readonly Point WizardStart = new Point(200, 178);
 
         public static readonly Point[] Trees = { new Point(8, 104), new Point(222, 100), new Point(370, 88) };
         public static readonly Point[] Bushes = { new Point(62, 122), new Point(196, 198), new Point(284, 150) };
+        // A low fence along the top of the garden beds, and a few flowers in the grass.
+        public static readonly Point Fence = new Point(6, 130);
+        public const int FenceBays = 9;
+        public static readonly Point[] Flowers = { new Point(120, 124), new Point(210, 120), new Point(180, 200), new Point(300, 196), new Point(40, 204), new Point(250, 130), new Point(336, 178) };
 
         public const int PlotCols = 4;
         public const int PlotRows = 2;

@@ -37,6 +37,7 @@ namespace SpiceWizard.Web.Ui
         public bool Button(Rectangle r, string label, bool enabled = true, string tooltip = null)
         {
             bool hot = Hot(r);
+            C.Rect(r.X + 1, r.Y + 1, r.Width, r.Height, Palette.Shadow);
             C.NineSlice(enabled ? "button" : "button_dim", r);
             if (enabled && hot) C.Rect(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2, Palette.White * 0.25f);
             var color = enabled ? Palette.Outline : Palette.Grey;
@@ -83,13 +84,17 @@ namespace SpiceWizard.Web.Ui
         /// <summary>Wooden panel with a title bar and an X button. Returns true when the panel wants to close.</summary>
         public bool Panel(Rectangle r, string title)
         {
-            C.Rect(0, 0, Camera.Width, Camera.Height, Palette.Outline * 0.45f);
+            C.Rect(Camera.View, Palette.Outline * 0.45f);
+            C.Rect(r.X + 3, r.Y + 3, r.Width, r.Height, Palette.Shadow);
             C.NineSlice("frame", r);
-            C.Rect(r.X + 3, r.Y + 3, r.Width - 6, 11, Palette.Brown);
-            C.Text(title, r.X + 6, r.Y + 5, Palette.Cream);
-            var close = new Rectangle(r.Right - 15, r.Y + 3, 12, 11);
+            C.Rect(r.X + 4, r.Y + 4, r.Width - 8, 11, Palette.Brown);
+            C.Rect(r.X + 4, r.Y + 4, r.Width - 8, 1, Palette.Tan);
+            C.Rect(r.X + 4, r.Y + 15, r.Width - 8, 1, Palette.Outline);
+            C.TextShadow(title, r.X + 7, r.Y + 6, Palette.Cream);
+            var close = new Rectangle(r.Right - 16, r.Y + 4, 12, 11);
             bool hot = Hot(close);
             C.Rect(close, hot ? Palette.Red : Palette.DarkRed);
+            C.Border(close, Palette.Outline);
             C.Text("x", close.X + 4, close.Y + 2, Palette.White);
             return Take(close);
         }
@@ -109,17 +114,20 @@ namespace SpiceWizard.Web.Ui
         public void Bar(Rectangle r, float fraction, Color fill)
         {
             C.Rect(r, Palette.Outline);
+            C.Rect(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2, Palette.Charcoal);
             int w = (int)((r.Width - 2) * MathHelper.Clamp(fraction, 0, 1));
             C.Rect(r.X + 1, r.Y + 1, w, r.Height - 2, fill);
+            if (w > 0) C.Rect(r.X + 1, r.Y + 1, w, 1, Color.Lerp(fill, Palette.White, 0.4f));
         }
 
         public void DrawTooltip()
         {
             if (Tooltip == null) return;
             int w = PixelFont.Measure(Tooltip) + 6;
-            int x = MathHelper.Clamp(Mouse.X + 8, 2, Camera.Width - w - 2);
-            int y = MathHelper.Clamp(Mouse.Y + 10, 2, Camera.Height - 12);
+            int x = MathHelper.Clamp(Mouse.X + 8, Camera.Left + 2, Camera.Right - w - 2);
+            int y = MathHelper.Clamp(Mouse.Y + 10, Camera.Top + 2, Camera.Bottom - 12);
             C.Rect(x, y, w, 11, Palette.Outline * 0.9f);
+            C.Border(new Rectangle(x, y, w, 11), Palette.Gold * 0.6f);
             C.Text(Tooltip, x + 3, y + 2, Palette.White);
         }
     }

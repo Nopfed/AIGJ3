@@ -88,6 +88,7 @@ namespace SpiceWizard.Web
             if (_demo != null)
             {
                 _state = DemoState.Build(_demo == "master");
+                if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
                 _session.Close();
             }
         }
@@ -193,14 +194,14 @@ namespace SpiceWizard.Web
             if (_crowd.Active)
             {
                 _confettiTimer -= _dt;
-                if (_confettiTimer <= 0) { _confettiTimer = 0.05f; _particles.Confetti(Camera.Width); }
+                if (_confettiTimer <= 0) { _confettiTimer = 0.05f; _particles.Confetti(Camera.Left, Camera.Right, Camera.Top); }
             }
 
             // Cauldron steam while a fire is going.
             if ((int)(_time * 10) % 4 == 0) _particles.Steam(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2));
 
             _hover = null;
-            if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Layout.HudHeight)
+            if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Camera.Top + Layout.HudHeight)
                 foreach (var st in Layout.Stations)
                     if (st.Bounds.Contains(_mouse)) { _hover = st; break; }
 
@@ -289,7 +290,7 @@ namespace SpiceWizard.Web
 
             if (_fade > 0)
             {
-                _canvas.Rect(0, 0, Camera.Width, Camera.Height, Palette.Outline * _fade);
+                _canvas.Rect(Camera.View, Palette.Outline * _fade);
                 if (_fade > 0.5f) _canvas.TextCentered("z z z", Camera.Width / 2, Camera.Height / 2 - 4, Palette.Cream * ((_fade - 0.5f) * 2));
             }
 
