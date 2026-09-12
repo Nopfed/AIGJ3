@@ -60,6 +60,43 @@ public static class Actions
         return ActionResult.Success($"Harvested {info.Yield} {info.Name} pepper{(info.Yield == 1 ? "" : "s")}.");
     }
 
+    // ---- Hasten spell -------------------------------------------------------
+
+    /// <summary>Why the hasten spell cannot be cast right now, or empty when it can.</summary>
+    public static string HastenBlocker(GameState s)
+    {
+        if (s.HastenedToday) return "The hasten spell is spent for today.";
+        if (!s.Spice.CanSpend(Balance.HastenSpiceCost)) return $"Hastening takes {Balance.HastenSpiceCost} spice. Eat a pepper or rest.";
+        return "";
+    }
+
+    public static ActionResult HastenPlant(GameState s, int plot)
+    {
+        var plant = PlantAt(s, plot);
+        if (plant == null) return ActionResult.Fail("Nothing to hasten.");
+        if (plant.IsMature) return ActionResult.Fail("It is done growing. Harvest it!");
+        string blocker = HastenBlocker(s);
+        if (blocker.Length > 0) return ActionResult.Fail(blocker);
+        s.Spice.TrySpend(Balance.HastenSpiceCost);
+        s.HastenedToday = true;
+        plant.Hasten(Balance.HastenNights);
+        return ActionResult.Success("Time hurries along! " + plant.Mood());
+    }
+
+    public static ActionResult HastenJar(GameState s, int jar)
+    {
+        if (jar < 0 || jar >= s.UnlockedJars) return ActionResult.Fail("You do not own that jar yet.");
+        var j = s.Shelf.Jars[jar];
+        if (j.IsEmpty) return ActionResult.Fail("The jar is empty.");
+        if (j.IsAged) return ActionResult.Fail("It cannot age any further.");
+        string blocker = HastenBlocker(s);
+        if (blocker.Length > 0) return ActionResult.Fail(blocker);
+        s.Spice.TrySpend(Balance.HastenSpiceCost);
+        s.HastenedToday = true;
+        j.Nights = Math.Min(Jar.NightsToAge, j.Nights + Balance.HastenNights);
+        return ActionResult.Success("Time hurries along! " + j.Status());
+    }
+
     static Plant? PlantAt(GameState s, int plot) =>
         plot < 0 || plot >= Garden.MaxPlots ? null : s.Garden.Plots[plot].Plant;
 

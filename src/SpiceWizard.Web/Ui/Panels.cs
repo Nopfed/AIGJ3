@@ -144,8 +144,23 @@ namespace SpiceWizard.Web.Ui
                     ss.Say(r, Sfx.Harvest);
                     if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Yellow); ss.Close(); }
                 }
+                by += 20;
+                HastenButton(ui, ss, new Rectangle(Left, by, 166, 16), s, !plant.IsMature, "Grows " + Balance.HastenNights + " nights at once",
+                    () => Actions.HastenPlant(s, i), new Point(pos.X + 12, pos.Y));
                 return by + 16;
             });
+        }
+
+        /// <summary>The once-a-day hasten spell button: one shared look, one shared set of reasons it is greyed out.</summary>
+        static void HastenButton(Ui ui, Session ss, Rectangle rect, GameState s, bool targetOk, string tip, Func<ActionResult> cast, Point sparkleAt)
+        {
+            string blocker = Actions.HastenBlocker(s);
+            bool enabled = targetOk && blocker.Length == 0;
+            string label = s.HastenedToday ? "Hasten (spent)" : "Hasten (" + Balance.HastenSpiceCost + ")";
+            if (!ui.Button(rect, label, enabled, blocker.Length > 0 ? blocker : "Once a day, costs " + Balance.HastenSpiceCost + " spice. " + tip)) return;
+            var r = cast();
+            ss.Say(r, Sfx.Chime);
+            if (r.Ok) ss.OnSparkle?.Invoke(sparkleAt, Palette.Purple);
         }
 
         // ---- Notice board -------------------------------------------------------------
@@ -314,6 +329,9 @@ namespace SpiceWizard.Web.Ui
                             ss.Say(Actions.EmptyJar(s, j), Sfx.Jar);
                     }
                     else ui.Label(Left + 16, y + 17, "Bubbling away...", Palette.Grey);
+                    if (!jar.IsEmpty && !jar.IsAged)
+                        HastenButton(ui, ss, new Rectangle(Left + 110, y + 15, 84, 12), s, true, "Ferments " + Balance.HastenNights + " nights at once",
+                            () => Actions.HastenJar(s, j), new Point(Layout.Shelf.X + 8 + j * 8, Layout.Shelf.Y));
                 }
                 return y;
             });

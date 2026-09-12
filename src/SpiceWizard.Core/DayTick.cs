@@ -28,6 +28,7 @@ public static class DayTick
 
         // 3. New day.
         s.Clock.NewDay();
+        s.HastenedToday = false;
         report.Day = s.Clock.Day;
 
         // 4. Weekly quota is judged on the first morning of the next week.

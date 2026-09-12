@@ -73,6 +73,9 @@ public sealed class Plant
         return "";
     }
 
+    /// <summary>Grows as if that many well-tended nights had passed.</summary>
+    public void Hasten(int nights) => Points = Math.Min(Info.GrowthPoints, Points + nights);
+
     public void EndOfNight()
     {
         Points = Math.Min(Info.GrowthPoints, Points + GrowthTonight());

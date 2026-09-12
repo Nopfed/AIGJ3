@@ -24,6 +24,8 @@ public sealed class GameState
     public SpiceMeter Spice { get; set; } = new();
     public Rng Rng { get; set; } = new();
     public Stats Stats { get; set; } = new();
+    /// <summary>The hasten spell has been cast today; it comes back at dawn.</summary>
+    public bool HastenedToday { get; set; }
     public bool Won { get; set; }
     public int WonOnDay { get; set; }
     public MorningReport? LastReport { get; set; }

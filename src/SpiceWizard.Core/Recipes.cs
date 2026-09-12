@@ -61,6 +61,9 @@ public static class Balance
     public const int CookSpiceCost = 3;
     public const int GrindSpiceCost = 1;
     public const int PepTalkSpiceCost = 1;
+    /// <summary>The once-a-day hasten spell: costs this much spice and pushes a plant or jar this many nights ahead.</summary>
+    public const int HastenSpiceCost = 2;
+    public const int HastenNights = 2;
 
     // Spice blends mixed at the mortar.
     public const int BlendUnlockLevel = 2;

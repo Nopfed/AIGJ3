@@ -68,6 +68,40 @@ public class ActionsTests
     }
 
     [Fact]
+    public void Hasten_spell_is_once_a_day_and_skips_two_nights()
+    {
+        var s = Fresh();
+        Actions.PlantSeed(s, 0, PepperSpecies.Bell);
+        Actions.PlantSeed(s, 1, PepperSpecies.Bell);
+        s.Inventory.Peppers[(int)PepperSpecies.Bell] = 2;
+        Actions.FillJar(s, 0, PepperSpecies.Bell);
+
+        int before = s.Spice.Current;
+        Assert.True(Actions.HastenPlant(s, 0).Ok);
+        Assert.Equal(before - Balance.HastenSpiceCost, s.Spice.Current);
+        Assert.Equal(Balance.HastenNights, s.Garden.Plots[0].Plant!.Points);
+        Assert.Equal(PlantStage.Budding, s.Garden.Plots[0].Plant!.Stage);
+        Assert.False(Actions.HastenPlant(s, 1).Ok);   // spent for today
+        Assert.False(Actions.HastenJar(s, 0).Ok);
+
+        DayTick.Sleep(s);
+        Assert.False(s.HastenedToday);
+        s.Spice.Current = Balance.HastenSpiceCost - 1;
+        Assert.False(Actions.HastenJar(s, 0).Ok);     // too little spice
+        s.Spice.Current = Balance.HastenSpiceCost;
+        Assert.True(Actions.HastenJar(s, 0).Ok);      // 1 night + 2 = ready, not yet aged
+        Assert.True(s.Shelf.Jars[0].IsReady);
+        Assert.False(s.Shelf.Jars[0].IsAged);
+
+        DayTick.Sleep(s);
+        Assert.True(s.Shelf.Jars[0].IsAged);
+        Assert.False(Actions.HastenJar(s, 0).Ok);     // already aged
+        Assert.True(Actions.HastenPlant(s, 0).Ok);    // caps at maturity
+        Assert.True(s.Garden.Plots[0].Plant!.IsMature);
+        Assert.False(Actions.HastenPlant(s, 0).Ok);
+    }
+
+    [Fact]
     public void Eating_peppers_restores_spice_by_heat()
     {
         var s = Fresh();
