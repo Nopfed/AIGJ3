@@ -16,6 +16,7 @@ namespace SpiceWizard.Web.Art
         public Texture2D Texture { get; }
         public Rectangle Pixel { get; }
         readonly Dictionary<string, Rectangle> _rects = new Dictionary<string, Rectangle>();
+        readonly Dictionary<string, Rectangle> _masks = new Dictionary<string, Rectangle>();
         readonly Rectangle[] _glyphs = new Rectangle[95];
 
         public Atlas(GraphicsDevice device)
@@ -54,6 +55,15 @@ namespace SpiceWizard.Web.Art
                     }
                 }
                 _rects[kv.Key] = r;
+
+                // A solid white silhouette of the same sprite, tinted at draw time to outline it. Ground
+                // shadows and glass are left out so the outline hugs the object itself.
+                var m = Allocate(w, h);
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < w; x++)
+                        if (pixels[(r.Y + y) * Size + r.X + x].A >= 128)
+                            pixels[(m.Y + y) * Size + m.X + x] = Color.White;
+                _masks[kv.Key] = m;
             }
 
             for (int i = 0; i < 95; i++)
@@ -78,6 +88,13 @@ namespace SpiceWizard.Web.Art
                 if (!_rects.TryGetValue(name, out var r)) throw new KeyNotFoundException("No sprite named " + name);
                 return r;
             }
+        }
+
+        /// <summary>The white silhouette of a sprite, for outlines and flashes.</summary>
+        public Rectangle Mask(string name)
+        {
+            if (!_masks.TryGetValue(name, out var r)) throw new KeyNotFoundException("No sprite named " + name);
+            return r;
         }
 
         public bool Has(string name) => _rects.ContainsKey(name);

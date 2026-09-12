@@ -80,6 +80,13 @@ namespace SpiceWizard.Web.Scene
 
         static readonly Rectangle Yard = new Rectangle(0, 0, Camera.Width, Camera.Height);
 
+        // The station under the mouse this frame, and the sprites that make it up. Those are drawn again
+        // over a silhouette outline once everything else is down, so the highlight follows the object's
+        // shape rather than its click box.
+        Station _hover;
+        struct Part { public string Sprite; public int X, Y; public float Lean; public Color Tint; }
+        readonly List<Part> _hoverParts = new List<Part>();
+
         public SceneRenderer(Canvas canvas) { _c = canvas; }
 
         public void Update(float dt) { _time += dt; }
@@ -99,6 +106,8 @@ namespace SpiceWizard.Web.Scene
         {
             double f = s.Clock.DayFraction;
             if (_propsFor != Camera.View) BuildProps();
+            _hover = hover;
+            _hoverParts.Clear();
 
             DrawSky(f);
             DrawHills(f);
@@ -109,11 +118,30 @@ namespace SpiceWizard.Web.Scene
             DrawTower(f, wizard);
             DrawGarden(s, hover);
             DrawStations(s, hover);
+            DrawHover();
             crowd.Draw(_c);
             if (!wizard.InDoorway) wizard.Draw(_c);
             particles.Draw(_c);
             var tint = DayNight.Tint(f);
             if (tint.A > 0) _c.Rect(Camera.View, tint);
+        }
+
+        bool Hot(StationKind kind, int index = 0) => _hover != null && _hover.Kind == kind && _hover.Index == index;
+
+        /// <summary>Draws one sprite of a station, remembering it for the hover outline when that station is hot.</summary>
+        void StationSprite(bool hot, string sprite, int x, int y) => StationSprite(hot, sprite, x, y, Color.White, 0f);
+        void StationSprite(bool hot, string sprite, int x, int y, Color tint) => StationSprite(hot, sprite, x, y, tint, 0f);
+        void StationSprite(bool hot, string sprite, int x, int y, Color tint, float lean)
+        {
+            _c.SpriteSway(sprite, x, y, lean, tint);
+            if (hot) _hoverParts.Add(new Part { Sprite = sprite, X = x, Y = y, Lean = lean, Tint = tint });
+        }
+
+        void DrawHover()
+        {
+            if (_hoverParts.Count == 0) return;
+            foreach (var p in _hoverParts) _c.SpriteOutline(p.Sprite, p.X, p.Y, p.Lean, Palette.Yellow);
+            foreach (var p in _hoverParts) _c.SpriteSway(p.Sprite, p.X, p.Y, p.Lean, p.Tint);
         }
 
         // ---- Sky ---------------------------------------------------------------------
@@ -359,9 +387,24 @@ namespace SpiceWizard.Web.Scene
             foreach (var p in _props) _c.SpriteSway(p.Sprite, p.X, p.Y, Sway(p.Sprite, p.X, p.Y));
             foreach (var t in Layout.Trees) _c.SpriteSway("tree", t.X, t.Y, Sway("tree", t.X, t.Y));
             foreach (var b in Layout.Bushes) _c.SpriteSway("bush", b.X, b.Y, Sway("bush", b.X, b.Y));
-            for (int i = 0; i < Layout.FenceBays; i++) _c.Sprite("fence", Layout.Fence.X + i * 12, Layout.Fence.Y);
-            _c.Rect(Layout.Fence.X + 1, Layout.Fence.Y + 10, Layout.FenceBays * 12, 1, Palette.Shadow);
+            for (int i = 0; i < Layout.FenceBays; i++) _c.Sprite(FenceBay(i), Layout.Fence.X + i * 12, Layout.Fence.Y);
+            _c.Sprite("fence_post", Layout.Fence.X + Layout.FenceBays * 12, Layout.Fence.Y);
+            _c.Rect(Layout.Fence.X + 1, Layout.Fence.Y + 10, Layout.FenceBays * 12 + 2, 1, Palette.Shadow);
             foreach (var fl in Layout.Flowers) _c.SpriteSway(fl.Y % 2 == 0 ? "flower_yellow" : "flower_pink", fl.X, fl.Y, Sway("flower", fl.X, fl.Y));
+        }
+
+        /// <summary>Which fence variant a bay uses: the sagging rail (c) is never doubled up, and the plain
+        /// bay fills in between so the run reads as one fence rather than a pattern.</summary>
+        static string FenceBay(int i)
+        {
+            switch (Hash(i, 41) % 7)
+            {
+                case 0: return "fence_b";
+                case 1: return "fence_d";
+                case 2: return (i > 0 && Hash(i - 1, 41) % 7 == 2) ? "fence" : "fence_c";
+                case 3: return "fence_b";
+                default: return "fence";
+            }
         }
 
         /// <summary>How far (in pixels) the top of a plant leans right now: gusts times a per-plant ripple, so
@@ -430,11 +473,11 @@ namespace SpiceWizard.Web.Scene
                 _c.Rect(inside.X, inside.Y + 6, inside.Width, 6, new Color(90, 52, 32));
                 _c.Rect(inside.X, inside.Bottom - 2, inside.Width, 2, Palette.DarkBrown);
                 if (wizard.InDoorway) wizard.Draw(_c);
-                _c.Sprite("door_open", Layout.Door.X - 3, Layout.Door.Y);
+                StationSprite(Hot(StationKind.Door), "door_open", Layout.Door.X - 3, Layout.Door.Y);
             }
             else
             {
-                _c.Sprite("door", Layout.Door.X, Layout.Door.Y);
+                StationSprite(Hot(StationKind.Door), "door", Layout.Door.X, Layout.Door.Y);
                 if (lit) _c.Rect(Layout.Door.X + 3, Layout.Door.Y + 6, 8, 1, Palette.Glow);
             }
 
@@ -464,7 +507,8 @@ namespace SpiceWizard.Web.Scene
                 bool unlocked = i < s.UnlockedPlots;
                 var plot = s.Garden.Plots[i];
                 bool wet = plot.Plant != null && plot.Plant.WateredToday;
-                _c.Sprite(!unlocked ? "plot_locked" : wet ? "plot_wet" : "plot", p.X, p.Y);
+                bool hot = unlocked && Hot(StationKind.Plot, i);
+                StationSprite(hot, !unlocked ? "plot_locked" : wet ? "plot_wet" : "plot", p.X, p.Y);
                 if (!unlocked)
                 {
                     _c.Rect(new Rectangle(p.X, p.Y - 10, 24, 26), Palette.Outline * 0.45f);
@@ -480,11 +524,11 @@ namespace SpiceWizard.Web.Scene
                         PlantStage.Budding => "bud",
                         _ => ItemArt.MatureSprite(plant.Species),
                     };
-                    _c.SpriteSway(sprite, p.X + 4, p.Y - 10, plant.Stage == PlantStage.Seed ? 0f : Sway("plant", p.X, i));
+                    StationSprite(hot, sprite, p.X + 4, p.Y - 10, Color.White, plant.Stage == PlantStage.Seed ? 0f : Sway("plant", p.X, i));
                     if (plant.Stage == PlantStage.Mature && plant.Species == PepperSpecies.Ghost)
                     {
                         int bob = (int)(Math.Sin(_time * 3 + i) * 2);
-                        _c.Sprite("ghost", p.X + 7, p.Y - 14 + bob);
+                        StationSprite(hot, "ghost", p.X + 7, p.Y - 14 + bob);
                     }
                     if (plant.IsMature)
                     {
@@ -496,8 +540,6 @@ namespace SpiceWizard.Web.Scene
                         _c.TextShadow("!", p.X + 20, p.Y - 12, Palette.Pink);
                     }
                 }
-                if (hover != null && hover.Kind == StationKind.Plot && hover.Index == i && unlocked)
-                    _c.Border(new Rectangle(p.X, p.Y + 1, 24, 14), Palette.Yellow);
             }
         }
 
@@ -506,14 +548,14 @@ namespace SpiceWizard.Web.Scene
         void DrawStations(GameState s, Station hover)
         {
             // Well and bucket.
-            _c.Sprite("well", Layout.Well.X, Layout.Well.Y);
+            StationSprite(Hot(StationKind.Well), "well", Layout.Well.X, Layout.Well.Y);
             _c.Rect(Layout.Bucket.X + 1, Layout.Bucket.Y + 8, 7, 1, Palette.Shadow);
-            _c.Sprite("bucket", Layout.Bucket.X, Layout.Bucket.Y);
+            StationSprite(Hot(StationKind.Well), "bucket", Layout.Bucket.X, Layout.Bucket.Y);
             if (s.Garden.BucketWater > 0)
                 _c.Rect(Layout.Bucket.X + 2, Layout.Bucket.Y + 2, 4, 1, Palette.Sky);
 
             // Notice board with quota ticks.
-            _c.Sprite("board", Layout.Board.X, Layout.Board.Y);
+            StationSprite(Hot(StationKind.Board), "board", Layout.Board.X, Layout.Board.Y);
             if (s.Quota != null)
                 for (int i = 0; i < s.Quota.Lines.Count; i++)
                     _c.Rect(Layout.Board.X + 15, Layout.Board.Y + 4 + i * 2, 2, 1, s.Quota.Lines[i].IsMet ? Palette.LightGreen : Palette.Red);
@@ -521,15 +563,15 @@ namespace SpiceWizard.Web.Scene
             // Merchant cart (slides in at dawn).
             int cartX = (int)CartX;
             _c.Rect(cartX + 3, Layout.CartPark.Y + 20, 30, 3, Palette.Shadow);
-            _c.Sprite("cart", cartX, Layout.CartPark.Y);
+            StationSprite(Hot(StationKind.Market), "cart", cartX, Layout.CartPark.Y);
             if (Math.Abs(CartX - Layout.CartPark.X) < 1)
             {
                 _c.Rect(Layout.Merchant.X + 2, Layout.Merchant.Y + 16, 8, 2, Palette.Shadow);
-                _c.Sprite("merchant", Layout.Merchant.X, Layout.Merchant.Y);
+                StationSprite(Hot(StationKind.Market), "merchant", Layout.Merchant.X, Layout.Merchant.Y);
             }
 
             // Shipping crate.
-            _c.Sprite(s.Crate.Sauces.Count > 0 ? "crate_full" : "crate", Layout.Crate.X, Layout.Crate.Y);
+            StationSprite(Hot(StationKind.Crate), s.Crate.Sauces.Count > 0 ? "crate_full" : "crate", Layout.Crate.X, Layout.Crate.Y);
             if (s.Crate.Sauces.Count > 0)
                 _c.TextShadow(s.Crate.Sauces.Count.ToString(), Layout.Crate.X + 20, Layout.Crate.Y + 2, Palette.White);
 
@@ -539,35 +581,33 @@ namespace SpiceWizard.Web.Scene
             _c.Rect(cp.X - 3, cp.Y + 17, 30, 7, Palette.Glow * flicker);
             _c.Rect(cp.X + 1, cp.Y + 22, 22, 2, Palette.Shadow);
             string fire = (int)(_time * 6) % 2 == 0 ? "fire0" : "fire1";
-            _c.Sprite(fire, cp.X, cp.Y + 16);
-            _c.Sprite("cauldron", cp.X, cp.Y);
+            StationSprite(Hot(StationKind.Cauldron), fire, cp.X, cp.Y + 16);
+            StationSprite(Hot(StationKind.Cauldron), "cauldron", cp.X, cp.Y);
             string bubbles = "bubbles" + ((int)(_time * 3) % 3);
-            _c.Sprite(bubbles, cp.X, cp.Y - 2, Palette.LightGreen);
+            StationSprite(Hot(StationKind.Cauldron), bubbles, cp.X, cp.Y - 2, Palette.LightGreen);
 
             // Jar shelf on the tower wall.
-            _c.Sprite("shelf", Layout.Shelf.X, Layout.Shelf.Y);
+            bool shelfHot = Hot(StationKind.Shelf);
+            StationSprite(shelfHot, "shelf", Layout.Shelf.X, Layout.Shelf.Y);
             for (int i = 0; i < FermentShelf.MaxJars; i++)
             {
                 int jx = Layout.Shelf.X + 1 + i * 11, jy = Layout.Shelf.Y + 2;
-                if (i >= s.UnlockedJars) { _c.Sprite("jar_lock", jx, jy); continue; }
+                if (i >= s.UnlockedJars) { StationSprite(shelfHot, "jar_lock", jx, jy); continue; }
                 var jar = s.Shelf.Jars[i];
                 if (!jar.IsEmpty)
                 {
                     var color = ItemArt.SpeciesColor(jar.Species.Value);
-                    _c.Sprite("jar_fill", jx, jy, jar.IsReady ? color : Color.Lerp(color, Palette.Grey, 0.5f));
+                    StationSprite(shelfHot, "jar_fill", jx, jy, jar.IsReady ? color : Color.Lerp(color, Palette.Grey, 0.5f));
                 }
-                _c.Sprite("jar", jx, jy);
+                StationSprite(shelfHot, "jar", jx, jy);
                 if (!jar.IsEmpty && jar.IsReady && (int)(_time * 2) % 2 == 0) _c.Rect(jx + 4, jy - 3, 2, 2, jar.IsAged ? Palette.Pink : Palette.White);
             }
 
             // Mortar on a stump, pantry chest.
             _c.Rect(Layout.Stump.X + 2, Layout.Stump.Y + 9, 16, 2, Palette.Shadow);
-            _c.Sprite("stump", Layout.Stump.X, Layout.Stump.Y);
-            _c.Sprite("mortar", Layout.Mortar.X, Layout.Mortar.Y);
-            _c.Sprite("pantry", Layout.Pantry.X, Layout.Pantry.Y);
-
-            if (hover != null && hover.Kind != StationKind.Plot)
-                _c.Border(hover.Bounds, Palette.Yellow);
+            StationSprite(Hot(StationKind.Mortar), "stump", Layout.Stump.X, Layout.Stump.Y);
+            StationSprite(Hot(StationKind.Mortar), "mortar", Layout.Mortar.X, Layout.Mortar.Y);
+            StationSprite(Hot(StationKind.Pantry), "pantry", Layout.Pantry.X, Layout.Pantry.Y);
         }
     }
 }

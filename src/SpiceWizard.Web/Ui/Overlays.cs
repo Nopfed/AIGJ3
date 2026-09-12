@@ -14,7 +14,7 @@ namespace SpiceWizard.Web.Ui
             int top = Camera.Top, left = Camera.Left, right = Camera.Right;
             c.Rect(left, top, Camera.View.Width, Scene.Layout.HudHeight, Palette.Outline * 0.75f);
             c.Rect(left, top + Scene.Layout.HudHeight - 1, Camera.View.Width, 1, Palette.Gold * 0.5f);
-            c.Text("Day " + s.Clock.Day + " Wk" + s.Clock.Week + " d" + s.Clock.DayOfWeek + " " + s.Clock.TimeText(), left + 4, top + 4, Palette.Cream);
+            c.Text("Day " + s.Clock.Day + "  " + s.Clock.TimeText(), left + 4, top + 4, Palette.Cream);
 
             c.Sprite("ic_peppercorn", left + 126, top + 3);
             c.Text(s.Peppercorns.ToString(), left + 137, top + 4, Palette.Yellow);

@@ -972,7 +972,9 @@ namespace SpiceWizard.Web.Art
                 "KMMMMMMK",
                 ".KKKKKK.",
             },
-            // One fence bay: a post and two rails, tiles horizontally.
+            // Fence bays: a post at the left and two rails running to the right edge, so they tile
+            // horizontally. The variants are mixed along the run so the boards do not repeat, and
+            // "fence_post" closes the far end.
             ["fence"] = new[]
             {
                 "KNK.........",
@@ -985,6 +987,62 @@ namespace SpiceWizard.Web.Art
                 "KbNbbbbbbbbb",
                 "KBKKKKKKKKKK",
                 "KKK.........",
+            },
+            // A knot in the top rail and a nail head where the lower rail meets the post.
+            ["fence_b"] = new[]
+            {
+                "KNK.........",
+                "KbK.........",
+                "KbKKKKKKKKKK",
+                "KbNbbbBdBbbb",
+                "KbKKKKKKKKKK",
+                "KbK.........",
+                "KbKKKKKKKKKK",
+                "KbNdbbbbbbbb",
+                "KBKKKKKKKKKK",
+                "KKK.........",
+            },
+            // A weathered post with a split top, and the lower rail sagging a pixel toward the next post.
+            ["fence_c"] = new[]
+            {
+                "KNKK........",
+                "KbKd........",
+                "KbKKKKKKKKKK",
+                "KbNbbbbbbbbb",
+                "KbKKKKKKKKKK",
+                "KbK.........",
+                "KbKKKKKKKK..",
+                "KbNbbbbbbKKK",
+                "KBKKKKKKKbbb",
+                "KKK.....KKKK",
+            },
+            // A shorter, lighter picket with a crack in the top rail and a tuft of grass at its foot.
+            ["fence_d"] = new[]
+            {
+                "............",
+                "KNK.........",
+                "KbKKKKKKKKKK",
+                "KbNbbbbbKbbb",
+                "KbKKKKKKKKKK",
+                "KbK.........",
+                "KbKKKKKKKKKK",
+                "KbNbbbbbbbbb",
+                "KBKKKKKKKKKK",
+                "KKK..u......",
+            },
+            // The end post that closes the run.
+            ["fence_post"] = new[]
+            {
+                "KNK",
+                "KbK",
+                "KbK",
+                "KbK",
+                "KbK",
+                "KbK",
+                "KbK",
+                "KbK",
+                "KBK",
+                "KKK",
             },
             ["townsfolk0"] = new[]
             {

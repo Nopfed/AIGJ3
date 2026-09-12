@@ -93,9 +93,21 @@ namespace SpiceWizard.Web.Art
 
         /// <summary>Draws a sprite leaning in the wind: the rows are drawn in bands, each shifted sideways by a
         /// share of <paramref name="lean"/> that grows toward the top, so the base stays rooted. Whole pixels only.</summary>
-        public void SpriteSway(string name, int x, int y, float lean, Color tint)
+        public void SpriteSway(string name, int x, int y, float lean, Color tint) => SwayRect(Atlas[name], x, y, lean, tint);
+
+        /// <summary>Draws a one-pixel outline in <paramref name="color"/> around every opaque pixel of a sprite (in
+        /// the same lean, if any). Draw the sprite itself afterwards so the outline sits behind it.</summary>
+        public void SpriteOutline(string name, int x, int y, float lean, Color color)
         {
-            var src = Atlas[name];
+            var mask = Atlas.Mask(name);
+            SwayRect(mask, x - 1, y, lean, color);
+            SwayRect(mask, x + 1, y, lean, color);
+            SwayRect(mask, x, y - 1, lean, color);
+            SwayRect(mask, x, y + 1, lean, color);
+        }
+
+        void SwayRect(Rectangle src, int x, int y, float lean, Color tint)
+        {
             if (Math.Abs(lean) < 0.5f) { Batch.Draw(Atlas.Texture, new Vector2(x, y), src, tint); return; }
             const int band = 3;
             for (int row = 0; row < src.Height; row += band)
