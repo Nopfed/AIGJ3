@@ -68,6 +68,8 @@ A day runs from 06:00 to 22:00 in eight real minutes. The clock pauses while a p
 | **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery. |
 | **Tower door** | Go to bed early. |
 
+Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. They stroll about, nap in the grass, roll over, scratch the trees and the stump, hide in the bushes with only their eyes showing, and jump up onto the fence, the crate, the pantry, the well and the branches. They are purely decorative and never get in the way of anything.
+
 ## Resources
 
 - **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
@@ -135,7 +137,7 @@ src/SpiceWizard.Core/          pure simulation, no engine references
   Actions.cs (every player verb), DayTick.cs (night resolution), SaveSystem.cs
 src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers
-  Scene/    layout of the single screen, renderer, day/night, wizard, particles, crowd
+  Scene/    layout of the single screen, renderer, day/night, wizard, particles, crowd, cats
   Ui/       immediate-mode widgets, station panels, HUD/title/pause/options overlays, settings
   Audio/    software synth, the three music tracks, wind/birds/crickets, effects, mixer
   SpiceWizardGame.cs, DemoState.cs, Pages/Index.razor(.cs), wwwroot/index.html

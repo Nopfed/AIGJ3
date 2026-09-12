@@ -1111,6 +1111,147 @@ namespace SpiceWizard.Web.Art
                 "..........",
             },
 
+            // ---- Cats (grey-scale: W coat, g markings, K outline; tinted per cat, eyes drawn on top) ----
+            ["cat_walk0"] = new[]
+            {
+                "..KK......K..K..",
+                ".KWWK....KWKKWK.",
+                "KWWK.....KWWWWK.",
+                "KWK......KWWWWWK",
+                "KWK....KKKWWWWK.",
+                ".KKKKWWWWWWWWWK.",
+                "...KWWgWWgWWWK..",
+                "...KWWWWWWWWWK..",
+                "...KWKKKKKKKWK..",
+                "...KWK....KWK...",
+                "...KKK....KKK...",
+            },
+            ["cat_walk1"] = new[]
+            {
+                "..KK......K..K..",
+                ".KWWK....KWKKWK.",
+                "KWWK.....KWWWWK.",
+                "KWK......KWWWWWK",
+                "KWK....KKKWWWWK.",
+                ".KKKKWWWWWWWWWK.",
+                "...KWWgWWgWWWK..",
+                "...KWWWWWWWWWK..",
+                "...KKKWKKKWKKK..",
+                ".....KWK.KWK....",
+                ".....KKK.KKK....",
+            },
+            ["cat_sit"] = new[]
+            {
+                ".K...K.....",
+                "KWK.KWK....",
+                "KWWWWWK....",
+                "KWWWWWK....",
+                "KWWgWWK....",
+                ".KWWWK.....",
+                ".KWWWWK....",
+                "KWWWWWWK...",
+                "KWgWWgWWK..",
+                "KWWWWWWWKK.",
+                "KWKKKKKWKWK",
+                "KKK...KKKKK",
+            },
+            ["cat_loaf"] = new[]
+            {
+                ".K.K........",
+                "KWKWK.......",
+                "KWWWWKKKKKK.",
+                "KWWWWWWgWWWK",
+                "KWgWWWWWWWWK",
+                ".KWWWWWWWWWK",
+                ".KKKKKKKKKK.",
+            },
+            ["cat_sleep"] = new[]
+            {
+                "....KKKKK....",
+                ".K.KWWWWWWK..",
+                "KWKWWWWWWWWK.",
+                "KWWWWWWWWWWWK",
+                "KWGWWWWWWWWWK",
+                ".KWWWKKKKKKWK",
+                ".KWWKWWWWWWKK",
+                "..KKKKKKKKKK.",
+            },
+            ["cat_roll0"] = new[]
+            {
+                ".....K.K...K.K..",
+                "....KWK...KWK...",
+                ".KK.KWWWKKKWWWK.",
+                "KWWKKWWWWWWWWWKK",
+                "KWWWWWWWWWWWWWWK",
+                "KWWWWWWggggWWWWK",
+                ".KWWWWWWWWWWWKK.",
+                "..KKKKKKKKKKK...",
+            },
+            ["cat_roll1"] = new[]
+            {
+                "...K.K...K.K....",
+                "..KWK...KWK.....",
+                ".KKKWWWKKKWWWKK.",
+                "KWWKWWWWWWWWWWWK",
+                "KWWWWWWWWWWWWWWK",
+                "KWWWWWWggggWWWWK",
+                ".KWWWWWWWWWWWKK.",
+                "..KKKKKKKKKKK...",
+            },
+            ["cat_scratch0"] = new[]
+            {
+                "...K.K......",
+                "..KWKWK.....",
+                "..KWWWWK.KK.",
+                "..KWWWWKKWWK",
+                "..KWWWWWWKK.",
+                "...KWWWWK...",
+                "..KWWWWWKKK.",
+                "..KWWWWWWWWK",
+                ".KKWWWWWWKK.",
+                "KWKWgWWWK...",
+                "KWKWWWWWK...",
+                "KWKWKKKWK...",
+                ".KKKK.KKK...",
+            },
+            ["cat_scratch1"] = new[]
+            {
+                "...K.K......",
+                "..KWKWK.....",
+                "..KWWWWK....",
+                "..KWWWWKKKK.",
+                "..KWWWWWWWWK",
+                "...KWWWWKKK.",
+                "..KWWWWWK.KK",
+                "..KWWWWWKKWK",
+                ".KKWWWWWWKK.",
+                "KWKWgWWWK...",
+                "KWKWWWWWK...",
+                "KWKWKKKWK...",
+                ".KKKK.KKK...",
+            },
+            ["cat_stretch"] = new[]
+            {
+                ".KK..............",
+                "KWWK.............",
+                "KWKKKK........K.K",
+                ".KWWWWKK....KWKWK",
+                ".KWWWWWWKK..KWWWK",
+                ".KWWKKWWWWKKKWWWK",
+                "..KWK.KWWWWWWWWK.",
+                "..KWK..KKKKWWWK..",
+                "..KKK...KKKKKKK..",
+            },
+            ["cat_jump"] = new[]
+            {
+                "..........K..K.",
+                "KK.......KWKKWK",
+                ".KKKKKKKKWWWWWK",
+                "..KWWWWWWWWWWWK",
+                ".KWKKWWWWWWKWK.",
+                "KK...KKKKKKK...",
+            },
+
             // ---- Icons (8x8). Grey-scale ones are tinted per item. ------------------
             ["ic_peppercorn"] = new[]
             {

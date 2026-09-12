@@ -91,9 +91,12 @@ namespace SpiceWizard.Web.Scene
         public bool Snoring;
 
         // Scenery outside the 384x216 design box, generated once per window size.
-        struct Prop { public string Sprite; public int X, Y; public int Base; }
+        public struct Prop { public string Sprite; public int X, Y; public int Base; }
         readonly List<Prop> _props = new List<Prop>();
         Rectangle _propsFor;
+        /// <summary>The meadow scenery for the current window (see <see cref="EnsureProps"/>).</summary>
+        public IReadOnlyList<Prop> Props => _props;
+        public void EnsureProps() { if (_propsFor != Camera.View) BuildProps(); }
 
         static readonly Rectangle Yard = new Rectangle(0, 0, Camera.Width, Camera.Height);
 
@@ -130,11 +133,11 @@ namespace SpiceWizard.Web.Scene
             }
         }
 
-        public void Draw(GameState s, WizardActor wizard, Particles particles, Crowd crowd, Station hover)
+        public void Draw(GameState s, WizardActor wizard, Particles particles, Crowd crowd, Cats cats, Station hover)
         {
             double f = s.Clock.DayFraction;
             Weather = s.Weather;
-            if (_propsFor != Camera.View) BuildProps();
+            EnsureProps();
             _hover = hover;
             _hoverParts.Clear();
 
@@ -149,6 +152,7 @@ namespace SpiceWizard.Web.Scene
             DrawStations(s, hover);
             DrawHover();
             crowd.Draw(_c);
+            cats.Draw(_c, DayNight.IsDark(f));
             if (!wizard.InDoorway) wizard.Draw(_c);
             particles.Draw(_c);
             // Under rain clouds the whole yard goes a shade cooler and dimmer, then the rain falls over it.

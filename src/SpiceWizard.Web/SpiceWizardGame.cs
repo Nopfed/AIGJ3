@@ -35,6 +35,7 @@ namespace SpiceWizard.Web
         WizardActor _wizard;
         Particles _particles;
         Crowd _crowd;
+        Cats _cats;
         AudioMixer _mixer;
         GameState _state;
 
@@ -85,6 +86,7 @@ namespace SpiceWizard.Web
             _scene = new SceneRenderer(_canvas);
             _particles = new Particles();
             _crowd = new Crowd();
+            _cats = new Cats();
             _wizard = new WizardActor(Layout.WizardStart);
             _mixer = new AudioMixer { Settings = Settings.Parse(_savedSettings) };
 
@@ -218,6 +220,7 @@ namespace SpiceWizard.Web
             _particles.Update(_dt);
             _scene.Update(_dt);
             _crowd.Update(_dt);
+            _cats.Update(_dt, _scene, _particles);
             bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
             _mixer.WizardFeet = _wizard.Feet;
             _mixer.Deliberating = _session.PanelOpen && !paused && _session.Panel != PanelKind.Celebration;
@@ -383,7 +386,7 @@ namespace SpiceWizard.Web
             _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
 
             _ui.Begin(_mouse, _clicked, _wheel, _down);
-            _scene.Draw(_state, _wizard, _particles, _crowd, _hover);
+            _scene.Draw(_state, _wizard, _particles, _crowd, _cats, _hover);
 
             if (_session.Panel == PanelKind.Title)
             {
