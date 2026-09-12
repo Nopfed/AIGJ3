@@ -37,11 +37,56 @@ public sealed class GreedyBot
         for (int i = 0; i < FermentShelf.MaxJars; i++) Actions.EmptyJar(s, i);
 
         CookEverything();
-        for (int i = s.Inventory.Sauces.Count - 1; i >= 0 && !s.Crate.IsFull; i--) Actions.Ship(s, i);
+        ShipEverything();
+        MixBlends();
+        ShipEverything();
 
         FillJars();
         PlantSeeds();
         TendPlants();
+    }
+
+    void ShipEverything()
+    {
+        var s = State;
+        for (int i = s.Inventory.Sauces.Count - 1; i >= 0 && !s.Crate.IsFull; i--) Actions.Ship(s, i);
+    }
+
+    /// <summary>
+    /// Spends whatever spice is left after cooking on blends: one pinch of the hottest spare pepper, a
+    /// peppercorn and up to three cheap spices. Varies the spices so the town keeps finding them new.
+    /// </summary>
+    void MixBlends()
+    {
+        var s = State;
+        if (s.Level < Balance.BlendUnlockLevel) return;
+        for (int made = 0; made < 2; made++)
+        {
+            PepperSpecies? pick = null;
+            foreach (var sp in new[] { PepperSpecies.Ghost, PepperSpecies.Bonnet, PepperSpecies.Banana, PepperSpecies.Bell })
+                if (s.Inventory.PowderOf(sp) > 0 || s.Inventory.Pepper(sp) > (sp == PepperSpecies.Bell ? 4 : 2)) { pick = sp; break; }
+            if (pick == null) return;
+            int needed = Balance.BlendSpiceCost + (s.Inventory.PowderOf(pick.Value) == 0 ? Balance.GrindSpiceCost : 0);
+            if (!s.Spice.CanSpend(needed)) return;
+            if (s.Inventory.PowderOf(pick.Value) == 0 && !Actions.Grind(s, pick.Value).Ok) return;
+
+            var blend = new Blend();
+            blend.Powder[(int)pick.Value] = 1;
+            if (s.Peppercorns > 10) blend.Peppercorns = 1;
+            var spices = Enum.GetValues<Spice>().Where(sp => SpiceInfo.UnlockLevel(sp) <= s.Level).OrderBy(SpiceInfo.Price).ToList();
+            int start = s.Town.TastedBlends.Count % spices.Count;
+            for (int k = 0; k < spices.Count && blend.Pinches < Balance.MaxBlendPinches && blend.DistinctSpices < Balance.BlendAromaticSpices; k++)
+            {
+                var spice = spices[(start + k) % spices.Count];
+                if (s.Inventory.SpiceOf(spice) == 0)
+                {
+                    if (s.Peppercorns - SpiceInfo.Price(spice) < 20) continue;
+                    if (!Actions.BuySpice(s, spice).Ok) continue;
+                }
+                blend.Spices[(int)spice] = 1;
+            }
+            if (!Actions.MakeBlend(s, blend).Ok) return;
+        }
     }
 
     void CookEverything()

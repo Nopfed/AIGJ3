@@ -3,6 +3,7 @@ namespace SpiceWizard.Core;
 public sealed class Stats
 {
     public int SaucesSold { get; set; }
+    public int BlendsSold { get; set; }
     public int PeppercornsEarned { get; set; }
     public int QuotasMet { get; set; }
     public int FiveStarSauces { get; set; }

@@ -274,22 +274,96 @@ namespace SpiceWizard.Web.Ui
             }
         }
 
-        // ---- Mortar ---------------------------------------------------------------------------
+        // ---- Mortar: grinding and blending -----------------------------------------------------
 
         static void Mortar(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Mortar and pestle")) return;
-            ui.Label(Left, Top, "One pepper becomes one powder for " + Balance.GrindSpiceCost + " spice. Curries want powder.", Palette.Grey);
             Header(ui, "ic_flame", "Spice " + s.Spice.Current + "/" + s.Spice.Max);
-            for (int k = 0; k < Species.All.Length; k++)
+            var draft = ss.Draft;
+            bool unlocked = s.Level >= Balance.BlendUnlockLevel;
+            bool room = draft.Pinches < Balance.MaxBlendPinches;
+            ui.Label(Left, Top, "Grind, then pinch a blend:", Palette.Grey);
+
+            // Left: the pantry as pinchable rows. Powder rows also grind.
+            int y = Top + 12;
+            for (int k = 0; k < Species.All.Length; k++, y += 11)
             {
                 var sp = (PepperSpecies)k;
-                int y = Top + 16 + k * 18;
-                ui.IconLabel(Left, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " peppers: " + s.Inventory.Pepper(sp), Palette.Outline);
-                ui.IconLabel(Left + 130, y, "ic_powder", ItemArt.SpeciesColor(sp), "powder: " + s.Inventory.PowderOf(sp), Palette.Outline);
-                if (ui.Button(new Rectangle(Left + 200, y - 2, 50, 12), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost)))
+                var ing = Ingredient.Powder(sp);
+                ui.IconLabel(Left, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " " + s.Inventory.Pepper(sp), Palette.Outline);
+                ui.IconLabel(Left + 66, y, "ic_powder", ItemArt.SpeciesColor(sp), "x" + s.Inventory.PowderOf(sp), Palette.Outline);
+                if (ui.Button(new Rectangle(Left + 100, y - 1, 34, 11), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost), "One pepper to one powder for " + Balance.GrindSpiceCost + " spice"))
                     ss.Say(Actions.Grind(s, sp));
+                PinchButton(ui, s, draft, ing, Left + 138, y, unlocked && room);
             }
+            y += 2;
+            for (int k = 0; k < Inventory.SpiceCount; k++, y += 11)
+            {
+                var spice = (Spice)k;
+                var ing = Ingredient.Of(spice);
+                int have = s.Inventory.SpiceOf(spice);
+                ui.IconLabel(Left, y, "ic_pouch", ItemArt.SpiceColor(spice), SpiceInfo.Name(spice) + " x" + have, have > 0 ? Palette.Outline : Palette.Grey);
+                PinchButton(ui, s, draft, ing, Left + 138, y, unlocked && room);
+            }
+            ui.IconLabel(Left, y, "ic_peppercorn", Color.White, "Peppercorn x" + s.Peppercorns, Palette.Outline);
+            PinchButton(ui, s, draft, Ingredient.Peppercorns(1), Left + 138, y, unlocked && room);
+
+            // Right: the draft blend and what the town will make of it.
+            int rx = Left + 160;
+            ui.Label(rx, Top, "Your blend", Palette.DarkRed);
+            ui.Label(rx + 72, Top, draft.Pinches + "/" + Balance.MaxBlendPinches + " pinches", Palette.Grey);
+            if (!unlocked)
+            {
+                ui.Paragraph(rx, Top + 14, 30, "Blending unlocks at level " + Balance.BlendUnlockLevel + ". Until then the mortar only grinds.", Palette.Grey);
+                return;
+            }
+            int py = Top + 12;
+            if (draft.Pinches == 0) ui.Paragraph(rx, py, 30, "Click + to add pinches. Two to five make a blend the town has never tasted.", Palette.Grey);
+            foreach (var ing in draft.Ingredients)
+            {
+                if (ui.Button(new Rectangle(rx, py - 1, 12, 11), "-", true, "Take one pinch out")) draft.Adjust(ing, -1);
+                string icon = ing.Kind == IngredientKind.Powder ? "ic_powder" : ing.Kind == IngredientKind.Spice ? "ic_pouch" : "ic_peppercorn";
+                var tint = ing.Kind == IngredientKind.Powder ? ItemArt.SpeciesColor((PepperSpecies)ing.Index) : ing.Kind == IngredientKind.Spice ? ItemArt.SpiceColor((Spice)ing.Index) : Color.White;
+                ui.IconLabel(rx + 16, py, icon, tint, ing.Count + " " + ing.Name, Palette.Outline);
+                py += 11;
+            }
+
+            int dy = Top + 12 + 5 * 11 + 4;
+            if (draft.Pinches > 0)
+            {
+                ui.Label(rx, dy, draft.Name, Palette.Purple);
+                ui.Label(rx + 96, dy, "heat " + draft.Heat, Palette.Grey);
+                ui.Label(rx, dy + 11, "Worth " + draft.Value + "pc, tier " + draft.Tier);
+                ui.Stars(rx + 120, dy + 10, draft.Quality);
+                int ny = dy + 23;
+                ui.Label(rx, ny, "Plain mix: " + Balance.BlendBaseQuality + " stars", Palette.Grey);
+                ny += 10;
+                foreach (var note in draft.Notes())
+                {
+                    ui.Label(rx, ny, (note.Delta > 0 ? "+" : "") + note.Delta + " " + note.Text, note.Delta > 0 ? Palette.Green : Palette.DarkRed);
+                    ny += 10;
+                }
+                if (s.Town.HasTasted(draft)) ui.Label(rx, ny, "The town has tasted this one.", Palette.Grey);
+                else ui.Label(rx, ny, "+1 New to the town", Palette.Green);
+            }
+
+            string blocker = Actions.BlendBlocker(s, draft);
+            if (ui.Button(new Rectangle(rx, Frame.Bottom - 22, 72, 16), "Blend (" + Balance.BlendSpiceCost + ")", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.BlendSpiceCost + " spice" : blocker))
+            {
+                var res = Actions.MakeBlend(s, draft);
+                ss.Say(res);
+                if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Mortar.X + 8, Layout.Mortar.Y), ItemArt.BlendColor(draft));
+            }
+            if (ui.Button(new Rectangle(rx + 78, Frame.Bottom - 22, 44, 16), "Clear", draft.Pinches > 0)) draft.Clear();
+        }
+
+        /// <summary>The little + that drops one pinch of an ingredient into the draft, if the pantry has a spare one.</summary>
+        static void PinchButton(Ui ui, GameState s, Blend draft, Ingredient ing, int x, int y, bool enabled)
+        {
+            int spare = Actions.Have(s, ing) - draft.CountOf(ing);
+            if (ui.Button(new Rectangle(x, y - 1, 12, 11), "+", enabled && spare > 0, spare > 0 ? "Add a pinch" : "None spare in the pantry"))
+                draft.Adjust(ing, 1);
         }
 
         // ---- Pantry (inventory) -----------------------------------------------------------------
@@ -332,7 +406,7 @@ namespace SpiceWizard.Web.Ui
             for (int k = 0; k < inv.Sauces.Count && k < 6; k++)
             {
                 var sauce = inv.Sauces[k];
-                ui.IconLabel(c2, seedsY + 12 + k * 10, ItemArt.SauceIcon(sauce.Recipe), ItemArt.SauceColor(sauce.RecipeId), sauce.Recipe.Name + " " + sauce.Quality + "*", Palette.Outline);
+                ui.IconLabel(c2, seedsY + 12 + k * 10, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name + " " + sauce.Quality + "*", Palette.Outline);
             }
             if (inv.Sauces.Count > 6) ui.Label(c2, seedsY + 72, "+" + (inv.Sauces.Count - 6) + " more", Palette.Grey);
 
@@ -356,7 +430,7 @@ namespace SpiceWizard.Web.Ui
             {
                 var sauce = s.Inventory.Sauces[k];
                 int y = Top + 12 + k * Row;
-                ui.IconLabel(Left, y, ItemArt.SauceIcon(sauce.Recipe), ItemArt.SauceColor(sauce.RecipeId), sauce.Recipe.Name, Palette.Outline);
+                ui.IconLabel(Left, y, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
                 ui.Stars(Left + 96, y, sauce.Quality);
                 if (ui.Button(new Rectangle(Left + 134, y - 1, 12, 11), ">", !s.Crate.IsFull, "Ship to town"))
                     ss.Say(Actions.Ship(s, k));
@@ -370,10 +444,10 @@ namespace SpiceWizard.Web.Ui
                 var sauce = s.Crate.Sauces[k];
                 int y = Top + 12 + k * Row;
                 if (ui.Button(new Rectangle(cx, y - 1, 12, 11), "<", true, "Take back")) ss.Say(Actions.Unship(s, k));
-                ui.IconLabel(cx + 16, y, ItemArt.SauceIcon(sauce.Recipe), ItemArt.SauceColor(sauce.RecipeId), sauce.Recipe.Name, Palette.Outline);
+                ui.IconLabel(cx + 16, y, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
                 ui.Stars(cx + 112, y, sauce.Quality);
             }
-            ui.Paragraph(Left, Frame.Bottom - 24, MaxChars, "The town rates each bottle overnight. Quota sauces gain a star; repeats within three days lose one.", Palette.Grey);
+            ui.Paragraph(Left, Frame.Bottom - 24, MaxChars, "Rated overnight. Quota sauces and new blends gain a star; repeats within three days lose one.", Palette.Grey);
         }
 
         // ---- Tower door: sleep ---------------------------------------------------------------------
@@ -409,7 +483,7 @@ namespace SpiceWizard.Web.Ui
             }
             foreach (var sale in r.Sales)
             {
-                ui.IconLabel(Left, y, ItemArt.SauceIcon(sale.Sauce.Recipe), ItemArt.SauceColor(sale.Sauce.RecipeId), sale.Sauce.Recipe.Name, Palette.Outline);
+                ui.IconLabel(Left, y, ItemArt.ProductIcon(sale.Sauce), ItemArt.ProductColor(sale.Sauce), sale.Sauce.Name, Palette.Outline);
                 ui.Stars(Left + 90, y, sale.Stars);
                 ui.Label(Left + 130, y + 1, "+" + sale.Peppercorns + "pc +" + sale.Xp + "xp", Palette.Green);
                 ui.Label(Left + 8, y + 9, sale.Remark, Palette.Grey);
@@ -449,7 +523,7 @@ namespace SpiceWizard.Web.Ui
                 "Click anything in the yard to use it. A day lasts four minutes; at 22:00 you sleep and the night moves everything on.",
                 "GROW  Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament.",
                 "FERMENT  Two peppers in a jar become mash after two nights.",
-                "GRIND  The mortar turns peppers into powder for curries.",
+                "GRIND  The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",
                 "COOK  The cauldron brews hot sauces and curries for spice.",
                 "SELL  Bottles in the crate are rated at dawn and paid for in peppercorns, which are also an ingredient.",
                 "QUOTA  Fill the notice board request each week for bonuses.",

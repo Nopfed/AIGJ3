@@ -74,7 +74,7 @@ namespace SpiceWizard.Web.Scene
             list.Add(new Station(StationKind.Market, 0, new Rectangle(CartPark.X, CartPark.Y, 54, 24), new Point(CartPark.X + 30, RoadBottom + 6), "Merchant", "Buy seeds and spices"));
             list.Add(new Station(StationKind.Cauldron, 0, new Rectangle(Cauldron.X, Cauldron.Y - 6, 24, 30), new Point(Cauldron.X - 6, Cauldron.Y + 24), "Cauldron", "Cook sauces"));
             list.Add(new Station(StationKind.Shelf, 0, new Rectangle(Shelf.X, Shelf.Y, 44, 22), new Point(Shelf.X + 22, Tower.Bottom + 10), "Jar shelf", "Ferment peppers"));
-            list.Add(new Station(StationKind.Mortar, 0, new Rectangle(Stump.X, Mortar.Y, 18, 20), new Point(Stump.X - 6, Stump.Y + 12), "Mortar", "Grind peppers to powder"));
+            list.Add(new Station(StationKind.Mortar, 0, new Rectangle(Stump.X, Mortar.Y, 18, 20), new Point(Stump.X - 6, Stump.Y + 12), "Mortar", "Grind peppers, mix blends"));
             list.Add(new Station(StationKind.Pantry, 0, new Rectangle(Pantry.X, Pantry.Y, 18, 14), new Point(Pantry.X - 6, Pantry.Y + 18), "Pantry", "Your ingredients"));
             list.Add(new Station(StationKind.Crate, 0, new Rectangle(Crate.X, Crate.Y, 18, 14), new Point(Crate.X + 24, Crate.Y + 18), "Shipping crate", "Send sauces to town"));
             list.Add(new Station(StationKind.Door, 0, new Rectangle(Door.X, Door.Y, 14, 26), new Point(Door.X + 7, Tower.Bottom + 8), "Tower door", "Go to bed"));

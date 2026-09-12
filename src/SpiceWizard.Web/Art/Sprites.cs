@@ -952,6 +952,17 @@ namespace SpiceWizard.Web.Art
                 "...gg...",
                 "..GGGG..",
             },
+            ["ic_blend"] = new[]
+            {
+                ".KKKKKK.",
+                ".KgKgKg.",
+                ".KKKKKK.",
+                ".WWWWWW.",
+                ".WWggWW.",
+                ".WgWWgW.",
+                ".WWggWW.",
+                ".gggggg.",
+            },
             ["ic_water"] = new[]
             {
                 "...c....",

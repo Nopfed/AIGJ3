@@ -39,6 +39,7 @@ public sealed class Progression
     {
         var parts = new List<string>();
         foreach (var r in RecipeBook.All) if (r.UnlockLevel == level) parts.Add(r.Name + " recipe");
+        if (level == Balance.BlendUnlockLevel) parts.Add("spice blends at the mortar");
         foreach (var s in Species.All) if (s.UnlockLevel == level && level > 1) parts.Add(s.Name + " seeds");
         for (int i = 0; i < Inventory.SpiceCount; i++) if (SpiceInfo.UnlockLevels[i] == level && level > 1) parts.Add(SpiceInfo.Names[i]);
         if (Garden.UnlockedPlots(level) > Garden.UnlockedPlots(level - 1)) parts.Add("garden plot");

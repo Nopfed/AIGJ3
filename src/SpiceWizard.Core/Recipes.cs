@@ -61,6 +61,24 @@ public static class Balance
     public const int CookSpiceCost = 3;
     public const int GrindSpiceCost = 1;
     public const int PepTalkSpiceCost = 1;
+
+    // Spice blends mixed at the mortar.
+    public const int BlendUnlockLevel = 2;
+    public const int BlendSpiceCost = 2;
+    public const int MinBlendPinches = 2;
+    public const int MaxBlendPinches = 5;
+    /// <summary>A blend sells for its pinches' merchant worth times this.</summary>
+    public const double BlendValueMultiplier = 1.2;
+    /// <summary>A pinch of powder is worth base + per-heat × the pepper's heat (Bell 4 ... Ghost 12).</summary>
+    public const int PowderWorthBase = 2;
+    public const int PowderWorthPerHeat = 2;
+    public const int PeppercornPinchWorth = 2;
+    /// <summary>A blend starts plain; kick, aroma and a peppercorn each add a star, no pepper at all loses one.</summary>
+    public const int BlendBaseQuality = 2;
+    /// <summary>Total powder heat from which a blend earns its "kick" star.</summary>
+    public const int BlendKickHeat = 3;
+    /// <summary>Distinct spices from which a blend earns its "aromatic" star.</summary>
+    public const int BlendAromaticSpices = 3;
     public const int BaseSpiceMax = 8;
     public const int SpiceMaxCap = 14;
 

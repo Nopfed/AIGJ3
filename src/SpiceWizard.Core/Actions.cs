@@ -150,28 +150,32 @@ public static class Actions
 
         bool usedAged = false;
         foreach (var ing in recipe.Ingredients)
-        {
-            switch (ing.Kind)
-            {
-                case IngredientKind.Pepper: s.Inventory.Peppers[ing.Index] -= ing.Count; break;
-                case IngredientKind.Powder: s.Inventory.Powder[ing.Index] -= ing.Count; break;
-                case IngredientKind.Spice: s.Inventory.Spices[ing.Index] -= ing.Count; break;
-                case IngredientKind.Peppercorn: s.Peppercorns -= ing.Count; break;
-                case IngredientKind.Mash:
-                    // Aged mash is strictly better, so it is always used first.
-                    int fromAged = Math.Min(ing.Count, s.Inventory.AgedMash[ing.Index]);
-                    s.Inventory.AgedMash[ing.Index] -= fromAged;
-                    s.Inventory.Mash[ing.Index] -= ing.Count - fromAged;
-                    if (fromAged > 0) usedAged = true;
-                    break;
-            }
-        }
+            if (Consume(s, ing)) usedAged = true;
         if (extraPeppercorn) s.Peppercorns--;
         s.Spice.TrySpend(Balance.CookSpiceCost);
 
         int quality = Quality(recipe, s.Level, usedAged, extraPeppercorn);
         s.Inventory.Sauces.Add(new Sauce(recipe.Id, quality, s.Clock.Day));
         return ActionResult.Success($"{recipe.Name} bottled. {new string('*', quality)}");
+    }
+
+    /// <summary>Takes one ingredient line out of the pantry. Returns true when aged mash went in.</summary>
+    static bool Consume(GameState s, Ingredient ing)
+    {
+        switch (ing.Kind)
+        {
+            case IngredientKind.Pepper: s.Inventory.Peppers[ing.Index] -= ing.Count; break;
+            case IngredientKind.Powder: s.Inventory.Powder[ing.Index] -= ing.Count; break;
+            case IngredientKind.Spice: s.Inventory.Spices[ing.Index] -= ing.Count; break;
+            case IngredientKind.Peppercorn: s.Peppercorns -= ing.Count; break;
+            case IngredientKind.Mash:
+                // Aged mash is strictly better, so it is always used first.
+                int fromAged = Math.Min(ing.Count, s.Inventory.AgedMash[ing.Index]);
+                s.Inventory.AgedMash[ing.Index] -= fromAged;
+                s.Inventory.Mash[ing.Index] -= ing.Count - fromAged;
+                return fromAged > 0;
+        }
+        return false;
     }
 
     public static int Quality(Recipe recipe, int level, bool usedAged, bool extraPeppercorn)
@@ -182,6 +186,36 @@ public static class Actions
         if (level < recipe.UnlockLevel + 2) q--;
         if (level >= recipe.UnlockLevel + 6) q++;
         return Math.Clamp(q, 1, 5);
+    }
+
+    // ---- Blending -----------------------------------------------------------
+
+    /// <summary>Why the blend cannot be mixed right now, or empty when it can.</summary>
+    public static string BlendBlocker(GameState s, Blend blend)
+    {
+        if (s.Level < Balance.BlendUnlockLevel) return $"Blending unlocks at level {Balance.BlendUnlockLevel}.";
+        if (blend.Pinches < Balance.MinBlendPinches) return $"A blend needs at least {Balance.MinBlendPinches} pinches.";
+        if (blend.Pinches > Balance.MaxBlendPinches) return $"At most {Balance.MaxBlendPinches} pinches fit in the mortar.";
+        if (!s.Spice.CanSpend(Balance.BlendSpiceCost)) return $"Blending takes {Balance.BlendSpiceCost} spice. Eat a pepper or rest.";
+        foreach (var ing in blend.Ingredients)
+        {
+            if (Have(s, ing) >= ing.Count) continue;
+            return ing.Kind == IngredientKind.Peppercorn ? "Not enough peppercorns." : $"Missing {ing.Name}.";
+        }
+        return "";
+    }
+
+    /// <summary>Mixes a copy of <paramref name="blend"/> and bottles it like a sauce; the draft is left as it was.</summary>
+    public static ActionResult MakeBlend(GameState s, Blend blend)
+    {
+        string blocker = BlendBlocker(s, blend);
+        if (blocker.Length > 0) return ActionResult.Fail(blocker);
+
+        var made = blend.Clone();
+        foreach (var ing in made.Ingredients) Consume(s, ing);
+        s.Spice.TrySpend(Balance.BlendSpiceCost);
+        s.Inventory.Sauces.Add(new Sauce(made, made.Quality, s.Clock.Day));
+        return ActionResult.Success($"{made.Name} mixed. {new string('*', made.Quality)}");
     }
 
     // ---- Market -------------------------------------------------------------
@@ -216,7 +250,7 @@ public static class Actions
         var sauce = s.Inventory.Sauces[sauceIndex];
         s.Inventory.Sauces.RemoveAt(sauceIndex);
         s.Crate.Sauces.Add(sauce);
-        return ActionResult.Success(sauce.Recipe.Name + " packed for town.");
+        return ActionResult.Success(sauce.Name + " packed for town.");
     }
 
     public static ActionResult Unship(GameState s, int crateIndex)
@@ -225,7 +259,7 @@ public static class Actions
         var sauce = s.Crate.Sauces[crateIndex];
         s.Crate.Sauces.RemoveAt(crateIndex);
         s.Inventory.Sauces.Add(sauce);
-        return ActionResult.Success(sauce.Recipe.Name + " taken back.");
+        return ActionResult.Success(sauce.Name + " taken back.");
     }
 
     // ---- Night --------------------------------------------------------------

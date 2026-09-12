@@ -2,7 +2,7 @@
 
 A one-screen, pixel-art cooking and farming simulator built for a weekend game jam around the themes **Curry** and **Pepper**. Runs in the browser on the [KNI engine](https://github.com/kniEngine/kni) (Blazor WebAssembly).
 
-You are the Spice Wizard. Grow peppers in the garden outside your tower, ferment and grind them, brew hot sauces and curries in the cauldron, and ship them to the nearby town. The town rates every bottle, pays you in peppercorns and posts a weekly request on the notice board. Climb from level 1 to level 20 and the whole town turns up to celebrate the new **Master Spice Wizard**.
+You are the Spice Wizard. Grow peppers in the garden outside your tower, ferment and grind them, brew hot sauces and curries in the cauldron, mix spice blends of your own at the mortar, and ship them to the nearby town. The town rates every bottle, pays you in peppercorns and posts a weekly request on the notice board. Climb from level 1 to level 20 and the whole town turns up to celebrate the new **Master Spice Wizard**.
 
 ## Play
 
@@ -50,15 +50,15 @@ A day runs from 06:00 to 22:00 in four real minutes. The clock pauses while a pa
 | **Notice board** | This week's quota and its progress. |
 | **Cauldron** | Cooks the eight recipes. Costs 3 spice per sauce. |
 | **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash. 2 jars to start, 4 by level 10. |
-| **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. |
+| **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. From level 2 it also mixes powder, spices and peppercorns into your own **spice blends** for 2 spice. |
 | **Pantry** | Everything you own. Eat peppers here to restore spice. |
-| **Shipping crate** | Holds up to 6 sauces for tonight's delivery. |
+| **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery. |
 | **Tower door** | Go to bed early. |
 
 ## Resources
 
 - **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
-- **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, grinding 1, a pep talk 1. Sleep refills it; eating a pepper restores its heat value.
+- **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, blending 2, grinding 1, a pep talk 1. Sleep refills it; eating a pepper restores its heat value.
 - **Spices** from the merchant: Cumin 3, Cinnamon 3, Curry Leaves 4, Coriander 3, Ginger 4 (level 1); Cardamom 6 (level 3); Cloves 6 and Fenugreek 5 (level 5). Meeting a quota also grants one rare spice.
 
 ## Peppers
@@ -91,9 +91,18 @@ Hot sauces need fermented mash; curries need fresh peppers or powder.
 
 Every sauce is bottled with a **quality** of 1–5 stars: 3 by default, +1 for aged mash, +1 for adding an extra peppercorn, −1 while the recipe is new to you (below its unlock level + 2), +1 once mastered (unlock level + 6).
 
+## Spice blends
+
+From level 2 the mortar also mixes blends of your own design: **2 to 5 pinches** of pepper powder, merchant spices and peppercorns, for 2 spice. No recipe, no fermenting — a blend is ready the moment it is mixed and sells like a sauce.
+
+- **Worth**: the pinches' merchant prices plus 20%. A pinch of powder is worth 2 + 2 × the pepper's heat (Bell 4, Banana 6, Bonnet 8, Ghost 12); a peppercorn pinch is worth 2. The tier (for fame) follows the recipe book's value bands.
+- **Quality**: a plain mix is 2 stars. **+1** when the powders' total heat is 3 or more, **+1** with three different spices, **+1** with a peppercorn in it, **−1** with no pepper powder at all.
+- **Name**: the hottest pepper in it plus what it is — *Bonnet Masala* (three spices), *Ghost Rub* (peppercorn), *Banana Blend*, *Bell Dust*.
+- Blends with exactly the same pinches are the same blend to the town. Every **new** blend earns an extra star the first time the town tastes it; repeats bore the town like any sauce. Blends never count toward the weekly quota.
+
 ## Selling
 
-Overnight the town rates each bottle in the crate: quality, **+1 star** if the sauce is on this week's notice, **−1 star** if the town has already had two of that sauce in the last three days. Pay is the sauce's value × 0.5 / 0.8 / 1 / 1.4 / 2 for 1–5 stars; fame (XP) is stars × recipe tier × 6.
+Overnight the town rates each bottle in the crate: quality, **+1 star** if the sauce is on this week's notice, **+1 star** for a blend the town has never tasted, **−1 star** if the town has already had two of that sauce or blend in the last three days. Pay is the product's value × 0.5 / 0.8 / 1 / 1.4 / 2 for 1–5 stars; fame (XP) is stars × tier × 6.
 
 ## Weekly quota
 
@@ -101,15 +110,15 @@ Every week the notice board asks for two or three sauces you can already cook. D
 
 ## Progression
 
-Fame to the next level is 25 + 15 × (level − 1). Levels unlock recipes, seeds, spices, garden plots (3, 6, 9, 12), jars (5, 10) and spice capacity. Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 30.
+Fame to the next level is 25 + 15 × (level − 1). Levels unlock recipes, blending (2), seeds, spices, garden plots (3, 6, 9, 12), jars (5, 10) and spice capacity. Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 30.
 
 ## Project structure
 
 ```
 SpiceWizard.sln
 src/SpiceWizard.Core/          pure simulation, no engine references
-  Species.cs, Plant.cs, Garden.cs (plots + jars), Recipes.cs (+ Balance),
-  Town.cs (ratings, quota), Progression.cs (+ SpiceMeter, GameClock),
+  Species.cs, Plant.cs, Garden.cs (plots + jars), Recipes.cs (+ Balance), Blends.cs,
+  Town.cs (ratings, novelty, quota), Progression.cs (+ SpiceMeter, GameClock),
   Actions.cs (every player verb), DayTick.cs (night resolution), SaveSystem.cs
 src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers

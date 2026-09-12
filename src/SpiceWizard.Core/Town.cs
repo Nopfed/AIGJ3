@@ -4,6 +4,8 @@ public sealed class SaleRecord
 {
     public int Day { get; set; }
     public int RecipeId { get; set; }
+    /// <summary>Set for blends (RecipeId 0): the blend's <see cref="Blend.Key"/>.</summary>
+    public string? BlendKey { get; set; }
 }
 
 public sealed class SaleResult
@@ -15,6 +17,8 @@ public sealed class SaleResult
     public string Remark { get; set; } = "";
     public bool OnQuota { get; set; }
     public bool Bored { get; set; }
+    /// <summary>A blend the town had never tasted before.</summary>
+    public bool Novel { get; set; }
 }
 
 public sealed class ShippingCrate
@@ -23,26 +27,38 @@ public sealed class ShippingCrate
     public bool IsFull => Sauces.Count >= Balance.CrateCapacity;
 }
 
-/// <summary>The town: it rates sauces, pays in peppercorns, and gets bored of repeats.</summary>
+/// <summary>
+/// The town: it rates sauces, pays in peppercorns, and gets bored of repeats. It also loves trying a
+/// blend it has never tasted, but blends never count toward the notice-board quota.
+/// </summary>
 public sealed class Town
 {
     public List<SaleRecord> Sales { get; set; } = new();
+    /// <summary>Keys of every blend the town has tasted; the first taste of a new one earns a star.</summary>
+    public List<string> TastedBlends { get; set; } = new();
 
     public int RecentSales(int recipeId, int day) =>
-        Sales.Count(s => s.RecipeId == recipeId && s.Day > day - Balance.BoredomWindowDays);
+        Sales.Count(s => s.RecipeId == recipeId && s.BlendKey == null && s.Day > day - Balance.BoredomWindowDays);
 
-    /// <summary>Rates one sauce delivered on the night of <paramref name="day"/> and records the sale.</summary>
+    public int RecentBlendSales(string key, int day) =>
+        Sales.Count(s => s.BlendKey == key && s.Day > day - Balance.BoredomWindowDays);
+
+    public bool HasTasted(Blend blend) => TastedBlends.Contains(blend.Key);
+
+    /// <summary>Rates one sauce or blend delivered on the night of <paramref name="day"/> and records the sale.</summary>
     public SaleResult Rate(Sauce sauce, int day, Quota? quota)
     {
-        var recipe = sauce.Recipe;
-        bool onQuota = quota != null && quota.Wants(recipe.Id);
-        bool bored = RecentSales(recipe.Id, day) >= Balance.BoredomThreshold;
-        int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) - (bored ? 1 : 0), 1, 5);
-        int pay = (int)Math.Round(recipe.BaseValue * Balance.StarMultiplier[stars]);
-        int xp = stars * recipe.Tier * Balance.XpPerStarTier;
+        var blend = sauce.Blend;
+        bool onQuota = blend == null && quota != null && quota.Wants(sauce.RecipeId);
+        bool novel = blend != null && !HasTasted(blend);
+        bool bored = (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThreshold;
+        int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
+        int pay = (int)Math.Round(sauce.BaseValue * Balance.StarMultiplier[stars]);
+        int xp = stars * sauce.Tier * Balance.XpPerStarTier;
 
-        Sales.Add(new SaleRecord { Day = day, RecipeId = recipe.Id });
-        quota?.RecordSale(recipe.Id);
+        Sales.Add(new SaleRecord { Day = day, RecipeId = sauce.RecipeId, BlendKey = blend?.Key });
+        if (novel) TastedBlends.Add(blend!.Key);
+        if (blend == null) quota?.RecordSale(sauce.RecipeId);
 
         return new SaleResult
         {
@@ -52,14 +68,16 @@ public sealed class Town
             Xp = xp,
             OnQuota = onQuota,
             Bored = bored,
-            Remark = Remark(stars, bored, onQuota, recipe),
+            Novel = novel,
+            Remark = Remark(stars, bored, onQuota, novel, sauce.Name),
         };
     }
 
-    static string Remark(int stars, bool bored, bool onQuota, Recipe recipe)
+    static string Remark(int stars, bool bored, bool onQuota, bool novel, string name)
     {
-        if (bored && stars < 5) return "\"" + recipe.Name + " again? We have had our fill.\"";
+        if (bored && stars < 5) return "\"" + name + " again? We have had our fill.\"";
         if (onQuota && stars >= 4) return "\"Just what the notice asked for. Splendid!\"";
+        if (novel && stars >= 4) return "\"A new flavour! Everyone wants a pinch.\"";
         return stars switch
         {
             5 => "\"The whole square is talking about it!\"",

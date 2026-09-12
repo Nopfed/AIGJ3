@@ -19,7 +19,7 @@ public static class DayTick
             report.Sales.Add(sale);
             report.PeppercornsEarned += sale.Peppercorns;
             report.XpEarned += sale.Xp;
-            s.Stats.SaucesSold++;
+            if (sauce.IsBlend) s.Stats.BlendsSold++; else s.Stats.SaucesSold++;
             if (sale.Stars == 5) s.Stats.FiveStarSauces++;
         }
         s.Crate.Sauces.Clear();

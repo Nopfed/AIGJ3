@@ -77,7 +77,7 @@ namespace SpiceWizard.Web.Ui
             c.Rect(cx - 116, 120, 232, 62, Palette.Outline * 0.8f);
             c.TextCentered("The whole town came to cheer!", cx, 124, Palette.White);
             c.TextCentered("Mastered on day " + s.WonOnDay, cx, 136, Palette.Cream);
-            c.TextCentered(s.Stats.SaucesSold + " sauces sold, " + s.Stats.FiveStarSauces + " of them five-star", cx, 146, Palette.Cream);
+            c.TextCentered(s.Stats.SaucesSold + " sauces and " + s.Stats.BlendsSold + " blends sold, " + s.Stats.FiveStarSauces + " of them five-star", cx, 146, Palette.Cream);
             c.TextCentered(s.Stats.PeppercornsEarned + " peppercorns earned, " + s.Stats.QuotasMet + " quotas met", cx, 156, Palette.Cream);
             if (ui.Button(new Rectangle(cx - 84, 166, 80, 14), "Keep playing", true)) ss.Close();
             if (ui.Button(new Rectangle(cx + 4, 166, 80, 14), "New game", true)) ss.RequestNewGame?.Invoke();

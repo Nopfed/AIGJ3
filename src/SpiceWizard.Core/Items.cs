@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SpiceWizard.Core;
 
 public enum PepperSpecies { Bell, Banana, Bonnet, Ghost }
@@ -27,17 +29,26 @@ public sealed class Inventory
     public int SpiceOf(Spice s) => Spices[(int)s];
 }
 
-/// <summary>A cooked sauce. Quality is 1–5 stars before the town has its say.</summary>
+/// <summary>
+/// A bottled product: either a recipe-book sauce (<see cref="RecipeId"/>) or a blend of the wizard's own
+/// (<see cref="Blend"/>, with RecipeId 0). Quality is 1–5 stars before the town has its say.
+/// </summary>
 public sealed class Sauce
 {
     public int RecipeId { get; set; }
+    public Blend? Blend { get; set; }
     public int Quality { get; set; }
     public int CookedDay { get; set; }
 
     public Sauce() { }
     public Sauce(int recipeId, int quality, int cookedDay) { RecipeId = recipeId; Quality = quality; CookedDay = cookedDay; }
+    public Sauce(Blend blend, int quality, int cookedDay) { Blend = blend; Quality = quality; CookedDay = cookedDay; }
 
-    public Recipe Recipe => RecipeBook.Get(RecipeId);
+    [JsonIgnore] public bool IsBlend => Blend != null;
+    [JsonIgnore] public Recipe? Recipe => IsBlend ? null : RecipeBook.Get(RecipeId);
+    [JsonIgnore] public string Name => IsBlend ? Blend!.Name : Recipe!.Name;
+    [JsonIgnore] public int BaseValue => IsBlend ? Blend!.Value : Recipe!.BaseValue;
+    [JsonIgnore] public int Tier => IsBlend ? Blend!.Tier : Recipe!.Tier;
 }
 
 public static class SpiceInfo

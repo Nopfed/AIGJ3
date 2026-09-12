@@ -36,12 +36,17 @@ namespace SpiceWizard.Web
             for (int i = 0; i < Inventory.SpiceCount; i++) inv.Spices[i] = 2;
             inv.Sauces.Add(new Sauce(3, 4, 22));
             inv.Sauces.Add(new Sauce(7, 5, 23));
+            var blend = new Blend { Peppercorns = 1 };
+            blend.Powder[(int)PepperSpecies.Bonnet] = 1;
+            blend.Spices[(int)Spice.Cumin] = 1; blend.Spices[(int)Spice.Coriander] = 1; blend.Spices[(int)Spice.Cloves] = 1;
+            inv.Sauces.Add(new Sauce(blend, blend.Quality, 23));
+            s.Town.TastedBlends.Add(new Blend { Powder = { [(int)PepperSpecies.Bell] = 1 }, Spices = { [(int)Spice.Cumin] = 1 } }.Key);
             s.Crate.Sauces.Add(new Sauce(2, 3, 22));
             s.Crate.Sauces.Add(new Sauce(5, 4, 23));
 
             s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng);
             s.Quota.Lines[0].Sold = s.Quota.Lines[0].Required;
-            s.Stats.SaucesSold = 41; s.Stats.PeppercornsEarned = 2210; s.Stats.QuotasMet = 2; s.Stats.FiveStarSauces = 6;
+            s.Stats.SaucesSold = 41; s.Stats.BlendsSold = 5; s.Stats.PeppercornsEarned = 2210; s.Stats.QuotasMet = 2; s.Stats.FiveStarSauces = 6;
             return s;
         }
     }

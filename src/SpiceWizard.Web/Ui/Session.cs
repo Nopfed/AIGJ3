@@ -14,6 +14,7 @@ namespace SpiceWizard.Web.Ui
         public int Index;                 // plot or jar the panel is about
         public int SelectedRecipe = 1;
         public bool ExtraPeppercorn;
+        public Blend Draft = new Blend();   // the blend being pinched together at the mortar
         public bool HasSave;
 
         public string Toast;

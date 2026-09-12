@@ -49,6 +49,12 @@ namespace SpiceWizard.Web.Scene
 
         public static string SauceIcon(Recipe r) => r.Type == SauceType.Hot ? "ic_hot" : "ic_curry";
 
+        /// <summary>A blend takes the colour of its hottest powder; a blend with no pepper is plain tan.</summary>
+        public static Color BlendColor(Blend b) => b.Dominant is PepperSpecies d ? SpeciesColor(d) : Palette.Tan;
+
+        public static string ProductIcon(Sauce s) => s.IsBlend ? "ic_blend" : SauceIcon(s.Recipe);
+        public static Color ProductColor(Sauce s) => s.IsBlend ? BlendColor(s.Blend) : SauceColor(s.RecipeId);
+
         public static string MatureSprite(PepperSpecies s) => s switch
         {
             PepperSpecies.Bell => "mature_bell",
