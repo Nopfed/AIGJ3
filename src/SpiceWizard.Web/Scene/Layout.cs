@@ -31,6 +31,11 @@ namespace SpiceWizard.Web.Scene
         public static readonly Rectangle Tower = new Rectangle(300, 50, 48, 120);
         public static readonly Point Roof = new Point(298, 27);   // 52 wide: overhangs the 48px wall by 2 each side
         public static readonly Point Door = new Point(317, 144);
+        /// <summary>The dark inside of the doorway when the door stands open.</summary>
+        public static readonly Rectangle DoorInterior = new Rectangle(Door.X + 3, Door.Y + 3, 8, 21);
+        /// <summary>Where the wizard's feet go on the doorstep, and just inside the tower.</summary>
+        public static readonly Point DoorStand = new Point(Door.X + 7, Tower.Bottom + 8);
+        public static readonly Point DoorInside = new Point(Door.X + 7, Tower.Bottom - 3);
         public static readonly Point[] Windows = { new Point(310, 66), new Point(330, 82) };
 
         public static readonly Point CartPark = new Point(100, 80);
@@ -81,7 +86,7 @@ namespace SpiceWizard.Web.Scene
             list.Add(new Station(StationKind.Mortar, 0, new Rectangle(Stump.X, Mortar.Y, 18, 20), new Point(Stump.X - 6, Stump.Y + 12), "Mortar", "Grind peppers, mix blends"));
             list.Add(new Station(StationKind.Pantry, 0, new Rectangle(Pantry.X, Pantry.Y, 18, 14), new Point(Pantry.X - 6, Pantry.Y + 18), "Pantry", "Your ingredients"));
             list.Add(new Station(StationKind.Crate, 0, new Rectangle(Crate.X, Crate.Y, 18, 14), new Point(Crate.X + 24, Crate.Y + 18), "Shipping crate", "Send sauces to town"));
-            list.Add(new Station(StationKind.Door, 0, new Rectangle(Door.X, Door.Y, 14, 26), new Point(Door.X + 7, Tower.Bottom + 8), "Tower door", "Go to bed"));
+            list.Add(new Station(StationKind.Door, 0, new Rectangle(Door.X, Door.Y, 14, 26), DoorStand, "Tower door", "Go to bed"));
             return list.ToArray();
         }
 

@@ -49,9 +49,12 @@ namespace SpiceWizard.Web
         float _dt;
         float _time;
 
-        // Sleep transition: 0 awake, 1 fading to black, 2 fading back in.
+        // Bedtime, in order: 0 awake, 3 walking to the door, 4 door opening, 5 stepping inside,
+        // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out).
         int _sleepPhase;
         float _fade;
+        float _sleepTimer;
+        bool _emerged;
         float _cartTimer;
         float _confettiTimer;
         Station _hover;
@@ -118,6 +121,7 @@ namespace SpiceWizard.Web
             _clearSaveHook?.Invoke();
             _session.HasSave = false;
             _crowd.Stop();
+            ResetSleep();
             _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep };
             _session.Open(PanelKind.Help);
             _session.Say("Welcome to your tower. Click the garden to begin!");
@@ -129,8 +133,17 @@ namespace SpiceWizard.Web
             var loaded = SaveSystem.FromJson(_savedJson);
             if (loaded == null) { NewGame(); return; }
             _state = loaded;
+            ResetSleep();
             _session.Close();
             _session.Say("Welcome back, " + Progression.Title(_state.Level) + ".");
+        }
+
+        void ResetSleep()
+        {
+            _sleepPhase = 0;
+            _fade = 0;
+            _scene.DoorOpen = _scene.WindowsLit = _scene.Snoring = false;
+            _wizard.Hidden = _wizard.FacingAway = _wizard.InDoorway = false;
         }
 
         void QuitToTitle()
@@ -155,9 +168,10 @@ namespace SpiceWizard.Web
         void StartSleep()
         {
             if (_sleepPhase != 0) return;
-            _sleepPhase = 1;
+            _sleepPhase = 3;
             _fade = 0;
             _session.Close();
+            _wizard.WalkTo(Layout.DoorStand, () => { _sleepPhase = 4; _sleepTimer = 0.35f; });
         }
 
         protected override void Update(GameTime gameTime)
@@ -258,30 +272,64 @@ namespace SpiceWizard.Web
 
         void UpdateSleep()
         {
-            if (_sleepPhase == 1)
+            _sleepTimer -= _dt;
+            switch (_sleepPhase)
             {
-                _fade += _dt / 0.7f;
-                if (_fade >= 1f)
-                {
-                    _fade = 1f;
-                    var report = DayTick.Sleep(_state);
-                    Save();
-                    _mixer.Play(report.LevelsGained > 0 ? Sfx.LevelUp : Sfx.Chime);
-                    _sleepPhase = 2;
-                    _cartTimer = 2f;
-                    _wizard = new WizardActor(new Point(Layout.Door.X + 7, Layout.Tower.Bottom + 8)) { OnStep = _mixer.Footstep };
-                    if (report.BecameMaster) { _crowd.Start(); }
-                }
-            }
-            else if (_sleepPhase == 2)
-            {
-                _fade -= _dt / 0.7f;
-                if (_fade <= 0f)
-                {
-                    _fade = 0f;
-                    _sleepPhase = 0;
-                    _session.Open(_state.LastReport != null && _state.LastReport.BecameMaster ? PanelKind.Celebration : PanelKind.Morning);
-                }
+                case 4: // He pauses on the step, then the door swings open and he turns to go in.
+                    if (_sleepTimer > 0) break;
+                    _scene.DoorOpen = true;
+                    _mixer.Play(Sfx.Click);
+                    _wizard.FacingAway = true;
+                    _wizard.InDoorway = true;
+                    _sleepPhase = 5;
+                    _wizard.WalkTo(Layout.DoorInside, () => { _sleepPhase = 6; _sleepTimer = 0.45f; });
+                    break;
+                case 6: // A beat in the doorway, then the door shuts behind him.
+                    if (_sleepTimer > 0) break;
+                    _wizard.Hidden = true;
+                    _scene.DoorOpen = false;
+                    _scene.WindowsLit = true;
+                    _mixer.Play(Sfx.Thud);
+                    _sleepPhase = 7;
+                    _sleepTimer = 0.5f;
+                    break;
+                case 7: // The bedroom light is on and the snoring starts; then the night rolls in.
+                    if (_sleepTimer > 0) break;
+                    if (!_scene.Snoring) { _scene.Snoring = true; _sleepTimer = 1.8f; break; }
+                    _sleepPhase = 1;
+                    break;
+                case 1:
+                    _fade += _dt / 0.7f;
+                    if (_fade >= 1f)
+                    {
+                        _fade = 1f;
+                        var report = DayTick.Sleep(_state);
+                        Save();
+                        _mixer.Play(report.LevelsGained > 0 ? Sfx.LevelUp : Sfx.Chime);
+                        _sleepPhase = 2;
+                        _emerged = false;
+                        _cartTimer = 2f;
+                        _scene.Snoring = false;
+                        _scene.WindowsLit = false;
+                        _scene.DoorOpen = true;
+                        _wizard = new WizardActor(Layout.DoorInside) { OnStep = _mixer.Footstep, InDoorway = true };
+                        if (report.BecameMaster) { _crowd.Start(); }
+                    }
+                    break;
+                case 2: // Morning: the wizard steps out as the dark lifts, and the door closes behind him.
+                    _fade -= _dt / 0.7f;
+                    if (_fade < 0.6f && !_emerged)
+                    {
+                        _emerged = true;
+                        _wizard.WalkTo(Layout.DoorStand, () => { _wizard.InDoorway = false; _scene.DoorOpen = false; _mixer.Play(Sfx.Thud); });
+                    }
+                    if (_fade <= 0f)
+                    {
+                        _fade = 0f;
+                        _sleepPhase = 0;
+                        _session.Open(_state.LastReport != null && _state.LastReport.BecameMaster ? PanelKind.Celebration : PanelKind.Morning);
+                    }
+                    break;
             }
         }
 

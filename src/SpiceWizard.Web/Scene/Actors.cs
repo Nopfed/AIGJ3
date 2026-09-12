@@ -12,6 +12,12 @@ namespace SpiceWizard.Web.Scene
 
         public Vector2 Feet;
         public bool FacingLeft;
+        /// <summary>Drawn from behind (walking into the tower).</summary>
+        public bool FacingAway;
+        /// <summary>Inside the tower: not drawn at all.</summary>
+        public bool Hidden;
+        /// <summary>Passing through the door: drawn behind the door frame so it hides his shoulders.</summary>
+        public bool InDoorway;
         public bool Walking => _target.HasValue;
         /// <summary>Fires once per stride while walking, for footstep sounds.</summary>
         public Action OnStep;
@@ -56,12 +62,19 @@ namespace SpiceWizard.Web.Scene
 
         public void Draw(Canvas c)
         {
-            string frame = Walking ? ((int)(_anim * 8) % 2 == 0 ? "wizard0" : "wizard1")
-                                   : ((int)(_anim * 1.5f) % 2 == 0 ? "wizard0" : "wizard1");
+            if (Hidden) return;
+            // Walking alternates the two stride frames; standing still he just lets his hat tip
+            // flop over now and then and blinks every few seconds.
+            string frame;
+            if (Walking) frame = (FacingAway ? "wizard_back" : "wizard") + ((int)(_anim * 8) % 2);
+            else if (FacingAway) frame = "wizard_back0";
+            else frame = (int)(_anim / 1.6f) % 2 == 0 ? "wizard0" : "wizard_idle";
+            bool blink = !FacingAway && _anim % 3.7f < 0.14f;
             int x = (int)Math.Round(Feet.X) - 6;
             int y = (int)Math.Round(Feet.Y) - 20;
             c.Rect(x + 1, y + 19, 10, 2, Palette.Shadow);
             c.Sprite(frame, x, y, Color.White, FacingLeft);
+            if (blink) { c.Rect(x + 4, y + 7, 1, 1, Palette.Skin); c.Rect(x + 7, y + 7, 1, 1, Palette.Skin); }
         }
     }
 

@@ -66,6 +66,12 @@ namespace SpiceWizard.Web.Scene
         public float CartX = Layout.CartPark.X;
         /// <summary>0..1 gust strength, set each frame by the audio mixer so the meadow leans with the sound.</summary>
         public float Wind;
+        /// <summary>The tower door stands open while the wizard goes in or comes out.</summary>
+        public bool DoorOpen;
+        /// <summary>Lights the windows whatever the hour (the wizard is up and about inside).</summary>
+        public bool WindowsLit;
+        /// <summary>While true, little z's drift up from the bedroom window.</summary>
+        public bool Snoring;
 
         // Scenery outside the 384x216 design box, generated once per window size.
         struct Prop { public string Sprite; public int X, Y; public int Base; }
@@ -100,11 +106,11 @@ namespace SpiceWizard.Web.Scene
             DrawTown(f);
             DrawGround();
             DrawProps(f);
-            DrawTower(f);
+            DrawTower(f, wizard);
             DrawGarden(s, hover);
             DrawStations(s, hover);
             crowd.Draw(_c);
-            wizard.Draw(_c);
+            if (!wizard.InDoorway) wizard.Draw(_c);
             particles.Draw(_c);
             var tint = DayNight.Tint(f);
             if (tint.A > 0) _c.Rect(Camera.View, tint);
@@ -150,6 +156,9 @@ namespace SpiceWizard.Web.Scene
                 _c.Sprite("moon", m.X, m.Y);
             }
             // Clouds drift at a few heights; the higher ones only show when the window is tall.
+            // Each one lives in world space and repeats every CloudPeriod pixels, so the window
+            // size only decides how many copies are visible, never where a cloud is.
+            const int CloudPeriod = 640;
             int[] dy = { -86, -70, -56, -40, -30 };
             int[] speed = { 3, 5, 4, 6, 3 };
             string[] kind = { "cloud_big", "cloud", "cloud_big", "cloud", "cloud" };
@@ -160,9 +169,10 @@ namespace SpiceWizard.Web.Scene
                 int y = Layout.Horizon + dy[i];
                 if (y < view.Top - 12) continue;
                 int w = _c.Size(kind[i]).X;
-                int span = view.Width + w + 40;
-                int x = view.Left - w + (int)(_time * speed[i] + i * 137) % span;
-                _c.Sprite(kind[i], x, y, cloudTint * alpha[i]);
+                int x = (int)(_time * speed[i] + i * 137) % CloudPeriod;
+                while (x + w > view.Left) x -= CloudPeriod;
+                for (x += CloudPeriod; x < view.Right; x += CloudPeriod)
+                    _c.Sprite(kind[i], x, y, cloudTint * alpha[i]);
             }
         }
 
@@ -367,7 +377,7 @@ namespace SpiceWizard.Web.Scene
 
         // ---- The tower -------------------------------------------------------------------------
 
-        void DrawTower(double f)
+        void DrawTower(double f, WizardActor wizard)
         {
             var t = Layout.Tower;
             // Ground shadow first so everything sits on top of it.
@@ -391,18 +401,42 @@ namespace SpiceWizard.Web.Scene
 
             _c.Sprite("roof", Layout.Roof.X, Layout.Roof.Y);
 
-            bool lit = f > 0.8 || f < 0.06;
+            bool lit = WindowsLit || f > 0.8 || f < 0.06;
             foreach (var w in Layout.Windows)
             {
                 if (lit) _c.Rect(w.X - 2, w.Y - 2, 12, 13, Palette.Glow);
                 _c.Sprite(lit ? "window_lit" : "window", w.X, w.Y);
                 _c.Rect(w.X + 1, w.Y + 10, 7, 1, Palette.Shadow);
             }
+            if (Snoring)
+            {
+                // Three little z's drifting up and away from the top window, fading as they go.
+                var w = Layout.Windows[0];
+                for (int i = 0; i < 3; i++)
+                {
+                    float rise = (_time * 9 + i * 8) % 24;
+                    _c.Text("z", w.X + 10 + (int)(rise / 3), w.Y - 2 - (int)rise, Palette.Cream * (1f - rise / 24f));
+                }
+            }
             // Doorstep and the door itself.
             _c.Rect(Layout.Door.X - 1, t.Bottom, 16, 2, Palette.LightStone);
             _c.Rect(Layout.Door.X - 1, t.Bottom + 2, 16, 1, Palette.Outline);
-            _c.Sprite("door", Layout.Door.X, Layout.Door.Y);
-            if (lit) _c.Rect(Layout.Door.X + 3, Layout.Door.Y + 6, 8, 1, Palette.Glow);
+            if (DoorOpen)
+            {
+                // A warm hallway behind the open door: lamplit near the top, dark toward the floor.
+                var inside = Layout.DoorInterior;
+                _c.Rect(inside, new Color(58, 36, 30));
+                _c.Rect(inside.X, inside.Y, inside.Width, 6, new Color(120, 70, 36));
+                _c.Rect(inside.X, inside.Y + 6, inside.Width, 6, new Color(90, 52, 32));
+                _c.Rect(inside.X, inside.Bottom - 2, inside.Width, 2, Palette.DarkBrown);
+                if (wizard.InDoorway) wizard.Draw(_c);
+                _c.Sprite("door_open", Layout.Door.X - 3, Layout.Door.Y);
+            }
+            else
+            {
+                _c.Sprite("door", Layout.Door.X, Layout.Door.Y);
+                if (lit) _c.Rect(Layout.Door.X + 3, Layout.Door.Y + 6, 8, 1, Palette.Glow);
+            }
 
             // Ivy climbing the left edge and a creeper on the right.
             for (int y = t.Y + 36; y < t.Bottom - 4; y += 3)
