@@ -418,6 +418,11 @@ namespace SpiceWizard.Web.Scene
                 var plot = s.Garden.Plots[i];
                 bool wet = plot.Plant != null && plot.Plant.WateredToday;
                 _c.Sprite(!unlocked ? "plot_locked" : wet ? "plot_wet" : "plot", p.X, p.Y);
+                if (!unlocked)
+                {
+                    _c.Rect(new Rectangle(p.X, p.Y - 10, 24, 26), Palette.Outline * 0.45f);
+                    _c.Sprite("ic_lock", p.X + 8, p.Y - 6);
+                }
                 if (plot.Plant != null)
                 {
                     var plant = plot.Plant;

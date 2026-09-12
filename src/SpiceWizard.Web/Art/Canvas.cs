@@ -15,9 +15,9 @@ namespace SpiceWizard.Web.Art
         public const int Width = 384;
         public const int Height = 216;
 
-        public int Scale { get; private set; } = 1;
+        public static int Scale { get; private set; } = 1;
         /// <summary>Window pixel of the design origin (virtual 0,0).</summary>
-        public Point Origin { get; private set; }
+        public static Point Origin { get; private set; }
 
         /// <summary>The visible virtual area. Always contains the 384x216 design box.</summary>
         public static Rectangle View { get; private set; } = new Rectangle(0, 0, Width, Height);
@@ -38,10 +38,15 @@ namespace SpiceWizard.Web.Art
             Origin = new Point((windowWidth - vw * Scale) / 2 - left * Scale, (windowHeight - vh * Scale) / 2 - top * Scale);
         }
 
-        public Matrix Transform => Matrix.CreateScale(Scale, Scale, 1) * Matrix.CreateTranslation(Origin.X, Origin.Y, 0);
+        public static Matrix Transform => Matrix.CreateScale(Scale, Scale, 1) * Matrix.CreateTranslation(Origin.X, Origin.Y, 0);
 
         public Point ToVirtual(int windowX, int windowY) =>
             new Point((int)Math.Floor((windowX - Origin.X) / (double)Scale), (int)Math.Floor((windowY - Origin.Y) / (double)Scale));
+
+        /// <summary>Converts a rectangle in virtual pixels to window (screen) pixels, for GPU-level clipping.</summary>
+        public static Rectangle ToScreen(Rectangle virtualRect) => new Rectangle(
+            Origin.X + virtualRect.X * Scale, Origin.Y + virtualRect.Y * Scale,
+            virtualRect.Width * Scale, virtualRect.Height * Scale);
     }
 
     /// <summary>All drawing goes through here so the rest of the code talks in sprite names and virtual pixels.</summary>
@@ -50,7 +55,26 @@ namespace SpiceWizard.Web.Art
         public SpriteBatch Batch { get; }
         public Atlas Atlas { get; }
 
+        static readonly RasterizerState ScissorRaster = new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None };
+
         public Canvas(SpriteBatch batch, Atlas atlas) { Batch = batch; Atlas = atlas; }
+
+        /// <summary>Restricts drawing to a rectangle (virtual pixels) until <see cref="PopClip"/>; used to keep
+        /// scrollable panel content from spilling past its frame. Flushes the batch to apply the new state.</summary>
+        public void PushClip(Rectangle virtualRect)
+        {
+            Batch.End();
+            var screen = Rectangle.Intersect(Camera.ToScreen(virtualRect), Batch.GraphicsDevice.Viewport.Bounds);
+            if (screen.Width <= 0 || screen.Height <= 0) screen = new Rectangle(0, 0, 0, 0);
+            Batch.GraphicsDevice.ScissorRectangle = screen;
+            Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, ScissorRaster, null, Camera.Transform);
+        }
+
+        public void PopClip()
+        {
+            Batch.End();
+            Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
+        }
 
         public void Sprite(string name, int x, int y) => Sprite(name, x, y, Color.White);
 

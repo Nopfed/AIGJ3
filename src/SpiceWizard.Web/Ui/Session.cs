@@ -12,6 +12,8 @@ namespace SpiceWizard.Web.Ui
     {
         public PanelKind Panel = PanelKind.Title;
         public int Index;                 // plot or jar the panel is about
+        public int Scroll;                // scroll offset of the open panel's content
+        public int ContentHeight;         // measured height of that content, one frame stale
         public int SelectedRecipe = 1;
         public bool ExtraPeppercorn;
         public Blend Draft = new Blend();   // the blend being pinched together at the mortar
@@ -35,6 +37,8 @@ namespace SpiceWizard.Web.Ui
         {
             Panel = kind;
             Index = index;
+            Scroll = 0;
+            ContentHeight = 0;
         }
 
         public void Close() => Panel = PanelKind.None;

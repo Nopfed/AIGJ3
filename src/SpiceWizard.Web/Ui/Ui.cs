@@ -13,17 +13,22 @@ namespace SpiceWizard.Web.Ui
         public Point Mouse { get; private set; }
         public bool Clicked { get; private set; }
         public string Tooltip { get; set; }
+        int _wheel;
+        Rectangle? _hitClip;
 
         public Ui(Canvas canvas) { C = canvas; }
 
-        public void Begin(Point mouse, bool clicked)
+        public void Begin(Point mouse, bool clicked, int wheel = 0)
         {
             Mouse = mouse;
             Clicked = clicked;
             Tooltip = null;
+            _wheel = wheel;
+            _hitClip = null;
         }
 
-        public bool Hot(Rectangle r) => r.Contains(Mouse);
+        /// <summary>True over the rectangle and, while inside a scroll region, only for its visible part.</summary>
+        public bool Hot(Rectangle r) => r.Contains(Mouse) && (_hitClip == null || _hitClip.Value.Contains(Mouse));
 
         /// <summary>Takes the click for this frame if the mouse is inside the rectangle.</summary>
         public bool Take(Rectangle r)
@@ -118,6 +123,38 @@ namespace SpiceWizard.Web.Ui
             int w = (int)((r.Width - 2) * MathHelper.Clamp(fraction, 0, 1));
             C.Rect(r.X + 1, r.Y + 1, w, r.Height - 2, fill);
             if (w > 0) C.Rect(r.X + 1, r.Y + 1, w, 1, Color.Lerp(fill, Palette.White, 0.4f));
+        }
+
+        const int WheelStep = 40; // virtual pixels scrolled per mouse-wheel notch (120 units)
+
+        /// <summary>Starts a clipped, scrollable content region. Pass the running scroll offset by ref: it is
+        /// clamped to the content height and updated from the mouse wheel while the pointer is over the area.
+        /// Draw content with y positions already shifted up by the returned offset, then call <see cref="EndScroll"/>.</summary>
+        public int BeginScroll(Rectangle area, ref int scroll, int contentHeight)
+        {
+            int max = System.Math.Max(0, contentHeight - area.Height);
+            if (Hot(area) && _wheel != 0) scroll -= _wheel * WheelStep / 120;
+            scroll = MathHelper.Clamp(scroll, 0, max);
+            C.PushClip(area);
+            _hitClip = area;
+            return scroll;
+        }
+
+        public void EndScroll(Rectangle area, int scroll, int contentHeight)
+        {
+            _hitClip = null;
+            C.PopClip();
+            int max = contentHeight - area.Height;
+            if (max > 0) DrawScrollbar(area, scroll, max, contentHeight);
+        }
+
+        void DrawScrollbar(Rectangle area, int scroll, int max, int contentHeight)
+        {
+            int x = area.Right - 3;
+            C.Rect(x, area.Y, 3, area.Height, Palette.Shadow * 0.6f);
+            int thumbH = System.Math.Max(12, area.Height * area.Height / contentHeight);
+            int thumbY = area.Y + (int)((area.Height - thumbH) * (scroll / (float)max));
+            C.Rect(x, thumbY, 3, thumbH, Palette.Tan);
         }
 
         public void DrawTooltip()

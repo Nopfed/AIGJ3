@@ -37,6 +37,7 @@ namespace SpiceWizard.Web
         MouseState _prevMouse;
         KeyboardState _prevKeys;
         Point _mouse;
+        int _wheel;
         bool _clicked;
         bool _clickLatch;
         bool _escape;
@@ -139,6 +140,7 @@ namespace SpiceWizard.Web
             var mouse = Mouse.GetState();
             _mouse = _camera.ToVirtual(mouse.X, mouse.Y);
             _clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
+            _wheel = mouse.ScrollWheelValue - _prevMouse.ScrollWheelValue;
             _prevMouse = mouse;
             // Clicks queued by the page (pointerdown events) catch taps shorter than one frame.
             var queued = _pollClicks?.Invoke();
@@ -203,7 +205,10 @@ namespace SpiceWizard.Web
             _hover = null;
             if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Camera.Top + Layout.HudHeight)
                 foreach (var st in Layout.Stations)
+                {
+                    if (st.Kind == StationKind.Plot && st.Index >= _state.UnlockedPlots) continue;
                     if (st.Bounds.Contains(_mouse)) { _hover = st; break; }
+                }
 
             base.Update(gameTime);
         }
@@ -268,9 +273,9 @@ namespace SpiceWizard.Web
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Palette.Outline);
-            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, _camera.Transform);
+            _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
 
-            _ui.Begin(_mouse, _clicked);
+            _ui.Begin(_mouse, _clicked, _wheel);
             _scene.Draw(_state, _wizard, _particles, _crowd, _hover);
 
             if (_session.Panel == PanelKind.Title)

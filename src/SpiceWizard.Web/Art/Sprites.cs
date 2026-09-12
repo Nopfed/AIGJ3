@@ -1129,6 +1129,18 @@ namespace SpiceWizard.Web.Art
                 "YyyyyyYY",
                 "........",
             },
+            ["ic_lock"] = new[]
+            {
+                "..KKKK..",
+                ".K....K.",
+                ".K....K.",
+                "KKKKKKKK",
+                "KyyyyyyK",
+                "KyyKyyyK",
+                "KyyyyyyK",
+                "KKKKKKKK",
+            },
+
             ["ic_check"] = new[]
             {
                 "........",
