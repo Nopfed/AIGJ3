@@ -15,12 +15,15 @@ namespace SpiceWizard.Web.Ui
         public int Index;                 // plot or jar the panel is about
         public int Scroll;                // scroll offset of the open panel's content
         public int ContentHeight;         // measured height of that content, one frame stale
+        public int Tab;                   // which tab of a tabbed panel is showing
         public int SelectedRecipe = 1;
         public bool ExtraPeppercorn;
         public Blend Draft = new Blend();   // the blend being pinched together at the mortar
         public bool HasSave;
         /// <summary>The title screen is asking whether to overwrite the saved game.</summary>
         public bool ConfirmNewGame;
+        /// <summary>This game's mastery beat the best day on record (shown on the celebration).</summary>
+        public bool NewRecord;
         public Settings Settings = new Settings();
 
         public string Toast;
@@ -52,6 +55,15 @@ namespace SpiceWizard.Web.Ui
             Panel = kind;
             Index = index;
             ConfirmNewGame = false;
+            Scroll = 0;
+            ContentHeight = 0;
+            Tab = 0;
+        }
+
+        /// <summary>Switches tab and resets the scroll so the new page starts at its top.</summary>
+        public void ShowTab(int tab)
+        {
+            Tab = tab;
             Scroll = 0;
             ContentHeight = 0;
         }

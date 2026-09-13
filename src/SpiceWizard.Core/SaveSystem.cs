@@ -22,7 +22,10 @@ public static class SaveSystem
         if (bar < 0 || !int.TryParse(text.AsSpan(0, bar), out int version) || version != Version) return null;
         try
         {
-            return JsonSerializer.Deserialize(text.AsSpan(bar + 1), SaveContext.Default.GameState);
+            var state = JsonSerializer.Deserialize(text.AsSpan(bar + 1), SaveContext.Default.GameState);
+            // Saves from before the town kept blend memories only have the keys.
+            state?.Town.BackfillMemories();
+            return state;
         }
         catch (JsonException)
         {

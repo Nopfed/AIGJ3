@@ -40,11 +40,15 @@ namespace SpiceWizard.Web
             blend.Powder[(int)PepperSpecies.Bonnet] = 1;
             blend.Spices[(int)Spice.Cumin] = 1; blend.Spices[(int)Spice.Coriander] = 1; blend.Spices[(int)Spice.Cloves] = 1;
             inv.Sauces.Add(new Sauce(blend, blend.Quality, 23));
-            s.Town.TastedBlends.Add(new Blend { Powder = { [(int)PepperSpecies.Bell] = 1 }, Spices = { [(int)Spice.Cumin] = 1 } }.Key);
+            // A few blends the town has already tasted, so the board's Tasted page and the favourite have something to show.
+            s.Town.Rate(new Sauce(new Blend { Powder = { [(int)PepperSpecies.Bell] = 1 }, Spices = { [(int)Spice.Cumin] = 1 } }, 2, 12), 12, null, s.Level);
+            var rub = new Blend { Powder = { [(int)PepperSpecies.Bonnet] = 1 }, Peppercorns = 1 };
+            s.Town.Rate(new Sauce(rub, rub.Quality, 16), 16, null, s.Level);
+            s.Town.Rate(new Sauce(new Blend { Powder = { [(int)PepperSpecies.Banana] = 1 }, Spices = { [(int)Spice.Ginger] = 1, [(int)Spice.Cinnamon] = 1 } }, 3, 19), 19, null, s.Level);
             s.Crate.Sauces.Add(new Sauce(2, 3, 22));
             s.Crate.Sauces.Add(new Sauce(5, 4, 23));
 
-            s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng);
+            s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng, s.Town);
             s.Quota.Lines[0].Sold = s.Quota.Lines[0].Required;
             s.Rush = new RushOrder { RecipeId = 4, Count = 2, Delivered = 1, DueDay = s.Clock.Day + 1 };
             s.Stats.SaucesSold = 41; s.Stats.BlendsSold = 5; s.Stats.PeppercornsEarned = 2210; s.Stats.QuotasMet = 2; s.Stats.FiveStarSauces = 6;

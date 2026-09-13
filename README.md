@@ -62,10 +62,10 @@ A day runs from 06:00 to 22:00 in six real minutes. The clock pauses while a pan
 | **Garden plots** | Plant a seed, water it, give it a pep talk, harvest it. 4 plots to start, 8 by level 12. |
 | **Well** | Refills the watering bucket (4 waters). |
 | **Merchant cart** | Sells seeds and spices for peppercorns. Higher-level goods unlock as you level. |
-| **Notice board** | This week's quota and its progress, plus any open rush order. |
+| **Notice board** | This week's quota and its progress, any open rush order and the town's favourite blend; a second tab lists every blend the town has tasted. |
 | **Cauldron** | Cooks the ten recipes. Costs 3 spice per sauce. |
 | **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash (3 from level 18). 2 jars to start, 4 by level 11. |
-| **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. From level 2 it also mixes powder, spices and peppercorns into your own **spice blends** for 2 spice. |
+| **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. From level 2 it also mixes powder, spices and peppercorns into your own **spice blends** for 2 spice, and shows your best-rated blend so far. |
 | **Pantry** | Everything you own. Eat peppers here to restore spice. |
 | **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery (8 from level 14). |
 | **Tower door** | Go to bed early. |
@@ -123,6 +123,8 @@ From level 2 the mortar also mixes blends of your own design: **2 to 5 pinches**
 - **Quality**: a plain mix is 2 stars. **+1** when the powders' total heat is 3 or more, **+1** with three different spices, **+1** with a peppercorn in it, **−1** with no pepper powder at all.
 - **Name**: the hottest pepper in it plus what it is — *Bonnet Masala* (three spices), *Ghost Rub* (peppercorn), *Banana Blend*, *Bell Dust*.
 - Blends with exactly the same pinches are the same blend to the town. Every **new** blend earns an extra star the first time the town tastes it; repeats bore the town like any sauce. Blends never count toward the weekly quota.
+- The town **remembers** every blend it has tasted — name, best stars, best pay and the pinches — on the notice board's *Tasted blends* tab, best first. The mortar shows the best one beside your draft.
+- Once a blend has earned **4 stars**, the town may ask for it again: each week's notice can name a **favourite blend**, and the first jar of it that week gets the quota star, is never a bored sale, and pays **×1.5**. It is a treat on top of the quota lines, never needed to meet them.
 
 ## Selling
 
@@ -133,6 +135,12 @@ Overnight the town rates each bottle in the crate: quality, **+1 star** if the s
 Every week the notice board asks for two or three sauces you can already cook. Deliver them all by the end of day 7 for a bonus of 40 + 25 × week peppercorns, 30 + 10 × week fame and a rare spice.
 
 Half the weeks the town also **craves** one kind of sauce — hot sauces on odd weeks, curries on even ones — and every bottle of that kind earns an extra star all week. The board and the morning report say when it does.
+
+The morning report also lists the sauces the town is tired of today (another bottle would lose a star) and what the next level unlocks.
+
+## Best day
+
+The earliest day you reached Master Spice Wizard is kept with your settings (it survives a new game): the title screen shows *Best: Master on day N*, and the celebration says **New record!** when a game beats it.
 
 ## Rush orders
 
@@ -172,7 +180,7 @@ A new level is celebrated in the yard as the wizard steps out in the morning —
 SpiceWizard.sln
 src/SpiceWizard.Core/          pure simulation, no engine references
   Species.cs, Plant.cs, Garden.cs (plots + jars), Recipes.cs (+ Balance), Blends.cs,
-  Town.cs (ratings, novelty, quota, rush orders), Progression.cs (+ SpiceMeter, GameClock),
+  Town.cs (ratings, novelty, blend memories, quota + favourite, rush orders), Progression.cs (+ SpiceMeter, GameClock),
   Actions.cs (every player verb), DayTick.cs (night resolution), SaveSystem.cs
 src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers

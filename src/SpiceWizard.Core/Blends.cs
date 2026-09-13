@@ -36,6 +36,22 @@ public sealed class Blend
     /// <summary>Same pinches, same key. Used for novelty and boredom in town.</summary>
     [JsonIgnore] public string Key => string.Join(",", Powder) + "|" + string.Join(",", Spices) + "|" + Peppercorns;
 
+    /// <summary>Rebuilds a blend from its <see cref="Key"/>; null if the text is not one.</summary>
+    public static Blend? FromKey(string key)
+    {
+        var parts = key.Split('|');
+        if (parts.Length != 3) return null;
+        var powder = parts[0].Split(',');
+        var spices = parts[1].Split(',');
+        if (powder.Length != Inventory.SpeciesCount || spices.Length != Inventory.SpiceCount) return null;
+        var b = new Blend();
+        for (int i = 0; i < powder.Length; i++) if (!int.TryParse(powder[i], out b.Powder[i])) return null;
+        for (int i = 0; i < spices.Length; i++) if (!int.TryParse(spices[i], out b.Spices[i])) return null;
+        if (!int.TryParse(parts[2], out int pc)) return null;
+        b.Peppercorns = pc;
+        return b;
+    }
+
     [JsonIgnore] public int Quality => Math.Clamp(Balance.BlendBaseQuality + Notes().Sum(n => n.Delta), 1, 5);
 
     /// <summary>The hottest powder in the mix, which names and colours the blend.</summary>

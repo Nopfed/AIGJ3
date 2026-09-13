@@ -152,7 +152,7 @@ Goal: every verb has a visible wizard action; level-up is a moment.
 Tests: none in Core; verify with `?demo&panel=Cauldron` screenshots and the
 `?demo=night` state.
 
-## Phase 5 — Depth for the plateau (~2 h)
+## Phase 5 — Depth for the plateau (~2 h) — DONE 2026-09-13
 
 1. **Tasted blends page** — `Town.TastedBlends` already holds keys; also
    store `BlendMemory { Key, Name, Stars, Pay }` on first taste (Version bump

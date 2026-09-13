@@ -206,8 +206,13 @@ namespace SpiceWizard.Web.Ui
         {
             if (!Open(ui, ss, "Notice board - week " + s.Clock.Week)) return;
             Header(ui, null, "Day " + s.Clock.DayOfWeek + " of 7");
+            // Two pages pinned to the same board: this week's request and every blend the town remembers.
+            Tabs(ui, ss, "Request", "Tasted blends" + (s.Town.Memories.Count > 0 ? " (" + s.Town.Memories.Count + ")" : ""));
+            if (ss.Tab == 1) { TastedBlends(ui, s, ss); return; }
             var q = s.Quota;
-            Scroll(ui, ss, Content(), top =>
+            var area = Content();
+            area.Y += TabHeight; area.Height -= TabHeight;
+            Scroll(ui, ss, area, top =>
             {
                 int y = top;
                 ui.Heading(Left, y, "The town council requests, by the end of day " + s.Clock.Week * 7 + ":");
@@ -238,9 +243,80 @@ namespace SpiceWizard.Web.Ui
                     y += 10;
                     ui.Label(Left + 10, y, "Every bottle of that kind earns an extra star.", Palette.Orange); y += 12;
                 }
+                if (q.FavouriteKey != null)
+                {
+                    var fav = s.Town.MemoryOf(q.FavouriteKey);
+                    var tint = fav?.Blend is Blend fb ? ItemArt.BlendColor(fb) : Palette.LightPurple;
+                    ui.IconLabel(Left, y, "ic_blend", tint, "Town favourite: 1x " + (q.FavouriteName ?? fav?.Name ?? "a blend") + " again, please.", q.FavouriteSold ? Palette.Green : Palette.Purple);
+                    if (q.FavouriteSold) ui.C.Sprite("ic_check", Left + 190, y);
+                    y += 10;
+                    ui.Label(Left + 10, y, q.FavouriteSold ? "Delivered. The council is delighted." : "+1 star and " + Balance.FavouriteBlendMultiplier + "x pay for that jar (pinches: Tasted tab).", q.FavouriteSold ? Palette.Green : Palette.Purple);
+                    y += 12;
+                }
                 if (q.IsMet) { y += 4; ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! The bonus arrives at the start of next week.", Palette.Green); y += 12; }
                 y += 4;
                 y = RushBlock(ui, s, y);
+                return y;
+            });
+        }
+
+        /// <summary>
+        /// A row of tabs on the title bar's right; the header text is pushed aside by the caller. The chosen
+        /// tab is drawn raised. Returns nothing: the selection lives in <see cref="Session.Tab"/>.
+        /// </summary>
+        const int TabHeight = 14;
+
+        static void Tabs(Ui ui, Session ss, params string[] names)
+        {
+            int x = Frame.X + 6, y = Top - 2;
+            for (int i = 0; i < names.Length; i++)
+            {
+                int w = PixelFont.Measure(names[i]) + 10;
+                bool on = ss.Tab == i;
+                var r = new Rectangle(x, y, w, 12);
+                if (on)
+                {
+                    ui.C.Rect(r, Palette.Tan);
+                    ui.C.Border(r, Palette.Outline);
+                    ui.C.Text(names[i], r.X + 5, r.Y + 2, Palette.Outline);
+                }
+                else if (ui.Button(r, names[i], true)) ss.ShowTab(i);
+                x += w + 4;
+            }
+        }
+
+        /// <summary>The second page of the notice board: every blend the town has tasted, best first.</summary>
+        static void TastedBlends(Ui ui, GameState s, Session ss)
+        {
+            var area = Content();
+            area.Y += TabHeight; area.Height -= TabHeight;
+            var fav = s.Quota?.FavouriteKey;
+            Scroll(ui, ss, area, top =>
+            {
+                int y = top;
+                if (s.Town.Memories.Count == 0)
+                {
+                    ui.Heading(Left, y, "The town has not tasted a blend of yours yet.");
+                    y += 14;
+                    return ui.Paragraph(Left, y, MaxChars, s.Level >= Balance.BlendUnlockLevel
+                        ? "Mix two to five pinches at the mortar and send the jar with the cart. A blend that earns " + Balance.FavouriteBlendStars + " stars may be asked for again."
+                        : "Blending unlocks at level " + Balance.BlendUnlockLevel + ". Blends the town loves may be asked for again.", Palette.Grey);
+                }
+                ui.Heading(Left, y, "Blends the town remembers, best first:");
+                y += 14;
+                foreach (var m in s.Town.BestBlends())
+                {
+                    var blend = m.Blend;
+                    bool isFav = fav == m.Key;
+                    ui.IconLabel(Left, y, "ic_blend", blend != null ? ItemArt.BlendColor(blend) : Palette.LightPurple, m.Name, isFav ? Palette.Purple : Palette.Outline);
+                    ui.Stars(Left + 90, y, m.Stars);
+                    ui.IconLabel(Left + 132, y, "ic_peppercorn", Color.White, m.Pay + "pc", Palette.Outline);
+                    ui.Label(Left + 172, y + 1, "day " + m.Day, Palette.Grey);
+                    if (isFav) ui.Label(Left + 214, y + 1, s.Quota!.FavouriteSold ? "favourite, sold" : "this week's favourite", Palette.Purple);
+                    string pinches = blend != null ? string.Join(", ", blend.Ingredients.Select(i => i.Count + "x " + i.Name)) : m.Key;
+                    ui.Label(Left + 8, y + 9, pinches, Palette.Grey);
+                    y += 19;
+                }
                 return y;
             });
         }
@@ -264,6 +340,10 @@ namespace SpiceWizard.Web.Ui
             y += Row + 2;
             return ui.Paragraph(Left, y, MaxChars, "Those bottles pay " + rush.PayMultiplier + "x; filling the order earns " + Balance.RushXp + " fame. No penalty if it lapses.", Palette.Grey);
         }
+
+        /// <summary>"A", "A and B", "A, B and C".</summary>
+        static string Join(System.Collections.Generic.List<string> names) =>
+            names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[names.Count - 1];
 
         /// <summary>"twice" or "three times": how many repeats the town sits through before it tires of a sauce.</summary>
         static string RepeatWord(GameState s) => Balance.BoredomThresholdAt(s.Level) switch { 2 => "twice", 3 => "three times", int n => n + " times" };
@@ -501,14 +581,23 @@ namespace SpiceWizard.Web.Ui
                             ui.Label(rx, ny, (note.Delta > 0 ? "+" : "") + note.Delta + " " + note.Text, note.Delta > 0 ? Palette.Green : Palette.DarkRed);
                             ny += 10;
                         }
-                        if (s.Town.HasTasted(draft)) ui.Label(rx, ny, "The town has tasted this one.", Palette.Grey);
+                        if (s.Quota?.WantsBlend(draft.Key) == true) ui.Label(rx, ny, "+1 The town's favourite this week!", Palette.Purple);
+                        else if (s.Town.HasTasted(draft)) ui.Label(rx, ny, "The town has tasted this one.", Palette.Grey);
                         else ui.Label(rx, ny, "+1 New to the town", Palette.Green);
                         ny += 10;
                         y2 = Math.Max(y2, ny);
                     }
+                    // The town's best-loved blend so far, a target to beat, when the star notes leave room for it.
+                    int by = top + area.Height - 14;
+                    if (s.Town.BestBlends().FirstOrDefault() is BlendMemory best && y2 + 22 <= by)
+                    {
+                        ui.Label(rx, y2 + 2, "Best so far:", Palette.Grey);
+                        ui.Stars(RightEdge - 34, y2 + 1, best.Stars);
+                        ui.Label(rx, y2 + 12, best.Name + ", " + best.Pay + "pc", Palette.Grey);
+                        y2 += 22;
+                    }
 
                     // The ingredient list fills the body exactly, so nothing ever scrolls and these stay put at the bottom.
-                    int by = top + area.Height - 14;
                     string blocker = Actions.BlendBlocker(s, draft);
                     if (ui.Button(new Rectangle(rx, by, 72, 14), "Blend", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.BlendSpiceCost + " spice" : blocker, badge: Cost(Balance.BlendSpiceCost)))
                     {
@@ -733,7 +822,16 @@ namespace SpiceWizard.Web.Ui
                     y += 2;
                 }
                 ui.Label(Left, y, "Ready to harvest: " + r.PlantsReady + ".  Jars ready: " + r.JarsReady + ".", Palette.Grey);
-                return y + PixelFont.LineHeight;
+                y += PixelFont.LineHeight + 1;
+                var tired = s.Town.TiredOf(s.Clock.Day, s.Level).Select(t => t.Name).ToList();
+                if (tired.Count > 0)
+                    y = ui.Paragraph(Left, y, MaxChars, "The town is tired of " + Join(tired) + " today; another bottle loses a star.", Palette.Grey) + 1;
+                if (!s.Progression.IsMaster)
+                {
+                    string next = Progression.UnlockAt(s.Level + 1);
+                    if (next.Length > 0) y = ui.Paragraph(Left, y, MaxChars, "Next unlock at level " + (s.Level + 1) + ": " + next + ".", Palette.Grey) + 1;
+                }
+                return y;
             });
             if (ui.Button(new Rectangle(Frame.Right - 100, Frame.Bottom - 22, 90, 16), "Rise and shine", true)) ss.Close();
         }

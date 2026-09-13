@@ -404,7 +404,12 @@ namespace SpiceWizard.Web
                         _scene.WindowsLit = false;
                         _scene.DoorOpen = true;
                         _wizard = new WizardActor(Layout.DoorInside) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff, InDoorway = true };
-                        if (report.BecameMaster) { _crowd.Start(); }
+                        if (report.BecameMaster)
+                        {
+                            _crowd.Start();
+                            _session.NewRecord = _mixer.Settings.RecordMastery(_state.WonOnDay);
+                            if (_session.NewRecord) SaveSettings();
+                        }
                     }
                     break;
                 case 2: // Morning: the wizard steps out as the dark lifts, and the door closes behind him.

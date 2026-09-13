@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SpiceWizard.Core;
 
 public sealed class SaleRecord
@@ -23,6 +25,24 @@ public sealed class SaleResult
     public bool Craved { get; set; }
     /// <summary>The sauce filled an open rush order and was paid at the rush rate.</summary>
     public bool Rush { get; set; }
+    /// <summary>The blend is this week's town favourite and was paid the favourite bonus.</summary>
+    public bool Favourite { get; set; }
+}
+
+/// <summary>
+/// What the town remembers of a blend it has tasted: enough to list it on the notice board and to ask for
+/// it again as a favourite. <see cref="Stars"/> and <see cref="Pay"/> are the best the blend has ever done.
+/// </summary>
+public sealed class BlendMemory
+{
+    public string Key { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int Stars { get; set; }
+    public int Pay { get; set; }
+    /// <summary>The day the town first tasted it.</summary>
+    public int Day { get; set; }
+
+    [JsonIgnore] public Blend? Blend => Core.Blend.FromKey(Key);
 }
 
 /// <summary>
@@ -78,6 +98,8 @@ public sealed class Town
     public List<SaleRecord> Sales { get; set; } = new();
     /// <summary>Keys of every blend the town has tasted; the first taste of a new one earns a star.</summary>
     public List<string> TastedBlends { get; set; } = new();
+    /// <summary>One entry per tasted blend, in tasting order. See <see cref="BlendMemory"/>.</summary>
+    public List<BlendMemory> Memories { get; set; } = new();
 
     public int RecentSales(int recipeId, int day) =>
         Sales.Count(s => s.RecipeId == recipeId && s.BlendKey == null && s.Day > day - Balance.BoredomWindowDays);
@@ -86,6 +108,32 @@ public sealed class Town
         Sales.Count(s => s.BlendKey == key && s.Day > day - Balance.BoredomWindowDays);
 
     public bool HasTasted(Blend blend) => TastedBlends.Contains(blend.Key);
+
+    public BlendMemory? MemoryOf(string key) => Memories.FirstOrDefault(m => m.Key == key);
+
+    /// <summary>Tasted blends, best first, then most recent first.</summary>
+    public IEnumerable<BlendMemory> BestBlends() => Memories.OrderByDescending(m => m.Stars).ThenByDescending(m => m.Pay).ThenByDescending(m => m.Day);
+
+    /// <summary>The town's best-loved blends: any that ever earned <see cref="Balance.FavouriteBlendStars"/> stars.</summary>
+    public IEnumerable<BlendMemory> Favourites() => Memories.Where(m => m.Stars >= Balance.FavouriteBlendStars);
+
+    /// <summary>
+    /// Older saves only kept the keys; this fills in a memory for each so the tasted page is never empty.
+    /// The stars and pay are what a first taste of that blend would have earned.
+    /// </summary>
+    public void BackfillMemories()
+    {
+        foreach (var key in TastedBlends)
+        {
+            if (MemoryOf(key) != null || Blend.FromKey(key) is not Blend blend) continue;
+            int stars = Math.Clamp(blend.Quality + 1, 1, 5);
+            Memories.Add(new BlendMemory { Key = key, Name = blend.Name, Stars = stars, Pay = (int)Math.Round(blend.Value * Balance.StarMultiplier[stars]) });
+        }
+    }
+
+    /// <summary>Recipes the town would tire of if another bottle arrived on the cart tonight.</summary>
+    public IEnumerable<Recipe> TiredOf(int day, int level) =>
+        RecipeBook.UnlockedAt(level).Where(r => RecentSales(r.Id, day) >= Balance.BoredomThresholdAt(level));
 
     /// <summary>
     /// Rates one sauce or blend delivered on the night of <paramref name="day"/> and records the sale.
@@ -96,18 +144,23 @@ public sealed class Town
     {
         var blend = sauce.Blend;
         bool onQuota = blend == null && quota != null && quota.Wants(sauce.RecipeId);
+        bool favourite = blend != null && quota != null && quota.WantsBlend(blend.Key);
         bool rushed = blend == null && rush != null && rush.Wants(sauce.RecipeId);
         bool craved = blend == null && quota?.CravedType != null && quota.CravedType == sauce.Recipe!.Type;
         bool novel = blend != null && !HasTasted(blend);
-        bool bored = (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThresholdAt(level);
-        int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) + (craved ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
+        // The favourite jar is treated like a quota line: an extra star, and the town does not tire of it.
+        bool bored = !favourite && (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThresholdAt(level);
+        int stars = Math.Clamp(sauce.Quality + (onQuota || favourite ? 1 : 0) + (craved ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
         int pay = (int)Math.Round(sauce.BaseValue * Balance.StarMultiplier[stars]);
         if (rushed) pay *= rush!.PayMultiplier;
+        if (favourite) pay = (int)Math.Round(pay * Balance.FavouriteBlendMultiplier);
         int xp = stars * sauce.Tier * Balance.XpPerStarTier;
 
         Sales.Add(new SaleRecord { Day = day, RecipeId = sauce.RecipeId, BlendKey = blend?.Key });
         if (novel) TastedBlends.Add(blend!.Key);
+        if (blend != null) Remember(blend, stars, pay, day);
         if (blend == null) quota?.RecordSale(sauce.RecipeId);
+        if (favourite) quota!.FavouriteSold = true;
         if (rushed) rush!.Delivered++;
 
         return new SaleResult
@@ -121,14 +174,24 @@ public sealed class Town
             Novel = novel,
             Craved = craved,
             Rush = rushed,
-            Remark = Remark(stars, bored, onQuota, novel, craved, rushed, sauce.Name),
+            Favourite = favourite,
+            Remark = Remark(stars, bored, onQuota, novel, craved, rushed, favourite, sauce.Name),
         };
     }
 
-    static string Remark(int stars, bool bored, bool onQuota, bool novel, bool craved, bool rushed, string name)
+    /// <summary>Writes the blend into the town's memory, or raises its best stars and pay.</summary>
+    void Remember(Blend blend, int stars, int pay, int day)
+    {
+        var m = MemoryOf(blend.Key);
+        if (m == null) { Memories.Add(new BlendMemory { Key = blend.Key, Name = blend.Name, Stars = stars, Pay = pay, Day = day }); return; }
+        if (stars > m.Stars || (stars == m.Stars && pay > m.Pay)) { m.Stars = stars; m.Pay = pay; }
+    }
+
+    static string Remark(int stars, bool bored, bool onQuota, bool novel, bool craved, bool rushed, bool favourite, string name)
     {
         if (bored && stars < 5) return "\"" + name + " again? We have had our fill.\"";
         if (rushed) return "\"The baker ran the whole way. Double pay, as promised.\"";
+        if (favourite) return "\"Our favourite! The council paid extra for the jar.\"";
         if (onQuota && stars >= 4) return "\"Just what the notice asked for. Splendid!\"";
         if (novel && stars >= 4) return "\"A new flavour! Everyone wants a pinch.\"";
         if (craved && stars >= 4) return "\"Exactly what we were craving. More!\"";
@@ -157,7 +220,17 @@ public sealed class Quota
     public List<QuotaLine> Lines { get; set; } = new();
     /// <summary>Some weeks the town craves hot sauces or curries: every bottle of that type earns a star.</summary>
     public SauceType? CravedType { get; set; }
+    /// <summary>
+    /// A blend the town loved and asks to taste again this week (its <see cref="Blend.Key"/>). One jar earns
+    /// the quota star and <see cref="Balance.FavouriteBlendMultiplier"/> pay; it is a treat on top of the
+    /// lines, never needed to meet them.
+    /// </summary>
+    public string? FavouriteKey { get; set; }
+    public string? FavouriteName { get; set; }
+    public bool FavouriteSold { get; set; }
     public bool IsMet => Lines.All(l => l.IsMet);
+
+    public bool WantsBlend(string key) => FavouriteKey != null && !FavouriteSold && FavouriteKey == key;
 
     public static string CravingText(SauceType type) => "The town craves " + (type == SauceType.Hot ? "hot sauces" : "curries") + " this week.";
 
@@ -169,8 +242,11 @@ public sealed class Quota
         if (line != null && line.Sold < line.Required) line.Sold++;
     }
 
-    /// <summary>Two or three lines drawn from recipes the wizard can already cook; higher tiers ask for fewer bottles.</summary>
-    public static Quota Generate(int week, int level, Rng rng)
+    /// <summary>
+    /// Two or three lines drawn from recipes the wizard can already cook; higher tiers ask for fewer bottles.
+    /// When the <paramref name="town"/> has a favourite blend, one of them is asked for as well.
+    /// </summary>
+    public static Quota Generate(int week, int level, Rng rng, Town? town = null)
     {
         var pool = RecipeBook.UnlockedAt(level).ToList();
         int lineCount = Math.Min(pool.Count, level >= 4 ? 3 : 2);
@@ -185,6 +261,13 @@ public sealed class Quota
         quota.Lines.Sort((a, b) => a.RecipeId.CompareTo(b.RecipeId));
         // The craving alternates between the two types so neither is favoured over a long game.
         if (rng.Next(100) < Balance.CravingChance) quota.CravedType = week % 2 == 1 ? SauceType.Hot : SauceType.Curry;
+        var favourites = town?.Favourites().ToList();
+        if (favourites is { Count: > 0 })
+        {
+            var f = rng.Pick(favourites);
+            quota.FavouriteKey = f.Key;
+            quota.FavouriteName = f.Name;
+        }
         return quota;
     }
 }

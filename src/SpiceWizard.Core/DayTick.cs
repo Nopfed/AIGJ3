@@ -82,7 +82,7 @@ public static class DayTick
         // 6. Post next week's quota now that the level (and recipe list) is final.
         if (s.Clock.DayOfWeek == 1)
         {
-            s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng);
+            s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng, s.Town);
             report.NewQuotaPosted = true;
         }
 

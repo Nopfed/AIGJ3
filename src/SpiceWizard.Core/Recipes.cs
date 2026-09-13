@@ -111,6 +111,10 @@ public static class Balance
     public const int ForgivingTownLevel = 19;
     /// <summary>Percent chance each week that the town craves one sauce type (+1 star for every bottle of it).</summary>
     public const int CravingChance = 50;
+    /// <summary>A blend that ever earned this many stars may be asked for again as the week's favourite.</summary>
+    public const int FavouriteBlendStars = 4;
+    /// <summary>The favourite jar is paid this much extra on top of its stars.</summary>
+    public const double FavouriteBlendMultiplier = 1.5;
 
     // Rush orders: a townsperson wants one sauce within a couple of days and pays double for it.
     /// <summary>Percent chance each dawn, when none is open, that a rush order arrives.</summary>

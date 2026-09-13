@@ -95,8 +95,11 @@ namespace SpiceWizard.Web.Ui
             }
             c.TextCentered("Grow peppers, brew sauces, feed the town.", cx, 164, Palette.Cream);
             c.TextCentered("Become the Master Spice Wizard by level 20.", cx, 174, Palette.Cream);
-            c.TextCentered("Mouse to play. Esc pauses or closes a panel.", cx, 188, Palette.LightGrey);
-            c.TextCentered("A weekend jam game by Nopfed. Themes: Curry and Pepper.", cx, 200, Palette.LightGrey);
+            // The replay record squeezes in a line of its own; the footer shuffles down to make room.
+            bool record = ss.Settings.BestDay > 0;
+            if (record) c.TextCentered("Best so far: Master on day " + ss.Settings.BestDay + ".", cx, 184, Palette.Yellow);
+            c.TextCentered("Mouse to play. Esc pauses or closes a panel.", cx, record ? 195 : 188, Palette.LightGrey);
+            c.TextCentered("A weekend jam game by Nopfed. Themes: Curry and Pepper.", cx, record ? 206 : 200, Palette.LightGrey);
         }
 
         public static void Pause(Ui ui, Session ss)
@@ -152,7 +155,8 @@ namespace SpiceWizard.Web.Ui
             c.Rect(box, Palette.Outline * 0.85f);
             c.Border(box, Palette.Gold * 0.6f);
             c.TextCentered("The whole town came to cheer!", cx, box.Y + 5, Palette.White);
-            c.TextCentered("Mastered on day " + s.WonOnDay, cx, box.Y + 17, Palette.Cream);
+            if (ss.NewRecord) c.TextCentered("Mastered on day " + s.WonOnDay + ". New record!", cx, box.Y + 17, Palette.Yellow * pulse);
+            else c.TextCentered("Mastered on day " + s.WonOnDay + (ss.Settings.BestDay > 0 ? ". Best: day " + ss.Settings.BestDay : ""), cx, box.Y + 17, Palette.Cream);
             int sy = box.Y + 31;
             Stat(c, cx - 140, sy, "ic_hot", Palette.Red, s.Stats.SaucesSold + " sauces sold");
             Stat(c, cx + 8, sy, "ic_blend", Palette.LightPurple, s.Stats.BlendsSold + " blends sold");
