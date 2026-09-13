@@ -508,12 +508,13 @@ namespace SpiceWizard.Web.Ui
         static void Crate(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Shipping crate")) return;
+            const int ColChars = 26; // each column is ~160px wide; 26 glyphs at a 6px advance
             Scroll(ui, ss, Content(20), top =>
             {
                 int y1 = top;
                 ui.Label(Left, y1, "Bottled (" + s.Inventory.Sauces.Count + ")", Palette.DarkRed);
                 y1 += 12;
-                if (s.Inventory.Sauces.Count == 0) { ui.Label(Left, y1, "Nothing to ship. Cook first!", Palette.Grey); y1 += Row; }
+                if (s.Inventory.Sauces.Count == 0) y1 = ui.Paragraph(Left, y1, ColChars, "Nothing to ship. Cook first!", Palette.Grey);
                 for (int k = 0; k < s.Inventory.Sauces.Count && k < 10; k++, y1 += Row)
                 {
                     var sauce = s.Inventory.Sauces[k];
@@ -527,7 +528,7 @@ namespace SpiceWizard.Web.Ui
                 int y2 = top;
                 ui.Label(cx, y2, "In the crate (" + s.Crate.Sauces.Count + "/" + Balance.CrateCapacity + ")", Palette.DarkRed);
                 y2 += 12;
-                if (s.Crate.Sauces.Count == 0) { ui.Label(cx, y2, "Empty. The cart leaves at nightfall.", Palette.Grey); y2 += Row; }
+                if (s.Crate.Sauces.Count == 0) y2 = ui.Paragraph(cx, y2, ColChars, "Empty. The cart leaves at nightfall.", Palette.Grey);
                 for (int k = 0; k < s.Crate.Sauces.Count; k++, y2 += Row)
                 {
                     var sauce = s.Crate.Sauces[k];
