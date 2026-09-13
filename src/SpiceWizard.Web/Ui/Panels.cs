@@ -53,7 +53,7 @@ namespace SpiceWizard.Web.Ui
         }
 
         static void SpiceHeader(Ui ui, GameState s) => Header(ui, "ic_flame", "Spice " + s.Spice.Current + "/" + s.Spice.Max);
-        static void PeppercornHeader(Ui ui, GameState s) => Header(ui, "ic_peppercorn", s.Peppercorns + " peppercorns");
+        static void PeppercornHeader(Ui ui, GameState s) => Header(ui, "ic_peppercorn", s.Peppercorns.ToString());
 
         /// <summary>The panel body below the title bar (and above the header text, if any), leaving room for a
         /// fixed footer (buttons or a caption) that sits outside the scrollable area.</summary>
@@ -233,9 +233,9 @@ namespace SpiceWizard.Web.Ui
                 }
                 y += 8;
                 ui.Label(Left, y + 1, "Reward:", Palette.Grey);
-                ui.IconLabel(Left + 48, y, "ic_peppercorn", Color.White, Balance.QuotaBonusPeppercorns(q.Week) + " peppercorns", Palette.Outline);
-                ui.IconLabel(Left + 152, y, "ic_hat", Color.White, Balance.QuotaBonusXp(q.Week) + " fame", Palette.Outline);
-                ui.IconLabel(Left + 208, y, "ic_pouch", Palette.Tan, "a rare spice", Palette.Outline);
+                ui.IconLabel(Left + 48, y, "ic_peppercorn", Color.White, Balance.QuotaBonusPeppercorns(q.Week).ToString(), Palette.Outline);
+                ui.IconLabel(Left + 90, y, "ic_hat", Color.White, Balance.QuotaBonusXp(q.Week) + " fame", Palette.Outline);
+                ui.IconLabel(Left + 146, y, "ic_pouch", Palette.Tan, "a rare spice", Palette.Outline);
                 y += 14;
                 ui.Label(Left, y, "Sauces on the list earn an extra star when sold.", Palette.Grey); y += 10;
                 ui.Label(Left, y, "The same sauce " + RepeatWord(s) + " in three days tires the town.", Palette.Grey); y += 12;
@@ -314,7 +314,7 @@ namespace SpiceWizard.Web.Ui
                     bool isFav = fav == m.Key;
                     ui.IconLabel(Left, y, "ic_blend", blend != null ? ItemArt.BlendColor(blend) : Palette.LightPurple, m.Name, isFav ? Palette.Purple : Palette.Outline);
                     ui.Stars(Left + 90, y, m.Stars);
-                    ui.IconLabel(Left + 132, y, "ic_peppercorn", Color.White, m.Pay + "pc", Palette.Outline);
+                    ui.IconLabel(Left + 132, y, "ic_peppercorn", Color.White, m.Pay.ToString(), Palette.Outline);
                     ui.Label(Left + 172, y + 1, "day " + m.Day, Palette.Grey);
                     if (isFav) ui.Label(Left + 214, y + 1, s.Quota!.FavouriteSold ? "favourite, sold" : "this week's favourite", Palette.Purple);
                     string pinches = blend != null ? string.Join(", ", blend.Ingredients.Select(i => i.Count + "x " + i.Name)) : m.Key;
@@ -369,7 +369,7 @@ namespace SpiceWizard.Web.Ui
                     var info = Species.All[k];
                     bool unlocked = info.UnlockLevel <= s.Level;
                     ui.IconLabel(Left, y1, ItemArt.PepperIcon(info.Species), unlocked ? Color.White : Palette.Grey, info.Name, unlocked ? Palette.Outline : Palette.Grey);
-                    ui.Label(Left + 56, y1 + 1, info.SeedCost + "pc", Palette.Outline);
+                    ui.IconLabel(Left + 56, y1, "ic_peppercorn", Color.White, info.SeedCost.ToString(), Palette.Outline);
                     if (!unlocked) ui.IconLabel(Left + 84, y1, "ic_lock", Color.White, "Lv" + info.UnlockLevel, Palette.Grey);
                     else if (ui.Button(new Rectangle(Left + 84, y1 - 1, 30, 11), "Buy", s.Peppercorns >= info.SeedCost, info.CareHint))
                         ss.Say(Actions.BuySeed(s, info.Species), Sfx.Coin);
@@ -386,7 +386,7 @@ namespace SpiceWizard.Web.Ui
                     var spice = (Spice)k;
                     bool unlocked = SpiceInfo.UnlockLevel(spice) <= s.Level;
                     ui.IconLabel(sx, y2, "ic_pouch", unlocked ? ItemArt.SpiceColor(spice) : Palette.Grey, SpiceInfo.Name(spice), unlocked ? Palette.Outline : Palette.Grey);
-                    ui.Label(sx + 84, y2 + 1, SpiceInfo.Price(spice) + "pc", Palette.Outline);
+                    ui.IconLabel(sx + 84, y2, "ic_peppercorn", Color.White, SpiceInfo.Price(spice).ToString(), Palette.Outline);
                     if (!unlocked) ui.IconLabel(sx + 110, y2, "ic_lock", Color.White, "Lv" + SpiceInfo.UnlockLevel(spice), Palette.Grey);
                     else if (ui.Button(new Rectangle(sx + 110, y2 - 1, 30, 11), "Buy", s.Peppercorns >= SpiceInfo.Price(spice)))
                         ss.Say(Actions.BuySpice(s, spice), Sfx.Coin);
@@ -394,7 +394,7 @@ namespace SpiceWizard.Web.Ui
                 }
 
                 int y = Math.Max(y1, y2) + 8;
-                y = ui.Paragraph(Left, y, 24, "\"Peppercorns are money AND an ingredient. Grind your own pepper powder at the mortar.\"", Palette.Grey);
+                y = ui.Paragraph(Left, y, 24, "\"" + Peppercorn.Icon + " Peppercorns are money AND an ingredient. Grind your own pepper powder at the mortar.\"", Palette.Grey);
                 return y;
             });
         }
@@ -409,7 +409,7 @@ namespace SpiceWizard.Web.Ui
             {
                 int y1 = top;
                 ui.Heading(Left, y1, "Recipes");
-                ui.Label(Left + 68, y1, "sells for, pc", Palette.Grey);
+                ui.Label(Left + 68, y1, "sells for", Palette.Grey);
                 y1 += 12;
                 for (int k = 0; k < RecipeBook.All.Length; k++, y1 += 12)
                 {
@@ -421,7 +421,7 @@ namespace SpiceWizard.Web.Ui
                     else if (ui.Hot(rowRect)) ui.C.Rect(rowRect, Palette.Yellow * 0.2f);
                     ui.IconLabel(Left + 2, y1, ItemArt.SauceIcon(r), unlocked ? ItemArt.SauceColor(r.Id) : Palette.Grey, r.Name, unlocked ? Palette.Outline : Palette.Grey);
                     // Right-aligned against the row so three-digit prices and long names both fit.
-                    string price = r.BaseValue.ToString();
+                    string price = Peppercorn.Pc(r.BaseValue);
                     if (unlocked) ui.Label(rowRect.Right - PixelFont.Measure(price), y1 + 1, price, Palette.Outline);
                     else ui.IconLabel(Left + 104, y1, "ic_lock", Color.White, "Lv" + r.UnlockLevel, Palette.Grey);
                     if (ui.Take(rowRect)) ss.SelectedRecipe = r.Id;
@@ -451,7 +451,7 @@ namespace SpiceWizard.Web.Ui
                     ui.IconLabel(dx + 4, dy + 32 + k * 10, icon, ok ? tint : Palette.Grey, ing.Count + "x " + ing.Name + " (" + have + ")", ok ? Palette.Green : Palette.DarkRed);
                 }
                 int ey = dy + 32 + sel.Ingredients.Length * 10 + 6;
-                ui.Checkbox(dx, ey, "Extra peppercorn: +1 star", ref ss.ExtraPeppercorn);
+                ui.Checkbox(dx, ey, "Extra " + Peppercorn.Pc(1) + ": +1 star", ref ss.ExtraPeppercorn);
                 int y2 = ui.Paragraph(dx, ey + 14, 27, "Aged mash also adds a star. A recipe you have never cooked loses one.", Palette.Grey);
 
                 return Math.Max(y1, y2);
@@ -579,7 +579,7 @@ namespace SpiceWizard.Web.Ui
                         ui.C.Rect(rx, dy - 3, RightEdge - rx, 1, Palette.Tan);
                         ui.Label(rx, dy, draft.Name, Palette.Purple);
                         ui.C.TextRight("heat " + draft.Heat, RightEdge, dy, Palette.Grey);
-                        ui.Label(rx, dy + 11, "Worth " + draft.Value + "pc, tier " + draft.Tier);
+                        ui.Label(rx, dy + 11, "Worth " + Peppercorn.Pc(draft.Value) + ", tier " + draft.Tier);
                         ui.Stars(RightEdge - 34, dy + 10, draft.Quality);
                         int ny = dy + 23;
                         ui.Label(rx, ny, "Plain mix: " + Balance.BlendBaseQuality + " stars", Palette.Grey);
@@ -602,7 +602,7 @@ namespace SpiceWizard.Web.Ui
                     {
                         ui.Label(rx, y2 + 2, "Best so far:", Palette.Grey);
                         ui.Stars(RightEdge - 34, y2 + 1, best.Stars);
-                        ui.Label(rx, y2 + 12, best.Name + ", " + best.Pay + "pc", Palette.Grey);
+                        ui.Label(rx, y2 + 12, best.Name + ", " + Peppercorn.Pc(best.Pay), Palette.Grey);
                         y2 += 22;
                     }
 
@@ -797,12 +797,12 @@ namespace SpiceWizard.Web.Ui
                     y += 19;
                 }
                 y += 3;
-                ui.Heading(Left, y, "Earned " + r.PeppercornsEarned + " peppercorns and " + r.XpEarned + " fame.");
+                ui.Heading(Left, y, "Earned " + Peppercorn.Pc(r.PeppercornsEarned) + " and " + r.XpEarned + " fame.");
                 y += 12;
                 if (r.QuotaEvaluated)
                 {
                     if (r.QuotaMet)
-                        ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! +" + r.QuotaBonusPeppercorns + "pc, +" + r.QuotaBonusXp + " fame and " + SpiceInfo.Name(r.QuotaBonusSpice.Value) + ".", Palette.Green);
+                        ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! " + Peppercorn.Signed(r.QuotaBonusPeppercorns) + ", +" + r.QuotaBonusXp + " fame and " + SpiceInfo.Name(r.QuotaBonusSpice.Value) + ".", Palette.Green);
                     else ui.IconLabel(Left, y, "ic_cross", Color.White, "The council sighs: last week's quota went unmet.", Palette.DarkRed);
                     y += 12;
                 }
@@ -862,9 +862,9 @@ namespace SpiceWizard.Web.Ui
                 "|Click anything in the yard to use it. A day lasts six minutes; at 22:00 you sleep, or click the door or the moon to turn in early.",
                 "GROW|Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament. Rainy days do the watering for you.",
                 "FERMENT|Two peppers in a jar become mash after two nights.",
-                "GRIND|The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",
+                "GRIND|The mortar turns peppers into powder for curries, or mixes powder, spices and " + Peppercorn.Icon + " peppercorns into blends of your own.",
                 "COOK|The cauldron brews hot sauces and curries for spice.",
-                "SELL|Bottles in the crate are rated at dawn and paid for in peppercorns, which are also an ingredient.",
+                "SELL|Bottles in the crate are rated at dawn and paid for in " + Peppercorn.Icon + " peppercorns, which are also an ingredient.",
                 "QUOTA|Fill the notice board request each week for bonuses.",
                 "RUSH|Some mornings bring a rush order: a sauce wanted within two nights, paid double. The envelope by the day shows one is open.",
                 "|Spice is your cooking energy: eat a pepper or sleep. Reach level 20 to become the Master Spice Wizard.",

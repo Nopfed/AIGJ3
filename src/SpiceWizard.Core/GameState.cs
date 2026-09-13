@@ -10,6 +10,20 @@ public sealed class Stats
     public int RushesFilled { get; set; }
 }
 
+/// <summary>
+/// The peppercorn sign. The renderer draws it as the peppercorn icon wherever it appears in text, so it is
+/// used like a currency symbol: <see cref="Pc"/> gives "[icon]5" for a price, cost or payout, and
+/// <see cref="Icon"/> goes before the word wherever peppercorns are merely mentioned.
+/// </summary>
+public static class Peppercorn
+{
+    public const char Sign = '\uE000';
+    public const string Icon = "\uE000";
+    public static string Pc(int n) => Icon + n;
+    /// <summary>"[icon]+12" / "[icon]-3": a gain or a spend.</summary>
+    public static string Signed(int n) => Icon + (n >= 0 ? "+" : "") + n;
+}
+
 /// <summary>The whole world. Plain data so it round-trips through JSON for saves.</summary>
 public sealed class GameState
 {

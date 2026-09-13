@@ -1,3 +1,5 @@
+using SpiceWizard.Core;
+
 namespace SpiceWizard.Web.Art
 {
     /// <summary>
@@ -10,6 +12,9 @@ namespace SpiceWizard.Web.Art
         public const int GlyphHeight = 7;
         public const int Advance = 6;
         public const int LineHeight = 9;
+        /// <summary>Drawn as the 8px peppercorn icon inline with text; see <see cref="Peppercorn"/>.</summary>
+        public const char PeppercornSign = Peppercorn.Sign;
+        public const int IconAdvance = 9;
 
         public static readonly byte[] Data =
         {
@@ -46,6 +51,11 @@ namespace SpiceWizard.Web.Art
             return ((Data[index] >> row) & 1) != 0;
         }
 
-        public static int Measure(string text) => text.Length == 0 ? 0 : text.Length * Advance - 1;
+        public static int Measure(string text)
+        {
+            int w = 0;
+            foreach (char c in text) w += c == PeppercornSign ? IconAdvance : Advance;
+            return w == 0 ? 0 : w - 1;
+        }
     }
 }

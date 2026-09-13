@@ -177,7 +177,7 @@ public static class Actions
             if (ing.Kind == IngredientKind.Peppercorn) { peppercornsNeeded += ing.Count; continue; }
             if (Have(s, ing) < ing.Count) return $"Missing {ing.Name}.";
         }
-        if (s.Peppercorns < peppercornsNeeded) return "Not enough peppercorns.";
+        if (s.Peppercorns < peppercornsNeeded) return "Not enough " + Peppercorn.Icon + " peppercorns.";
         return "";
     }
 
@@ -239,7 +239,7 @@ public static class Actions
         foreach (var ing in blend.Ingredients)
         {
             if (Have(s, ing) >= ing.Count) continue;
-            return ing.Kind == IngredientKind.Peppercorn ? "Not enough peppercorns." : $"Missing {ing.Name}.";
+            return ing.Kind == IngredientKind.Peppercorn ? "Not enough " + Peppercorn.Icon + " peppercorns." : $"Missing {ing.Name}.";
         }
         return "";
     }
@@ -263,10 +263,10 @@ public static class Actions
     {
         var info = Species.Get(species);
         if (info.UnlockLevel > s.Level) return ActionResult.Fail($"{info.Name} seeds unlock at level {info.UnlockLevel}.");
-        if (s.Peppercorns < info.SeedCost) return ActionResult.Fail("Not enough peppercorns.");
+        if (s.Peppercorns < info.SeedCost) return ActionResult.Fail("Not enough " + Peppercorn.Icon + " peppercorns.");
         s.Peppercorns -= info.SeedCost;
         s.Inventory.Seeds[(int)species]++;
-        return ActionResult.Success($"Bought {info.Name} seed for {info.SeedCost} peppercorns.");
+        return ActionResult.Success($"Bought {info.Name} seed for {Peppercorn.Pc(info.SeedCost)}.");
     }
 
     public static ActionResult BuySpice(GameState s, Spice spice)
@@ -274,10 +274,10 @@ public static class Actions
         int unlock = SpiceInfo.UnlockLevel(spice);
         if (unlock > s.Level) return ActionResult.Fail($"{SpiceInfo.Name(spice)} unlocks at level {unlock}.");
         int price = SpiceInfo.Price(spice);
-        if (s.Peppercorns < price) return ActionResult.Fail("Not enough peppercorns.");
+        if (s.Peppercorns < price) return ActionResult.Fail("Not enough " + Peppercorn.Icon + " peppercorns.");
         s.Peppercorns -= price;
         s.Inventory.Spices[(int)spice]++;
-        return ActionResult.Success($"Bought {SpiceInfo.Name(spice)} for {price} peppercorns.");
+        return ActionResult.Success($"Bought {SpiceInfo.Name(spice)} for {Peppercorn.Pc(price)}.");
     }
 
     // ---- Shipping -----------------------------------------------------------

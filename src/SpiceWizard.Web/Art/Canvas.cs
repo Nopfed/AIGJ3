@@ -158,10 +158,20 @@ namespace SpiceWizard.Web.Art
             Rect(r.Right - 1, r.Y, 1, r.Height, color);
         }
 
-        public void Text(string text, int x, int y, Color color)
+        public void Text(string text, int x, int y, Color color) => Text(text, x, y, color, null);
+
+        /// <summary>The peppercorn sign becomes the icon: it keeps its own greys (only the text's alpha carries
+        /// over, so a fading toast fades it too) unless <paramref name="iconTint"/> forces a colour for a shadow pass.</summary>
+        void Text(string text, int x, int y, Color color, Color? iconTint)
         {
             foreach (char c in text)
             {
+                if (c == PixelFont.PeppercornSign)
+                {
+                    Sprite("ic_peppercorn", x, y - 1, iconTint ?? Color.White * (color.A / 255f));
+                    x += PixelFont.IconAdvance;
+                    continue;
+                }
                 if (c != ' ')
                     Batch.Draw(Atlas.Texture, new Vector2(x, y), Atlas.Glyph(c), color);
                 x += PixelFont.Advance;
@@ -170,8 +180,8 @@ namespace SpiceWizard.Web.Art
 
         public void TextShadow(string text, int x, int y, Color color)
         {
-            Text(text, x + 1, y + 1, Palette.Outline);
-            Text(text, x, y, color);
+            Text(text, x + 1, y + 1, Palette.Outline, Palette.Outline);
+            Text(text, x, y, color, null);
         }
 
         public void TextCentered(string text, int centerX, int y, Color color) =>

@@ -77,7 +77,7 @@ Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. The
 ## Resources
 
 - **Starter kit**: 30 peppercorns, 4 Bell seeds, 1 Banana seed, 1 jar of Bell mash and one pinch each of Cumin, Coriander and Curry Leaves, so a Bell Hot Sauce can go to town on the very first night and a Golden Curry after the first harvest.
-- **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
+- **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse. Every price, cost, payout and mention in the game carries the peppercorn icon; in the shop, cauldron and notice board the icon stands in for the word.
 - **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, blending 2, grinding 1, a pep talk 1, the hasten spell 2 (pushes a plant or jar 2 nights ahead; once a day, twice from level 16). Sleep refills it; eating a pepper restores its heat value.
 - **Spices** from the merchant: Cumin 3, Cinnamon 3, Curry Leaves 4, Coriander 3, Ginger 4 (level 1); Cardamom 6 (level 3); Cloves 6 and Fenugreek 5 (level 5). Meeting a quota also grants one rare spice.
 
