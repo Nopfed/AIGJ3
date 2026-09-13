@@ -42,22 +42,58 @@ namespace SpiceWizard.Web.Ui
 
         public void ConsumeClick() => Clicked = false;
 
-        public bool Button(Rectangle r, string label, bool enabled = true, string tooltip = null)
+        /// <summary>A push button. <paramref name="icon"/> is drawn before the label; <paramref name="badge"/> is drawn
+        /// after it beside a flame, the way every spice cost or gain is shown ("-2", "+3").</summary>
+        public bool Button(Rectangle r, string label, bool enabled = true, string tooltip = null, string icon = null, Color? tint = null, string badge = null)
         {
             bool hot = Hot(r);
             C.Rect(r.X + 1, r.Y + 1, r.Width, r.Height, Palette.Shadow);
             C.NineSlice(enabled ? "button" : "button_dim", r);
             if (enabled && hot) C.Rect(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2, Palette.White * 0.25f);
-            var color = enabled ? Palette.Outline : Palette.Grey;
-            C.TextCentered(label, r.X + r.Width / 2, r.Y + (r.Height - PixelFont.GlyphHeight) / 2, color);
+            var color = enabled ? Palette.Outline : Palette.Charcoal;
+            int w = PixelFont.Measure(label) + (icon != null ? IconGap : 0) + (badge != null ? IconGap + PixelFont.Measure(badge) + 1 : 0);
+            int x = r.X + (r.Width - w) / 2;
+            int ty = r.Y + (r.Height - PixelFont.GlyphHeight) / 2;
+            if (icon != null) { C.Sprite(icon, x, ty - 1, enabled ? (tint ?? Color.White) : Palette.LightGrey); x += IconGap; }
+            C.Text(label, x, ty, color);
+            x += PixelFont.Measure(label);
+            if (badge != null)
+            {
+                C.Sprite("ic_flame", x + 3, ty - 1, enabled ? Color.White : Palette.LightGrey);
+                C.Text(badge, x + IconGap + 1, ty, enabled ? Palette.DarkRed : color);
+            }
             if (hot && tooltip != null) Tooltip = tooltip;
             return enabled && Take(r);
         }
+
+        const int IconGap = 11; // an 8px icon plus breathing room before the text that follows it
 
         public bool SmallButton(int x, int y, string label, bool enabled = true, string tooltip = null) =>
             Button(new Rectangle(x, y, PixelFont.Measure(label) + 10, 12), label, enabled, tooltip);
 
         public void Label(int x, int y, string text) => C.Text(text, x, y, Palette.Outline);
+
+        /// <summary>A section heading: the same dark red everywhere so the eye learns it.</summary>
+        public void Heading(int x, int y, string text) => C.Text(text, x, y, Palette.DarkRed);
+
+        /// <summary>A tick or a cross before a short caption; the caption is green when true and grey when not.</summary>
+        public void Flag(int x, int y, bool value, string text)
+        {
+            C.Sprite(value ? "ic_check" : "ic_cross", x, y);
+            C.Text(text, x + 10, y + 1, value ? Palette.Green : Palette.Grey);
+        }
+
+        /// <summary>A checkbox with a label; clicking either toggles it. Returns true when toggled.</summary>
+        public bool Checkbox(int x, int y, string label, ref bool value)
+        {
+            C.Rect(x, y, 9, 9, Palette.Outline);
+            C.Rect(x + 1, y + 1, 7, 7, value ? Palette.Yellow : Palette.Cream);
+            if (value) C.Rect(x + 3, y + 3, 3, 3, Palette.Outline);
+            C.Text(label, x + 12, y + 1, Palette.Outline);
+            if (!Take(new Rectangle(x, y - 1, 12 + PixelFont.Measure(label), 11))) return false;
+            value = !value;
+            return true;
+        }
 
         /// <summary>Word-wraps to maxChars per line. Returns the y just below the last line.</summary>
         public int Paragraph(int x, int y, int maxChars, string text, Color color)

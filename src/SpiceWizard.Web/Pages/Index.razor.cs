@@ -36,7 +36,9 @@ namespace SpiceWizard.Web.Pages
                 foreach (var flag in new[] { "master", "night", "rain", "windy" })
                     if (Nav.Uri.Contains("demo=" + flag)) demo = flag;
                 if (demo == null && Nav.Uri.Contains("demo")) demo = "mid";
-                _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo, _savedSettings, SaveSettings);
+                var panel = System.Text.RegularExpressions.Regex.Match(Nav.Uri, "panel=([A-Za-z]+)");
+                _game = new SpiceWizardGame(_savedJson, Save, ClearSave, PollClicks, demo, _savedSettings, SaveSettings, panel.Success ? panel.Groups[1].Value : null,
+                    int.TryParse(System.Text.RegularExpressions.Regex.Match(Nav.Uri, "index=([0-9]+)").Groups[1].Value, out var idx) ? idx : 0);
                 _game.Run();
             }
 

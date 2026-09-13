@@ -24,6 +24,8 @@ namespace SpiceWizard.Web
         readonly Action<string> _saveSettingsHook;
         readonly Func<int[]> _pollClicks;
         readonly string _demo;
+        readonly string _demoPanel;   // ?demo&panel=Cauldron opens a panel straight away, for screenshots
+        readonly int _demoIndex;      // ...&index=5 picks the plot for panel=Plot
 
         SpriteBatch _batch;
         Atlas _atlas;
@@ -63,9 +65,11 @@ namespace SpiceWizard.Web
         Station _hover;
 
         public SpiceWizardGame(string savedJson, Action<string> saveHook, Action clearSaveHook, Func<int[]> pollClicks, string demo = null,
-            string savedSettings = null, Action<string> saveSettingsHook = null)
+            string savedSettings = null, Action<string> saveSettingsHook = null, string demoPanel = null, int demoIndex = 0)
         {
             _demo = demo;
+            _demoPanel = demoPanel;
+            _demoIndex = demoIndex;
             _savedSettings = savedSettings;
             _saveSettingsHook = saveSettingsHook;
             _graphics = new GraphicsDeviceManager(this);
@@ -118,6 +122,11 @@ namespace SpiceWizard.Web
                 if (_demo == "rain") { _state.Weather = Weather.Rain; WeatherInfo.ApplyRain(_state); }
                 _session.Close();
                 _mixer.Unlock();
+                if (_demoPanel != null && Enum.TryParse<PanelKind>(_demoPanel, true, out var kind))
+                {
+                    if (kind == PanelKind.Morning) DayTick.Sleep(_state);
+                    _session.Open(kind, _demoIndex);
+                }
             }
         }
 

@@ -122,13 +122,25 @@ namespace SpiceWizard.Web.Ui
             BigText(c, "MASTER", cx, 22, 2, Palette.Yellow * pulse);
             BigText(c, "SPICE WIZARD!", cx, 40, 2, Palette.Yellow * pulse);
 
-            c.Rect(cx - 116, 120, 232, 62, Palette.Outline * 0.8f);
-            c.TextCentered("The whole town came to cheer!", cx, 124, Palette.White);
-            c.TextCentered("Mastered on day " + s.WonOnDay, cx, 136, Palette.Cream);
-            c.TextCentered(s.Stats.SaucesSold + " sauces and " + s.Stats.BlendsSold + " blends sold, " + s.Stats.FiveStarSauces + " of them five-star", cx, 146, Palette.Cream);
-            c.TextCentered(s.Stats.PeppercornsEarned + " peppercorns earned, " + s.Stats.QuotasMet + " quotas met", cx, 156, Palette.Cream);
-            if (ui.Button(new Rectangle(cx - 84, 166, 80, 14), "Keep playing", true)) ss.Close();
-            if (ui.Button(new Rectangle(cx + 4, 166, 80, 14), "New game", true)) ss.RequestNewGame?.Invoke();
+            var box = new Rectangle(cx - 150, 112, 300, 84);
+            c.Rect(box, Palette.Outline * 0.85f);
+            c.Border(box, Palette.Gold * 0.6f);
+            c.TextCentered("The whole town came to cheer!", cx, box.Y + 5, Palette.White);
+            c.TextCentered("Mastered on day " + s.WonOnDay, cx, box.Y + 17, Palette.Cream);
+            int sy = box.Y + 31;
+            Stat(c, cx - 140, sy, "ic_hot", Palette.Red, s.Stats.SaucesSold + " sauces sold");
+            Stat(c, cx + 8, sy, "ic_blend", Palette.LightPurple, s.Stats.BlendsSold + " blends sold");
+            Stat(c, cx - 140, sy + 11, "ic_star", Color.White, s.Stats.FiveStarSauces + " five-star bottles");
+            Stat(c, cx + 8, sy + 11, "ic_check", Color.White, s.Stats.QuotasMet + " quotas met");
+            Stat(c, cx - 140, sy + 22, "ic_peppercorn", Color.White, s.Stats.PeppercornsEarned + " peppercorns earned");
+            if (ui.Button(new Rectangle(cx - 84, box.Bottom - 18, 80, 14), "Keep playing", true)) ss.Close();
+            if (ui.Button(new Rectangle(cx + 4, box.Bottom - 18, 80, 14), "New game", true)) ss.RequestNewGame?.Invoke();
+        }
+
+        static void Stat(Canvas c, int x, int y, string icon, Color tint, string text)
+        {
+            c.Sprite(icon, x, y, tint);
+            c.Text(text, x + 11, y + 1, Palette.Cream);
         }
 
         /// <summary>Chunky text: the glyphs are drawn scaled up by an integer factor.</summary>

@@ -1278,16 +1278,17 @@ namespace SpiceWizard.Web.Art
             },
 
             // ---- Icons (8x8). Grey-scale ones are tinted per item. ------------------
+            // Three peppercorns; grey bodies with a highlight so they read on both parchment and the dark HUD.
             ["ic_peppercorn"] = new[]
             {
                 "........",
-                "..xx.xx.",
-                ".xXxxXxx",
-                ".xxxxxxx",
-                "..xx.xx.",
-                ".xx.xx..",
-                "xXxxXxx.",
-                ".xx.xx..",
+                "..KK.KK.",
+                ".KgGKgGK",
+                ".KGGKGGK",
+                "..KK.KK.",
+                ".KK.KK..",
+                "KgGKgGK.",
+                ".KK.KK..",
             },
             ["ic_seed"] = new[]
             {
@@ -1520,6 +1521,17 @@ namespace SpiceWizard.Web.Art
                 "ll.ll...",
                 ".lll....",
                 "..l.....",
+            },
+            ["ic_cross"] = new[]
+            {
+                "........",
+                ".G....G.",
+                ".GG..GG.",
+                "..GGGG..",
+                "...GG...",
+                "..GGGG..",
+                ".GG..GG.",
+                ".G....G.",
             },
 
             // ---- UI chrome: 9-slice frames (each 3x3 cells of 4px) ----------------------

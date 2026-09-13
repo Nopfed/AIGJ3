@@ -15,6 +15,8 @@ namespace SpiceWizard.Web.Ui
         const int Top = 34;
         const int Row = 13;
         const int MaxChars = 56;
+        /// <summary>Rightmost pixel body text may reach: the frame's bevel starts just past it.</summary>
+        static int RightEdge => Frame.Right - 6;
 
         public static void Draw(Ui ui, GameState s, Session ss)
         {
@@ -40,11 +42,17 @@ namespace SpiceWizard.Web.Ui
             return true;
         }
 
+        /// <summary>Small status at the right end of the title bar, with an optional icon.</summary>
         static void Header(Ui ui, string icon, string text)
         {
-            int w = PixelFont.Measure(text) + 10;
-            ui.IconLabel(Frame.Right - 22 - w, Frame.Y + 4, icon, Color.White, text, Palette.Cream);
+            int w = PixelFont.Measure(text) + (icon != null ? 10 : 0);
+            int x = Frame.Right - 22 - w;
+            if (icon != null) ui.IconLabel(x, Frame.Y + 4, icon, Color.White, text, Palette.Cream);
+            else ui.C.Text(text, x, Frame.Y + 5, Palette.Cream);
         }
+
+        static void SpiceHeader(Ui ui, GameState s) => Header(ui, "ic_flame", "Spice " + s.Spice.Current + "/" + s.Spice.Max);
+        static void PeppercornHeader(Ui ui, GameState s) => Header(ui, "ic_peppercorn", s.Peppercorns + " peppercorns");
 
         /// <summary>The panel body below the title bar (and above the header text, if any), leaving room for a
         /// fixed footer (buttons or a caption) that sits outside the scrollable area.</summary>
@@ -63,6 +71,18 @@ namespace SpiceWizard.Web.Ui
             ui.EndScroll(area, scroll, ss.ContentHeight);
         }
 
+        /// <summary>Icon and tint for an ingredient wherever a recipe or blend lists one.</summary>
+        static (string icon, Color tint) IngredientArt(Ingredient ing) => ing.Kind switch
+        {
+            IngredientKind.Pepper => (ItemArt.PepperIcon((PepperSpecies)ing.Index), Color.White),
+            IngredientKind.Powder => ("ic_powder", ItemArt.SpeciesColor((PepperSpecies)ing.Index)),
+            IngredientKind.Mash => ("ic_mash", ItemArt.SpeciesColor((PepperSpecies)ing.Index)),
+            IngredientKind.Spice => ("ic_pouch", ItemArt.SpiceColor((Spice)ing.Index)),
+            _ => ("ic_peppercorn", Color.White),
+        };
+
+        static string Cost(int spice) => "-" + spice;
+
         // ---- Garden plot ------------------------------------------------------------
 
         static void Plot(Ui ui, GameState s, Session ss)
@@ -76,25 +96,26 @@ namespace SpiceWizard.Web.Ui
             {
                 Scroll(ui, ss, Content(), top =>
                 {
-                    ui.Label(Left, top, "Bare soil. Plant a seed:");
+                    ui.Heading(Left, top, "Bare soil. Plant a seed:");
                     int y = top;
                     for (int k = 0; k < Species.All.Length; k++)
                     {
                         var info = Species.All[k];
-                        y = top + 16 + k * (Row + 6);
+                        y = top + 16 + k * (Row + 12);
                         int seeds = s.Inventory.Seed(info.Species);
-                        ui.IconLabel(Left, y + 2, ItemArt.PepperIcon(info.Species), Color.White, info.Name + " pepper", Palette.Outline);
-                        ui.Label(Left + 110, y + 3, "seeds: " + seeds, seeds > 0 ? Palette.Outline : Palette.Grey);
-                        ui.Label(Left, y + 11, info.CareHint, Palette.Grey);
-                        string tip = info.UnlockLevel > s.Level ? "Seeds unlock at level " + info.UnlockLevel : info.GrowthPoints + " growth to ripen, yields " + info.Yield;
-                        if (ui.Button(new Rectangle(Left + 200, y, 56, 13), "Plant", seeds > 0, tip))
+                        bool unlocked = info.UnlockLevel <= s.Level;
+                        ui.IconLabel(Left, y + 2, ItemArt.PepperIcon(info.Species), unlocked ? Color.White : Palette.Grey, info.Name + " pepper", unlocked ? Palette.Outline : Palette.Grey);
+                        ui.IconLabel(Left + 110, y + 2, "ic_seed", unlocked ? ItemArt.SpeciesColor(info.Species) : Palette.Grey, "x" + seeds, seeds > 0 ? Palette.Outline : Palette.Grey);
+                        ui.Label(Left, y + 14, unlocked ? info.CareHint : "Seeds unlock at level " + info.UnlockLevel, Palette.Grey);
+                        string tip = info.GrowthPoints + " growth to ripen, yields " + info.Yield + " peppers";
+                        if (ui.Button(new Rectangle(Left + 160, y - 1, 56, 13), "Plant", seeds > 0, tip))
                         {
                             var r = Actions.PlantSeed(s, i, info.Species);
                             ss.Say(r, Sfx.Plant);
                             if (r.Ok) ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y + 4), Palette.LightGreen);
                         }
                     }
-                    return y + Row + 6;
+                    return y + Row + 12;
                 });
                 return;
             }
@@ -111,41 +132,53 @@ namespace SpiceWizard.Web.Ui
                     _ => ItemArt.MatureSprite(plant.Species),
                 };
                 ui.C.Rect(Left, top, 32, 32, Palette.Soil);
+                ui.C.Border(new Rectangle(Left, top, 32, 32), Palette.DeepSoil);
                 ui.C.Sprite(sprite, Left + 8, top + 8);
                 if (plant.IsMature && plant.Species == PepperSpecies.Ghost) ui.C.Sprite("ghost", Left + 11, top + 4);
 
-                ui.Label(Left + 40, top, sp.Name + " pepper", Palette.DarkRed);
-                ui.Label(Left + 40, top + 10, "Stage: " + plant.Stage + "   Growth " + plant.Points + "/" + sp.GrowthPoints);
-                ui.Bar(new Rectangle(Left + 40, top + 20, 120, 6), plant.Points / (float)sp.GrowthPoints, Palette.LightGreen);
-                ui.Label(Left + 40, top + 30, plant.Mood(), Palette.Purple);
-                ui.Label(Left, top + 46, sp.CareHint, Palette.Grey);
-                ui.Label(Left, top + 58, "Watered today: " + (plant.WateredToday ? "yes" : "no") + "   yesterday: " + (plant.WateredYesterday ? "yes" : "no"));
-                ui.Label(Left, top + 68, "Pep talk today: " + (plant.PepTalkedToday ? "yes" : "no") + "   Tonight: +" + plant.GrowthTonight() + " growth");
+                int tx = Left + 40;
+                ui.Heading(tx, top, sp.Name + " pepper");
+                ui.Label(tx + 96, top, plant.Stage.ToString(), Palette.Grey);
+                ui.Bar(new Rectangle(tx, top + 11, 120, 7), plant.Points / (float)sp.GrowthPoints, Palette.LightGreen);
+                ui.Label(tx + 126, top + 11, plant.Points + "/" + sp.GrowthPoints + " growth");
+                ui.Label(tx, top + 22, plant.Mood(), Palette.Purple);
+                ui.Label(tx, top + 32, sp.CareHint, Palette.Grey);
 
-                int by = top + 88;
+                int by = top + 48;
+                if (!plant.IsMature)
+                {
+                    ui.Flag(Left, by, plant.WateredToday, "Watered today");
+                    ui.Flag(Left + 96, by, plant.WateredYesterday, "Watered yesterday");
+                    ui.Flag(Left + 216, by, plant.PepTalkedToday, "Pep talk today");
+                    by += 14;
+                    int g = plant.GrowthTonight();
+                    ui.Label(Left, by, "Tonight: +" + g + " growth", g > 0 ? Palette.Green : Palette.DarkRed);
+                    by += 18;
+                }
+
                 bool canWater = !plant.IsMature && !plant.WateredToday;
-                if (ui.Button(new Rectangle(Left, by, 80, 16), "Water (" + s.Garden.BucketWater + "/" + Garden.BucketCapacity + ")", canWater && s.Garden.BucketWater > 0,
-                    s.Garden.BucketWater == 0 ? "Bucket is empty: click the well" : "Water the plant"))
+                if (ui.Button(new Rectangle(Left, by, 86, 16), "Water " + s.Garden.BucketWater + "/" + Garden.BucketCapacity, canWater && s.Garden.BucketWater > 0,
+                    s.Garden.BucketWater == 0 ? "Bucket is empty: click the well" : "Water the plant", icon: "ic_water"))
                 {
                     var r = Actions.Water(s, i);
                     ss.Say(r);
                     if (r.Ok) ss.OnWatered?.Invoke(new Point(pos.X + 12, pos.Y + 4));
                 }
-                if (ui.Button(new Rectangle(Left + 86, by, 80, 16), "Pep talk (1)", !plant.IsMature && !plant.PepTalkedToday && s.Spice.CanSpend(Balance.PepTalkSpiceCost),
-                    "Costs 1 spice. Every pepper reacts differently"))
+                if (ui.Button(new Rectangle(Left + 92, by, 86, 16), "Pep talk", !plant.IsMature && !plant.PepTalkedToday && s.Spice.CanSpend(Balance.PepTalkSpiceCost),
+                    "Costs " + Balance.PepTalkSpiceCost + " spice. Every pepper reacts differently", badge: Cost(Balance.PepTalkSpiceCost)))
                 {
                     var r = Actions.PepTalk(s, i);
                     ss.Say(r);
                     if (r.Ok) ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Pink);
                 }
-                if (ui.Button(new Rectangle(Left + 172, by, 80, 16), "Harvest", plant.IsMature, "Yields " + sp.Yield))
+                if (ui.Button(new Rectangle(Left + 184, by, 86, 16), "Harvest", plant.IsMature, "Yields " + sp.Yield + " peppers", icon: ItemArt.PepperIcon(plant.Species)))
                 {
                     var r = Actions.Harvest(s, i);
                     ss.Say(r, Sfx.Harvest);
                     if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Yellow); ss.Close(); }
                 }
                 by += 20;
-                HastenButton(ui, ss, new Rectangle(Left, by, 166, 16), s, !plant.IsMature, "Grows " + Balance.HastenNights + " nights at once",
+                HastenButton(ui, ss, new Rectangle(Left, by, 178, 16), s, !plant.IsMature, "Grows " + Balance.HastenNights + " nights at once",
                     () => Actions.HastenPlant(s, i), new Point(pos.X + 12, pos.Y));
                 return by + 16;
             });
@@ -156,8 +189,9 @@ namespace SpiceWizard.Web.Ui
         {
             string blocker = Actions.HastenBlocker(s);
             bool enabled = targetOk && blocker.Length == 0;
-            string label = s.HastenedToday ? "Hasten (spent)" : "Hasten (" + Balance.HastenSpiceCost + ")";
-            if (!ui.Button(rect, label, enabled, blocker.Length > 0 ? blocker : "Once a day, costs " + Balance.HastenSpiceCost + " spice. " + tip)) return;
+            string label = s.HastenedToday ? "Hasten (used today)" : "Hasten spell";
+            if (!ui.Button(rect, label, enabled, blocker.Length > 0 ? blocker : "Once a day, costs " + Balance.HastenSpiceCost + " spice. " + tip,
+                badge: s.HastenedToday ? null : Cost(Balance.HastenSpiceCost))) return;
             var r = cast();
             ss.Say(r, Sfx.Chime);
             if (r.Ok) ss.OnSparkle?.Invoke(sparkleAt, Palette.Purple);
@@ -168,28 +202,33 @@ namespace SpiceWizard.Web.Ui
         static void Board(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Notice board - week " + s.Clock.Week)) return;
+            Header(ui, null, "Day " + s.Clock.DayOfWeek + " of 7");
             var q = s.Quota;
             Scroll(ui, ss, Content(), top =>
             {
                 int y = top;
-                ui.Label(Left, y, "The town council requests, by the end of day " + s.Clock.Week * 7 + ":", Palette.DarkRed);
+                ui.Heading(Left, y, "The town council requests, by the end of day " + s.Clock.Week * 7 + ":");
                 y += 14;
                 if (q == null) { ui.Label(Left, y, "Nothing posted."); return y + Row; }
                 for (int i = 0; i < q.Lines.Count; i++)
                 {
                     var line = q.Lines[i];
                     var r = RecipeBook.Get(line.RecipeId);
-                    ui.IconLabel(Left + 6, y, ItemArt.SauceIcon(r), ItemArt.SauceColor(r.Id), line.Required + "x " + r.Name, Palette.Outline);
+                    var color = line.IsMet ? Palette.Green : Palette.Outline;
+                    ui.IconLabel(Left + 6, y, ItemArt.SauceIcon(r), ItemArt.SauceColor(r.Id), line.Required + "x " + r.Name, color);
                     ui.Label(Left + 150, y + 1, line.Sold + " / " + line.Required, line.IsMet ? Palette.Green : Palette.DarkRed);
                     if (line.IsMet) ui.C.Sprite("ic_check", Left + 190, y);
                     y += Row + 2;
                 }
                 y += 8;
-                ui.Label(Left, y, "Today is day " + s.Clock.DayOfWeek + " of 7."); y += 12;
-                ui.Label(Left, y, "Reward: " + Balance.QuotaBonusPeppercorns(q.Week) + " peppercorns, " + Balance.QuotaBonusXp(q.Week) + " fame and a rare spice."); y += 12;
-                ui.Label(Left, y, "Sauces on the list earn an extra star when sold.", Palette.Grey); y += 12;
+                ui.Label(Left, y + 1, "Reward:", Palette.Grey);
+                ui.IconLabel(Left + 48, y, "ic_peppercorn", Color.White, Balance.QuotaBonusPeppercorns(q.Week) + " peppercorns", Palette.Outline);
+                ui.IconLabel(Left + 152, y, "ic_hat", Color.White, Balance.QuotaBonusXp(q.Week) + " fame", Palette.Outline);
+                ui.IconLabel(Left + 208, y, "ic_pouch", Palette.Tan, "a rare spice", Palette.Outline);
+                y += 14;
+                ui.Label(Left, y, "Sauces on the list earn an extra star when sold.", Palette.Grey); y += 10;
                 ui.Label(Left, y, "The town tires of the same sauce twice in three days.", Palette.Grey); y += 12;
-                if (q.IsMet) { y += 4; ui.Label(Left, y, "Quota met! The bonus arrives at the start of next week.", Palette.Green); y += 12; }
+                if (q.IsMet) { y += 4; ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! The bonus arrives at the start of next week.", Palette.Green); y += 12; }
                 return y;
             });
         }
@@ -199,11 +238,12 @@ namespace SpiceWizard.Web.Ui
         static void Market(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Travelling merchant")) return;
-            Header(ui, "ic_peppercorn", s.Peppercorns + " peppercorns");
+            PeppercornHeader(ui, s);
             Scroll(ui, ss, Content(), top =>
             {
                 int y1 = top;
-                ui.Label(Left, y1, "Seeds", Palette.DarkRed);
+                ui.Heading(Left, y1, "Seeds");
+                ui.Label(Left + 120, y1, "owned", Palette.Grey);
                 y1 += 12;
                 for (int k = 0; k < Species.All.Length; k++, y1 += Row)
                 {
@@ -211,7 +251,7 @@ namespace SpiceWizard.Web.Ui
                     bool unlocked = info.UnlockLevel <= s.Level;
                     ui.IconLabel(Left, y1, ItemArt.PepperIcon(info.Species), unlocked ? Color.White : Palette.Grey, info.Name, unlocked ? Palette.Outline : Palette.Grey);
                     ui.Label(Left + 56, y1 + 1, info.SeedCost + "pc", Palette.Outline);
-                    if (!unlocked) ui.Label(Left + 86, y1 + 1, "Lv" + info.UnlockLevel, Palette.Grey);
+                    if (!unlocked) ui.IconLabel(Left + 84, y1, "ic_lock", Color.White, "Lv" + info.UnlockLevel, Palette.Grey);
                     else if (ui.Button(new Rectangle(Left + 84, y1 - 1, 30, 11), "Buy", s.Peppercorns >= info.SeedCost, info.CareHint))
                         ss.Say(Actions.BuySeed(s, info.Species), Sfx.Coin);
                     ui.Label(Left + 120, y1 + 1, "x" + s.Inventory.Seed(info.Species), Palette.Grey);
@@ -219,7 +259,8 @@ namespace SpiceWizard.Web.Ui
 
                 int sx = Left + 156;
                 int y2 = top;
-                ui.Label(sx, y2, "Spices", Palette.DarkRed);
+                ui.Heading(sx, y2, "Spices");
+                ui.Label(sx + 146, y2, "owned", Palette.Grey);
                 y2 += 12;
                 for (int k = 0; k < Inventory.SpiceCount; k++, y2 += Row)
                 {
@@ -227,7 +268,7 @@ namespace SpiceWizard.Web.Ui
                     bool unlocked = SpiceInfo.UnlockLevel(spice) <= s.Level;
                     ui.IconLabel(sx, y2, "ic_pouch", unlocked ? ItemArt.SpiceColor(spice) : Palette.Grey, SpiceInfo.Name(spice), unlocked ? Palette.Outline : Palette.Grey);
                     ui.Label(sx + 84, y2 + 1, SpiceInfo.Price(spice) + "pc", Palette.Outline);
-                    if (!unlocked) ui.Label(sx + 112, y2 + 1, "Lv" + SpiceInfo.UnlockLevel(spice), Palette.Grey);
+                    if (!unlocked) ui.IconLabel(sx + 110, y2, "ic_lock", Color.White, "Lv" + SpiceInfo.UnlockLevel(spice), Palette.Grey);
                     else if (ui.Button(new Rectangle(sx + 110, y2 - 1, 30, 11), "Buy", s.Peppercorns >= SpiceInfo.Price(spice)))
                         ss.Say(Actions.BuySpice(s, spice), Sfx.Coin);
                     ui.Label(sx + 146, y2 + 1, "x" + s.Inventory.SpiceOf(spice), Palette.Grey);
@@ -244,10 +285,13 @@ namespace SpiceWizard.Web.Ui
         static void Cauldron(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Cauldron")) return;
-            Header(ui, "ic_flame", "Spice " + s.Spice.Current + "/" + s.Spice.Max);
+            SpiceHeader(ui, s);
             Scroll(ui, ss, Content(), top =>
             {
                 int y1 = top;
+                ui.Heading(Left, y1, "Recipes");
+                ui.Label(Left + 100, y1, "sells for", Palette.Grey);
+                y1 += 12;
                 for (int k = 0; k < RecipeBook.All.Length; k++, y1 += 12)
                 {
                     var r = RecipeBook.All[k];
@@ -255,8 +299,10 @@ namespace SpiceWizard.Web.Ui
                     var rowRect = new Rectangle(Left, y1 - 1, 128, 11); // stops short of the Cook button so the row does not swallow its click
                     bool selected = ss.SelectedRecipe == r.Id;
                     if (selected) ui.C.Rect(rowRect, Palette.Yellow * 0.5f);
+                    else if (ui.Hot(rowRect)) ui.C.Rect(rowRect, Palette.Yellow * 0.2f);
                     ui.IconLabel(Left + 2, y1, ItemArt.SauceIcon(r), unlocked ? ItemArt.SauceColor(r.Id) : Palette.Grey, r.Name, unlocked ? Palette.Outline : Palette.Grey);
-                    ui.Label(Left + 100, y1 + 1, unlocked ? r.BaseValue + "pc" : "Lv" + r.UnlockLevel, unlocked ? Palette.Outline : Palette.Grey);
+                    if (unlocked) ui.Label(Left + 104, y1 + 1, r.BaseValue + "pc", Palette.Outline);
+                    else ui.IconLabel(Left + 104, y1, "ic_lock", Color.White, "Lv" + r.UnlockLevel, Palette.Grey);
                     if (ui.Take(rowRect)) ss.SelectedRecipe = r.Id;
                     string blocker = Actions.CookBlocker(s, r, ss.ExtraPeppercorn);
                     if (unlocked && ui.Button(new Rectangle(Left + 130, y1 - 1, 34, 11), "Cook", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.CookSpiceCost + " spice" : blocker))
@@ -268,26 +314,22 @@ namespace SpiceWizard.Web.Ui
                 }
 
                 var sel = RecipeBook.Get(ss.SelectedRecipe);
-                int dx = Left + 178, dy = top;
-                ui.Label(dx, dy, sel.Name, Palette.DarkRed);
-                ui.Label(dx, dy + 10, (sel.Type == SauceType.Hot ? "Hot sauce" : "Curry sauce") + ", tier " + sel.Tier, Palette.Grey);
-                ui.Label(dx, dy + 22, "Needs:");
+                int dx = Left + 172, dy = top;
+                ui.Heading(dx, dy, sel.Name);
+                ui.Label(dx, dy + 10, (sel.Type == SauceType.Hot ? "Hot sauce" : "Curry sauce") + ", tier " + sel.Tier + ".", Palette.Grey);
+                ui.IconLabel(dx + 110, dy + 9, "ic_flame", Color.White, Cost(Balance.CookSpiceCost), Palette.DarkRed);
+                ui.Label(dx, dy + 22, "Needs (you have):");
                 for (int k = 0; k < sel.Ingredients.Length; k++)
                 {
                     var ing = sel.Ingredients[k];
                     int have = Actions.Have(s, ing);
                     bool ok = have >= ing.Count;
-                    ui.Label(dx + 4, dy + 32 + k * 10, ing.Count + " " + ing.Name + " (" + have + ")", ok ? Palette.Green : Palette.DarkRed);
+                    var (icon, tint) = IngredientArt(ing);
+                    ui.IconLabel(dx + 4, dy + 32 + k * 10, icon, ok ? tint : Palette.Grey, ing.Count + "x " + ing.Name + " (" + have + ")", ok ? Palette.Green : Palette.DarkRed);
                 }
                 int ey = dy + 32 + sel.Ingredients.Length * 10 + 6;
-                var box = new Rectangle(dx, ey, 9, 9);
-                ui.C.Rect(box, Palette.Outline);
-                ui.C.Rect(dx + 1, ey + 1, 7, 7, ss.ExtraPeppercorn ? Palette.Yellow : Palette.Cream);
-                ui.Label(dx + 12, ey + 1, "Extra peppercorn (+1 star)");
-                if (ui.Take(new Rectangle(dx, ey, 140, 10))) ss.ExtraPeppercorn = !ss.ExtraPeppercorn;
-                ui.Label(dx, ey + 14, "Aged mash also adds a star.", Palette.Grey);
-                ui.Label(dx, ey + 24, "Unfamiliar recipes lose one.", Palette.Grey);
-                int y2 = ey + 34;
+                ui.Checkbox(dx, ey, "Extra peppercorn: +1 star", ref ss.ExtraPeppercorn);
+                int y2 = ui.Paragraph(dx, ey + 14, 27, "Aged mash also adds a star. A recipe you have never cooked loses one.", Palette.Grey);
 
                 return Math.Max(y1, y2);
             });
@@ -306,31 +348,39 @@ namespace SpiceWizard.Web.Ui
                 {
                     var jar = s.Shelf.Jars[j];
                     bool unlocked = j < s.UnlockedJars;
-                    ui.C.Sprite(unlocked ? (jar.IsEmpty ? "jar_empty" : "jar_full") : "jar_lock", Left, y, unlocked && !jar.IsEmpty ? ItemArt.SpeciesColor(jar.Species.Value) : Color.White);
                     if (!unlocked)
                     {
+                        ui.C.Sprite("jar_lock", Left, y);
                         ui.Label(Left + 16, y + 3, "Unlocks at level " + (j == 2 ? 5 : 10), Palette.Grey);
                         continue;
                     }
-                    ui.Label(Left + 16, y + 3, jar.Status(), jar.IsReady ? Palette.Green : Palette.Outline);
+                    if (!jar.IsEmpty)
+                    {
+                        var color = ItemArt.SpeciesColor(jar.Species.Value);
+                        ui.C.Sprite("jar_fill", Left, y, jar.IsReady ? color : Color.Lerp(color, Palette.Grey, 0.5f));
+                    }
+                    ui.C.Sprite("jar", Left, y);
+                    ui.Label(Left + 16, y + 3, "Jar " + (j + 1) + ": " + jar.Status(), jar.IsReady ? Palette.Green : Palette.Outline);
                     if (jar.IsEmpty)
                     {
                         for (int k = 0; k < Species.All.Length; k++)
                         {
                             var sp = (PepperSpecies)k;
                             int have = s.Inventory.Pepper(sp);
-                            if (ui.Button(new Rectangle(Left + 16 + k * 60, y + 15, 56, 12), Species.NameOf(sp) + " " + have, have >= Jar.PeppersPerJar, "Pack " + Jar.PeppersPerJar + " " + Species.NameOf(sp) + " peppers"))
+                            if (ui.Button(new Rectangle(Left + 16 + k * 66, y + 15, 62, 12), Species.NameOf(sp) + " " + have, have >= Jar.PeppersPerJar,
+                                "Pack " + Jar.PeppersPerJar + " " + Species.NameOf(sp) + " peppers", icon: ItemArt.PepperIcon(sp)))
                                 ss.Say(Actions.FillJar(s, j, sp), Sfx.Jar);
                         }
                     }
                     else if (jar.IsReady)
                     {
-                        if (ui.Button(new Rectangle(Left + 16, y + 15, 84, 12), "Collect mash", true, jar.IsAged ? "Aged mash: +1 star when cooked" : "Leave it " + (Jar.NightsToAge - jar.Nights) + " more nights to age"))
+                        if (ui.Button(new Rectangle(Left + 16, y + 14, 96, 14), "Collect mash", true, jar.IsAged ? "Aged mash: +1 star when cooked" : "Leave it " + (Jar.NightsToAge - jar.Nights) + " more nights to age",
+                            icon: "ic_mash", tint: ItemArt.SpeciesColor(jar.Species.Value)))
                             ss.Say(Actions.EmptyJar(s, j), Sfx.Jar);
                     }
                     else ui.Label(Left + 16, y + 17, "Bubbling away...", Palette.Grey);
                     if (!jar.IsEmpty && !jar.IsAged)
-                        HastenButton(ui, ss, new Rectangle(Left + 110, y + 15, 84, 12), s, true, "Ferments " + Balance.HastenNights + " nights at once",
+                        HastenButton(ui, ss, new Rectangle(Left + 120, y + 14, 110, 14), s, true, "Ferments " + Balance.HastenNights + " nights at once",
                             () => Actions.HastenJar(s, j), new Point(Layout.Shelf.X + 8 + j * 8, Layout.Shelf.Y));
                 }
                 return y;
@@ -342,56 +392,58 @@ namespace SpiceWizard.Web.Ui
         static void Mortar(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Mortar and pestle")) return;
-            Header(ui, "ic_flame", "Spice " + s.Spice.Current + "/" + s.Spice.Max);
+            SpiceHeader(ui, s);
             var draft = ss.Draft;
             bool unlocked = s.Level >= Balance.BlendUnlockLevel;
             bool room = draft.Pinches < Balance.MaxBlendPinches;
-            int rx = Left + 160;
+            const int Pitch = 11;
+            int rx = Left + 172;
+            var area = Content();
 
-            Scroll(ui, ss, Content(unlocked ? 26 : 0), top =>
+            Scroll(ui, ss, area, top =>
             {
-                ui.Label(Left, top, "Grind, then pinch a blend:", Palette.Grey);
+                ui.Heading(Left, top, "Ingredients");
                 int y = top + 12;
-                for (int k = 0; k < Species.All.Length; k++, y += 11)
+                for (int k = 0; k < Species.All.Length; k++, y += Pitch)
                 {
                     var sp = (PepperSpecies)k;
                     var ing = Ingredient.Powder(sp);
                     ui.IconLabel(Left, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " " + s.Inventory.Pepper(sp), Palette.Outline);
                     ui.IconLabel(Left + 66, y, "ic_powder", ItemArt.SpeciesColor(sp), "x" + s.Inventory.PowderOf(sp), Palette.Outline);
-                    if (ui.Button(new Rectangle(Left + 100, y - 1, 34, 11), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost), "One pepper to one powder for " + Balance.GrindSpiceCost + " spice"))
+                    if (ui.Button(new Rectangle(Left + 92, y - 1, 58, 11), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost),
+                        "One pepper to one powder for " + Balance.GrindSpiceCost + " spice", badge: Cost(Balance.GrindSpiceCost)))
                         ss.Say(Actions.Grind(s, sp), Sfx.Grind);
-                    PinchButton(ui, ss, s, draft, ing, Left + 138, y, unlocked && room);
+                    PinchButton(ui, ss, s, draft, ing, Left + 154, y, unlocked && room);
                 }
                 y += 2;
-                for (int k = 0; k < Inventory.SpiceCount; k++, y += 11)
+                for (int k = 0; k < Inventory.SpiceCount; k++, y += Pitch)
                 {
                     var spice = (Spice)k;
                     var ing = Ingredient.Of(spice);
                     int have = s.Inventory.SpiceOf(spice);
                     ui.IconLabel(Left, y, "ic_pouch", ItemArt.SpiceColor(spice), SpiceInfo.Name(spice) + " x" + have, have > 0 ? Palette.Outline : Palette.Grey);
-                    PinchButton(ui, ss, s, draft, ing, Left + 138, y, unlocked && room);
+                    PinchButton(ui, ss, s, draft, ing, Left + 154, y, unlocked && room);
                 }
                 ui.IconLabel(Left, y, "ic_peppercorn", Color.White, "Peppercorn x" + s.Peppercorns, Palette.Outline);
-                PinchButton(ui, ss, s, draft, Ingredient.Peppercorns(1), Left + 138, y, unlocked && room);
-                int y1 = y + 11;
+                PinchButton(ui, ss, s, draft, Ingredient.Peppercorns(1), Left + 154, y, unlocked && room);
+                int y1 = y + Pitch;
 
-                ui.Label(rx, top, "Your blend", Palette.DarkRed);
-                ui.Label(rx + 72, top, draft.Pinches + "/" + Balance.MaxBlendPinches + " pinches", Palette.Grey);
+                ui.Heading(rx, top, "Your blend");
+                if (unlocked) ui.C.TextRight(draft.Pinches + "/" + Balance.MaxBlendPinches + " pinches", RightEdge, top, Palette.Grey);
                 int y2;
                 if (!unlocked)
                 {
-                    y2 = ui.Paragraph(rx, top + 14, 30, "Blending unlocks at level " + Balance.BlendUnlockLevel + ". Until then the mortar only grinds.", Palette.Grey);
+                    y2 = ui.Paragraph(rx, top + 14, 28, "Blending unlocks at level " + Balance.BlendUnlockLevel + ". Until then the mortar only grinds.", Palette.Grey);
                 }
                 else
                 {
                     int py = top + 12;
-                    if (draft.Pinches == 0) py = ui.Paragraph(rx, py, 30, "Click + to add pinches. Two to five make a blend the town has never tasted.", Palette.Grey);
+                    if (draft.Pinches == 0) py = ui.Paragraph(rx, py, 28, "Click + to add pinches. Two to five make a blend the town has never tasted.", Palette.Grey);
                     foreach (var ing in draft.Ingredients)
                     {
                         if (ui.Button(new Rectangle(rx, py - 1, 12, 11), "-", true, "Take one pinch out")) { draft.Adjust(ing, -1); ss.PlaySfx?.Invoke(Sfx.Pinch); }
-                        string icon = ing.Kind == IngredientKind.Powder ? "ic_powder" : ing.Kind == IngredientKind.Spice ? "ic_pouch" : "ic_peppercorn";
-                        var tint = ing.Kind == IngredientKind.Powder ? ItemArt.SpeciesColor((PepperSpecies)ing.Index) : ing.Kind == IngredientKind.Spice ? ItemArt.SpiceColor((Spice)ing.Index) : Color.White;
-                        ui.IconLabel(rx + 16, py, icon, tint, ing.Count + " " + ing.Name, Palette.Outline);
+                        var (icon, tint) = IngredientArt(ing);
+                        ui.IconLabel(rx + 16, py, icon, tint, ing.Count + "x " + ing.Name, Palette.Outline);
                         py += 11;
                     }
 
@@ -399,10 +451,11 @@ namespace SpiceWizard.Web.Ui
                     if (draft.Pinches > 0)
                     {
                         int dy = top + 12 + 5 * 11 + 4;
+                        ui.C.Rect(rx, dy - 3, RightEdge - rx, 1, Palette.Tan);
                         ui.Label(rx, dy, draft.Name, Palette.Purple);
-                        ui.Label(rx + 96, dy, "heat " + draft.Heat, Palette.Grey);
+                        ui.C.TextRight("heat " + draft.Heat, RightEdge, dy, Palette.Grey);
                         ui.Label(rx, dy + 11, "Worth " + draft.Value + "pc, tier " + draft.Tier);
-                        ui.Stars(rx + 120, dy + 10, draft.Quality);
+                        ui.Stars(RightEdge - 34, dy + 10, draft.Quality);
                         int ny = dy + 23;
                         ui.Label(rx, ny, "Plain mix: " + Balance.BlendBaseQuality + " stars", Palette.Grey);
                         ny += 10;
@@ -416,22 +469,21 @@ namespace SpiceWizard.Web.Ui
                         ny += 10;
                         y2 = Math.Max(y2, ny);
                     }
+
+                    // The ingredient list fills the body exactly, so nothing ever scrolls and these stay put at the bottom.
+                    int by = top + area.Height - 14;
+                    string blocker = Actions.BlendBlocker(s, draft);
+                    if (ui.Button(new Rectangle(rx, by, 72, 14), "Blend", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.BlendSpiceCost + " spice" : blocker, badge: Cost(Balance.BlendSpiceCost)))
+                    {
+                        var res = Actions.MakeBlend(s, draft);
+                        ss.Say(res, Sfx.Blend);
+                        if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Mortar.X + 8, Layout.Mortar.Y), ItemArt.BlendColor(draft));
+                    }
+                    if (ui.Button(new Rectangle(rx + 78, by, 44, 14), "Clear", draft.Pinches > 0)) draft.Clear();
                 }
 
                 return Math.Max(y1, y2);
             });
-
-            if (unlocked)
-            {
-                string blocker = Actions.BlendBlocker(s, draft);
-                if (ui.Button(new Rectangle(rx, Frame.Bottom - 22, 72, 16), "Blend (" + Balance.BlendSpiceCost + ")", blocker.Length == 0, blocker.Length == 0 ? "Costs " + Balance.BlendSpiceCost + " spice" : blocker))
-                {
-                    var res = Actions.MakeBlend(s, draft);
-                    ss.Say(res, Sfx.Blend);
-                    if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Mortar.X + 8, Layout.Mortar.Y), ItemArt.BlendColor(draft));
-                }
-                if (ui.Button(new Rectangle(rx + 78, Frame.Bottom - 22, 44, 16), "Clear", draft.Pinches > 0)) draft.Clear();
-            }
         }
 
         /// <summary>The little + that drops one pinch of an ingredient into the draft, if the pantry has a spare one.</summary>
@@ -448,22 +500,22 @@ namespace SpiceWizard.Web.Ui
         {
             if (!Open(ui, ss, "Pantry")) return;
             var inv = s.Inventory;
-            Header(ui, "ic_peppercorn", s.Peppercorns + " peppercorns");
+            PeppercornHeader(ui, s);
             Scroll(ui, ss, Content(), top =>
             {
-                int c1 = Left, c2 = Left + 120, c3 = Left + 244;
+                int c1 = Left, c2 = Left + 116, c3 = Left + 246;
 
-                ui.Label(c1, top, "Peppers", Palette.DarkRed);
+                ui.Heading(c1, top, "Peppers");
                 for (int k = 0; k < Species.All.Length; k++)
                 {
                     var sp = (PepperSpecies)k;
                     int y = top + 12 + k * Row;
                     ui.IconLabel(c1, y, ItemArt.PepperIcon(sp), Color.White, Species.NameOf(sp) + " x" + inv.Pepper(sp), Palette.Outline);
-                    if (ui.Button(new Rectangle(c1 + 66, y - 1, 44, 11), "Eat +" + Species.Get(sp).Heat, inv.Pepper(sp) > 0 && s.Spice.Current < s.Spice.Max, "Eat one to restore spice"))
+                    if (ui.Button(new Rectangle(c1 + 64, y - 1, 48, 11), "Eat", inv.Pepper(sp) > 0 && s.Spice.Current < s.Spice.Max, "Eat one to restore " + Species.Get(sp).Heat + " spice", badge: "+" + Species.Get(sp).Heat))
                         ss.Say(Actions.Eat(s, sp), Sfx.Eat);
                 }
                 int seedsY = top + 12 + 4 * Row + 4;
-                ui.Label(c1, seedsY, "Seeds", Palette.DarkRed);
+                ui.Heading(c1, seedsY, "Seeds");
                 for (int k = 0; k < Species.All.Length; k++)
                 {
                     var sp = (PepperSpecies)k;
@@ -471,31 +523,35 @@ namespace SpiceWizard.Web.Ui
                 }
                 int y1 = seedsY + 12 + Species.All.Length * 10;
 
-                ui.Label(c2, top, "Powder / mash", Palette.DarkRed);
+                ui.Heading(c2, top, "Powder");
+                ui.Heading(c2 + 44, top, "Mash");
                 for (int k = 0; k < Species.All.Length; k++)
                 {
                     var sp = (PepperSpecies)k;
                     int y = top + 12 + k * Row;
                     ui.IconLabel(c2, y, "ic_powder", ItemArt.SpeciesColor(sp), "x" + inv.PowderOf(sp), Palette.Outline);
                     string mash = "x" + inv.Mash[k] + (inv.AgedMash[k] > 0 ? " +" + inv.AgedMash[k] + " aged" : "");
-                    ui.IconLabel(c2 + 36, y, "ic_mash", ItemArt.SpeciesColor(sp), mash, Palette.Outline);
+                    ui.IconLabel(c2 + 44, y, "ic_mash", ItemArt.SpeciesColor(sp), mash, Palette.Outline);
                 }
-                ui.Label(c2, seedsY, "Sauces", Palette.DarkRed);
+                ui.Heading(c2, seedsY, "Sauces");
                 if (inv.Sauces.Count == 0) ui.Label(c2, seedsY + 12, "none bottled", Palette.Grey);
                 for (int k = 0; k < inv.Sauces.Count && k < 6; k++)
                 {
                     var sauce = inv.Sauces[k];
-                    ui.IconLabel(c2, seedsY + 12 + k * 10, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name + " " + sauce.Quality + "*", Palette.Outline);
+                    ui.IconLabel(c2, seedsY + 12 + k * 10, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
+                    ui.Stars(c2 + 92, seedsY + 12 + k * 10, sauce.Quality);
                 }
                 int y2 = seedsY + 12 + Math.Min(inv.Sauces.Count, 6) * 10;
                 if (inv.Sauces.Count > 6) { ui.Label(c2, y2, "+" + (inv.Sauces.Count - 6) + " more", Palette.Grey); y2 += 10; }
 
-                ui.Label(c3, top, "Spices", Palette.DarkRed);
+                ui.Heading(c3, top, "Spices");
                 for (int k = 0; k < Inventory.SpiceCount; k++)
                 {
                     var spice = (Spice)k;
                     int y = top + 12 + k * 11;
-                    ui.IconLabel(c3, y, "ic_pouch", ItemArt.SpiceColor(spice), SpiceInfo.Name(spice) + " " + inv.SpiceOf(spice), inv.SpiceOf(spice) > 0 ? Palette.Outline : Palette.Grey);
+                    var ink = inv.SpiceOf(spice) > 0 ? Palette.Outline : Palette.Grey;
+                    ui.IconLabel(c3, y, "ic_pouch", ItemArt.SpiceColor(spice), SpiceInfo.Name(spice), ink);
+                    ui.C.TextRight("x" + inv.SpiceOf(spice), RightEdge, y + 1, ink);
                 }
                 int y3 = top + 12 + Inventory.SpiceCount * 11;
 
@@ -512,29 +568,29 @@ namespace SpiceWizard.Web.Ui
             Scroll(ui, ss, Content(20), top =>
             {
                 int y1 = top;
-                ui.Label(Left, y1, "Bottled (" + s.Inventory.Sauces.Count + ")", Palette.DarkRed);
+                ui.Heading(Left, y1, "Bottled (" + s.Inventory.Sauces.Count + ")");
                 y1 += 12;
                 if (s.Inventory.Sauces.Count == 0) y1 = ui.Paragraph(Left, y1, ColChars, "Nothing to ship. Cook first!", Palette.Grey);
                 for (int k = 0; k < s.Inventory.Sauces.Count && k < 10; k++, y1 += Row)
                 {
                     var sauce = s.Inventory.Sauces[k];
                     ui.IconLabel(Left, y1, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
-                    ui.Stars(Left + 96, y1, sauce.Quality);
-                    if (ui.Button(new Rectangle(Left + 134, y1 - 1, 12, 11), ">", !s.Crate.IsFull, "Ship to town"))
+                    ui.Stars(Left + 94, y1, sauce.Quality);
+                    if (ui.Button(new Rectangle(Left + 132, y1 - 1, 34, 11), "Ship", !s.Crate.IsFull, s.Crate.IsFull ? "The crate is full" : "Put it in the crate"))
                         ss.Say(Actions.Ship(s, k), Sfx.Ship);
                 }
 
-                int cx = Left + 160;
+                int cx = Left + 172;
                 int y2 = top;
-                ui.Label(cx, y2, "In the crate (" + s.Crate.Sauces.Count + "/" + Balance.CrateCapacity + ")", Palette.DarkRed);
+                ui.Heading(cx, y2, "In the crate (" + s.Crate.Sauces.Count + "/" + Balance.CrateCapacity + ")");
                 y2 += 12;
                 if (s.Crate.Sauces.Count == 0) y2 = ui.Paragraph(cx, y2, ColChars, "Empty. The cart leaves at nightfall.", Palette.Grey);
                 for (int k = 0; k < s.Crate.Sauces.Count; k++, y2 += Row)
                 {
                     var sauce = s.Crate.Sauces[k];
-                    if (ui.Button(new Rectangle(cx, y2 - 1, 12, 11), "<", true, "Take back")) ss.Say(Actions.Unship(s, k), Sfx.Unship);
-                    ui.IconLabel(cx + 16, y2, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
-                    ui.Stars(cx + 112, y2, sauce.Quality);
+                    if (ui.Button(new Rectangle(cx, y2 - 1, 34, 11), "Take", true, "Back to the pantry")) ss.Say(Actions.Unship(s, k), Sfx.Unship);
+                    ui.IconLabel(cx + 38, y2, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
+                    ui.Stars(cx + 132, y2, sauce.Quality);
                 }
 
                 return Math.Max(y1, y2);
@@ -547,17 +603,20 @@ namespace SpiceWizard.Web.Ui
         static void Door(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "Tower door")) return;
-            ui.Label(Left, Top, "It is " + s.Clock.TimeText() + " on day " + s.Clock.Day + ". Turn in for the night?");
+            ui.Heading(Left, Top, "It is " + s.Clock.TimeText() + " on day " + s.Clock.Day + ". Turn in for the night?");
             int growing = 0, ready = 0;
             foreach (var p in s.Garden.Plots) if (p.Plant != null && !p.Plant.IsMature) { if (p.Plant.GrowthTonight() > 0) growing++; else ready++; }
             int fermenting = 0;
             foreach (var j in s.Shelf.Jars) if (!j.IsEmpty && !j.IsReady) fermenting++;
-            ui.Label(Left, Top + 16, "Tonight " + growing + " plants will grow and " + ready + " will not.", ready > 0 ? Palette.DarkRed : Palette.Outline);
-            ui.Label(Left, Top + 28, "Jars fermenting: " + fermenting + ".   Sauces in the crate: " + s.Crate.Sauces.Count + ".");
-            ui.Label(Left, Top + 40, "Sleeping refills your spice to " + s.Spice.Max + ".", Palette.Grey);
-            if (s.Clock.DayOfWeek == 7) ui.Label(Left, Top + 52, "The week ends tonight! The quota is judged at dawn.", Palette.DarkRed);
-            if (ui.Button(new Rectangle(Left, Top + 70, 90, 16), "Sleep", true)) { ss.Close(); ss.PlaySfx?.Invoke(Sfx.Yawn); ss.RequestSleep?.Invoke(); }
-            if (ui.Button(new Rectangle(Left + 100, Top + 70, 90, 16), "Not yet", true)) ss.Close();
+            int y = Top + 16;
+            ui.IconLabel(Left, y, "ic_water", Color.White, growing + " plants will grow tonight, " + ready + " will not.", ready > 0 ? Palette.DarkRed : Palette.Outline); y += 12;
+            ui.IconLabel(Left, y, "ic_mash", Palette.Tan, fermenting + " jars fermenting.", Palette.Outline); y += 12;
+            ui.IconLabel(Left, y, "ic_hot", Palette.Red, s.Crate.Sauces.Count + " sauces in the crate for the cart.", s.Crate.Sauces.Count > 0 ? Palette.Outline : Palette.Grey); y += 12;
+            ui.IconLabel(Left, y, "ic_flame", Color.White, "Sleeping refills your spice to " + s.Spice.Max + ".", Palette.Grey); y += 12;
+            if (s.Clock.DayOfWeek == 7) { ui.Label(Left, y, "The week ends tonight! The quota is judged at dawn.", Palette.DarkRed); y += 12; }
+            y += 8;
+            if (ui.Button(new Rectangle(Left, y, 90, 16), "Sleep", true)) { ss.Close(); ss.PlaySfx?.Invoke(Sfx.Yawn); ss.RequestSleep?.Invoke(); }
+            if (ui.Button(new Rectangle(Left + 100, y, 90, 16), "Not yet", true)) ss.Close();
         }
 
         // ---- Morning report --------------------------------------------------------------------------
@@ -579,31 +638,33 @@ namespace SpiceWizard.Web.Ui
                 {
                     ui.IconLabel(Left, y, ItemArt.ProductIcon(sale.Sauce), ItemArt.ProductColor(sale.Sauce), sale.Sauce.Name, Palette.Outline);
                     ui.Stars(Left + 90, y, sale.Stars);
-                    ui.Label(Left + 130, y + 1, "+" + sale.Peppercorns + "pc +" + sale.Xp + "xp", Palette.Green);
+                    ui.IconLabel(Left + 132, y, "ic_peppercorn", Color.White, "+" + sale.Peppercorns, Palette.Green);
+                    ui.IconLabel(Left + 172, y, "ic_hat", Color.White, "+" + sale.Xp + " fame", Palette.Green);
                     ui.Label(Left + 8, y + 9, sale.Remark, Palette.Grey);
                     y += 19;
                 }
-                ui.Label(Left, y, "Earned " + r.PeppercornsEarned + " peppercorns and " + r.XpEarned + " fame.", Palette.DarkRed);
+                y += 3;
+                ui.Heading(Left, y, "Earned " + r.PeppercornsEarned + " peppercorns and " + r.XpEarned + " fame.");
                 y += 12;
                 if (r.QuotaEvaluated)
                 {
                     if (r.QuotaMet)
-                        ui.Label(Left, y, "Quota met! +" + r.QuotaBonusPeppercorns + "pc, +" + r.QuotaBonusXp + "xp and " + SpiceInfo.Name(r.QuotaBonusSpice.Value) + ".", Palette.Green);
-                    else ui.Label(Left, y, "The council sighs: last week's quota went unmet.", Palette.DarkRed);
+                        ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! +" + r.QuotaBonusPeppercorns + "pc, +" + r.QuotaBonusXp + " fame and " + SpiceInfo.Name(r.QuotaBonusSpice.Value) + ".", Palette.Green);
+                    else ui.IconLabel(Left, y, "ic_cross", Color.White, "The council sighs: last week's quota went unmet.", Palette.DarkRed);
                     y += 12;
                 }
                 if (r.NewQuotaPosted) { ui.Label(Left, y, "A new request is pinned to the notice board.", Palette.Purple); y += 12; }
                 if (r.Weather != Weather.Clear)
                 {
-                    ui.IconLabel(Left, y, r.Weather == Weather.Rain ? "ic_rain" : "ic_wind", Color.White, WeatherInfo.Describe(r.Weather), r.Weather == Weather.Rain ? Palette.Blue : Palette.Grey);
+                    ui.IconLabel(Left, y, r.Weather == Weather.Rain ? "ic_rain" : "ic_wind", r.Weather == Weather.Rain ? Color.White : Palette.Grey, WeatherInfo.Describe(r.Weather), r.Weather == Weather.Rain ? Palette.Blue : Palette.Grey);
                     y += 12;
                 }
                 if (r.LevelsGained > 0)
                 {
-                    ui.Label(Left, y, "Level up! Now a level " + r.NewLevel + " " + Progression.Title(r.NewLevel) + ".", Palette.Purple);
+                    ui.IconLabel(Left, y, "ic_hat", Color.White, "Level up! Now a level " + r.NewLevel + " " + Progression.Title(r.NewLevel) + ".", Palette.Purple);
                     y += 10;
                     string unlock = Progression.UnlockAt(r.NewLevel);
-                    if (unlock.Length > 0) y = ui.Paragraph(Left + 8, y, MaxChars - 2, "Unlocked: " + unlock, Palette.Purple);
+                    if (unlock.Length > 0) y = ui.Paragraph(Left + 10, y, MaxChars - 2, "Unlocked: " + unlock, Palette.Purple);
                     y += 2;
                 }
                 ui.Label(Left, y, "Ready to harvest: " + r.PlantsReady + ".  Jars ready: " + r.JarsReady + ".", Palette.Grey);
@@ -617,24 +678,29 @@ namespace SpiceWizard.Web.Ui
         static void Help(Ui ui, GameState s, Session ss)
         {
             if (!Open(ui, ss, "How to be a Spice Wizard")) return;
+            // "KEYWORD|body": the keyword is drawn in the heading colour, the body in plain ink.
             string[] lines =
             {
-                "Click anything in the yard to use it. A day lasts eight minutes; at 22:00 you sleep and the night moves everything on.",
-                "GROW  Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament. Rainy days do the watering for you.",
-                "FERMENT  Two peppers in a jar become mash after two nights.",
-                "GRIND  The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",
-                "COOK  The cauldron brews hot sauces and curries for spice.",
-                "SELL  Bottles in the crate are rated at dawn and paid for in peppercorns, which are also an ingredient.",
-                "QUOTA  Fill the notice board request each week for bonuses.",
-                "Spice is your cooking energy: eat a pepper or sleep. Reach level 20 to become the Master Spice Wizard.",
+                "|Click anything in the yard to use it. A day lasts eight minutes; at 22:00 you sleep and the night moves everything on.",
+                "GROW|Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament. Rainy days do the watering for you.",
+                "FERMENT|Two peppers in a jar become mash after two nights.",
+                "GRIND|The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",
+                "COOK|The cauldron brews hot sauces and curries for spice.",
+                "SELL|Bottles in the crate are rated at dawn and paid for in peppercorns, which are also an ingredient.",
+                "QUOTA|Fill the notice board request each week for bonuses.",
+                "|Spice is your cooking energy: eat a pepper or sleep. Reach level 20 to become the Master Spice Wizard.",
             };
             Scroll(ui, ss, Content(), top =>
             {
                 int y = top;
                 foreach (var line in lines)
                 {
-                    bool heading = char.IsUpper(line[0]) && char.IsUpper(line[1]);
-                    y = ui.Paragraph(Left, y, MaxChars, line, heading ? Palette.DarkRed : Palette.Outline) + 2;
+                    int bar = line.IndexOf('|');
+                    string key = line.Substring(0, bar), body = line.Substring(bar + 1);
+                    if (key.Length == 0) { y = ui.Paragraph(Left, y, MaxChars, body, Palette.Outline) + 3; continue; }
+                    // The keyword sits in the margin of the first line; the body wraps beside it.
+                    ui.Heading(Left, y, key);
+                    y = ui.Paragraph(Left + 50, y, MaxChars - 9, body, Palette.Outline) + 3;
                 }
                 return y;
             });
