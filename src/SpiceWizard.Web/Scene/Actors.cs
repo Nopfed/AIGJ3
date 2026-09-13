@@ -21,8 +21,16 @@ namespace SpiceWizard.Web.Scene
         public bool Walking => _target.HasValue;
         /// <summary>Fires once per stride while walking, for footstep sounds.</summary>
         public Action OnStep;
+        /// <summary>Fires with the pipe bowl's position each time he blows a puff of smoke.</summary>
+        public Action<Vector2> OnPuff;
+        /// <summary>Left idle for a while he sometimes gets his pipe out for a few seconds.</summary>
+        public bool Smoking => _smoke > 0;
         float _anim;
         int _stride;
+        float _smoke;
+        float _puffTimer;
+        float _idleCheck;
+        readonly Random _rng = new Random();
         Vector2? _target;
         Action _onArrive;
 
@@ -35,12 +43,13 @@ namespace SpiceWizard.Web.Scene
             _target = t;
             _onArrive = onArrive;
             FacingLeft = t.X < Feet.X;
+            _smoke = 0;
         }
 
         public void Update(float dt)
         {
             _anim += dt;
-            if (!_target.HasValue) return;
+            if (!_target.HasValue) { UpdateIdle(dt); return; }
             var t = _target.Value;
             var delta = t - Feet;
             float step = Speed * dt;
@@ -60,6 +69,35 @@ namespace SpiceWizard.Web.Scene
             }
         }
 
+        /// <summary>Standing about, roughly once every fifteen seconds he lights his pipe and puffs on it for a while.</summary>
+        void UpdateIdle(float dt)
+        {
+            if (Hidden || FacingAway) { _smoke = 0; return; }
+            if (_smoke > 0)
+            {
+                _smoke -= dt;
+                _puffTimer -= dt;
+                if (_puffTimer <= 0)
+                {
+                    _puffTimer = 1.1f + (float)_rng.NextDouble() * 0.6f;
+                    OnPuff?.Invoke(PipeBowl());
+                }
+                return;
+            }
+            _idleCheck += dt;
+            if (_idleCheck < 1f) return;
+            _idleCheck = 0;
+            if (_rng.Next(15) == 0) { _smoke = 5f + (float)_rng.NextDouble() * 4f; _puffTimer = 0.4f; }
+        }
+
+        /// <summary>Top of the pipe bowl, in world pixels, where the smoke comes from.</summary>
+        Vector2 PipeBowl()
+        {
+            int x = (int)Math.Round(Feet.X) - 6;
+            int y = (int)Math.Round(Feet.Y) - 20;
+            return new Vector2(FacingLeft ? x : x + 11, y + 9);
+        }
+
         public void Draw(Canvas c)
         {
             if (Hidden) return;
@@ -68,13 +106,17 @@ namespace SpiceWizard.Web.Scene
             string frame;
             if (Walking) frame = (FacingAway ? "wizard_back" : "wizard") + ((int)(_anim * 8) % 2);
             else if (FacingAway) frame = "wizard_back0";
+            else if (Smoking) frame = "wizard_pipe";
             else frame = (int)(_anim / 1.6f) % 2 == 0 ? "wizard0" : "wizard_idle";
             bool blink = !FacingAway && _anim % 3.7f < 0.14f;
             int x = (int)Math.Round(Feet.X) - 6;
             int y = (int)Math.Round(Feet.Y) - 20;
             c.Rect(x + 1, y + 19, 10, 2, Palette.Shadow);
-            c.Sprite(frame, x, y, Color.White, FacingLeft);
+            // The pipe sprite is 2px wider on the right; flipped, that extra hangs off the left instead.
+            c.Sprite(frame, Smoking && FacingLeft ? x - 2 : x, y, Color.White, FacingLeft);
             if (blink) { c.Rect(x + 4, y + 7, 1, 1, Palette.Skin); c.Rect(x + 7, y + 7, 1, 1, Palette.Skin); }
+            // The bowl glows orange for a moment as he draws on it, just before each puff.
+            if (Smoking && _puffTimer < 0.35f) { var b = PipeBowl(); c.Rect((int)b.X, (int)b.Y, 1, 1, Palette.Orange); }
         }
     }
 
@@ -136,6 +178,25 @@ namespace SpiceWizard.Web.Scene
             };
             p.MaxLife = p.Life;
             _list.Add(p);
+        }
+
+        /// <summary>A wisp of pipe smoke: one small ring that drifts up and fattens a little before it fades.</summary>
+        public void Puff(Vector2 at)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                var p = new Particle
+                {
+                    Pos = new Vector2(at.X + _rng.Next(-1, 2), at.Y - 1 - i),
+                    Vel = new Vector2(_rng.Next(-3, 4), -7 - _rng.Next(5)),
+                    Life = 1.6f + (float)_rng.NextDouble() * 0.8f,
+                    Color = Palette.LightGrey * 0.75f,
+                    Size = 1,
+                    Grow = 2,
+                };
+                p.MaxLife = p.Life;
+                _list.Add(p);
+            }
         }
 
         /// <summary>A leaf torn loose somewhere off the left edge, to tumble the width of the window on the wind.</summary>

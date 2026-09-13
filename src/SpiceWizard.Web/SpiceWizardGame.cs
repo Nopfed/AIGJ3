@@ -106,6 +106,7 @@ namespace SpiceWizard.Web
                 OnAffirm = _mixer.Affirm,
             };
             _wizard.OnStep = _mixer.Footstep;
+            _wizard.OnPuff = _particles.Puff;
             _ui.OnClick = () => _mixer.Play(Sfx.Click);
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _session.Panel = PanelKind.Title;
@@ -128,7 +129,7 @@ namespace SpiceWizard.Web
             _session.HasSave = false;
             _crowd.Stop();
             ResetSleep();
-            _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep };
+            _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff };
             _session.Open(PanelKind.Help);
             _session.Say("Welcome to your tower. Click the garden to begin!");
         }
@@ -330,7 +331,7 @@ namespace SpiceWizard.Web
                         _scene.Snoring = false;
                         _scene.WindowsLit = false;
                         _scene.DoorOpen = true;
-                        _wizard = new WizardActor(Layout.DoorInside) { OnStep = _mixer.Footstep, InDoorway = true };
+                        _wizard = new WizardActor(Layout.DoorInside) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff, InDoorway = true };
                         if (report.BecameMaster) { _crowd.Start(); }
                     }
                     break;

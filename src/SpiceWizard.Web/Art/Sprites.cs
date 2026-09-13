@@ -84,6 +84,31 @@ namespace SpiceWizard.Web.Art
                 "..KddKKddK..",
                 "..KddK.KddK.",
             },
+            // Idle: a quiet smoke. Two columns wider than the others so the pipe can poke out past the beard
+            // (the actor shifts it left when flipped so the body stays put).
+            ["wizard_pipe"] = new[]
+            {
+                "......KK......",
+                ".....KpPK.....",
+                "....KpPPK.....",
+                "...KppPPK.....",
+                "..KppPPPPK....",
+                ".KYyyyyyYYK...",
+                "..KkkkkkK.....",
+                ".KkkKkkKkK....",
+                ".KkkkkkkUK....",
+                "..KWWWWWKdd...",
+                "..KWWwWwK.KBBK",
+                "...KWwwK..KbBK",
+                ".KPPPPPPvK.KK.",
+                "KpPPPPPPPvK...",
+                "KpPPYyyYPvK...",
+                "KpPPPPPPPvK...",
+                "KpPPPPPPPvK...",
+                ".KPPPPPPvK....",
+                "..KddKKddK....",
+                "..KddK.KddK...",
+            },
             // Seen from behind (walking into the tower): hat, white hair, plain robe.
             ["wizard_back0"] = new[]
             {
