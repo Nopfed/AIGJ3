@@ -57,6 +57,11 @@ public static class Balance
     public const int MaxLevel = 20;
     public const int StartingPeppercorns = 30;
     public const int StartingBellSeeds = 4;
+    // The starter kit: enough to bottle a Bell Hot Sauce on day 1 and a Golden Curry after the first harvest,
+    // plus one Banana seed so the second temperament is on show from the start.
+    public const int StartingBananaSeeds = 1;
+    public const int StartingBellMash = 1;
+    public static readonly Spice[] StartingSpices = { Spice.Cumin, Spice.Coriander, Spice.CurryLeaves };
 
     public const int CookSpiceCost = 3;
     public const int GrindSpiceCost = 1;
@@ -100,7 +105,7 @@ public static class Balance
     public const int RainChance = 20;
     public const int WindyChance = 25;
 
-    public const double DayLengthSeconds = 480;
+    public const double DayLengthSeconds = 360;
     public const int DayStartMinute = 6 * 60;
     public const int DayEndMinute = 22 * 60;
 

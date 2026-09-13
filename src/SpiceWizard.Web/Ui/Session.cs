@@ -19,6 +19,8 @@ namespace SpiceWizard.Web.Ui
         public bool ExtraPeppercorn;
         public Blend Draft = new Blend();   // the blend being pinched together at the mortar
         public bool HasSave;
+        /// <summary>The title screen is asking whether to overwrite the saved game.</summary>
+        public bool ConfirmNewGame;
         public Settings Settings = new Settings();
 
         public string Toast;
@@ -45,6 +47,7 @@ namespace SpiceWizard.Web.Ui
             if (kind != Panel && kind != PanelKind.Title) PlaySfx?.Invoke(Sfx.Open);
             Panel = kind;
             Index = index;
+            ConfirmNewGame = false;
             Scroll = 0;
             ContentHeight = 0;
         }

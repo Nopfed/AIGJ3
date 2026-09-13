@@ -681,7 +681,7 @@ namespace SpiceWizard.Web.Ui
             // "KEYWORD|body": the keyword is drawn in the heading colour, the body in plain ink.
             string[] lines =
             {
-                "|Click anything in the yard to use it. A day lasts eight minutes; at 22:00 you sleep and the night moves everything on.",
+                "|Click anything in the yard to use it. A day lasts six minutes; at 22:00 you sleep, or click the door or the moon to turn in early.",
                 "GROW|Plant, water (refill at the well) and pep-talk your peppers. Each kind has its own temperament. Rainy days do the watering for you.",
                 "FERMENT|Two peppers in a jar become mash after two nights.",
                 "GRIND|The mortar turns peppers into powder for curries, or mixes powder, spices and peppercorns into blends of your own.",

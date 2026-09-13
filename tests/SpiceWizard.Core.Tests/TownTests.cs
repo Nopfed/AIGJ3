@@ -102,7 +102,7 @@ public class TownTests
         Assert.True(r.QuotaMet);
         Assert.Equal(Balance.QuotaBonusPeppercorns(1), r.QuotaBonusPeppercorns);
         Assert.NotNull(r.QuotaBonusSpice);
-        Assert.Equal(1, s.Inventory.Spices.Sum());
+        Assert.Equal(Balance.StartingSpices.Length + 1, s.Inventory.Spices.Sum());
         Assert.Equal(1, s.Stats.QuotasMet);
     }
 

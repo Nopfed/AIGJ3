@@ -1489,6 +1489,17 @@ namespace SpiceWizard.Web.Art
                 ".y.yy.y.",
                 "........",
             },
+            ["ic_moon"] = new[]
+            {
+                "...ZZZ..",
+                "..ZZ....",
+                ".ZZ...w.",
+                ".ZZ.....",
+                ".ZZ.....",
+                "..ZZ..w.",
+                "...ZZZ..",
+                "........",
+            },
             ["ic_rain"] = new[]
             {
                 "..gWWg..",

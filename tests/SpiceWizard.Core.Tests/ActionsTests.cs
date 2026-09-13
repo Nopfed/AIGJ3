@@ -12,10 +12,29 @@ public class ActionsTests
         var s = Fresh();
         Assert.Equal(Balance.StartingPeppercorns, s.Peppercorns);
         Assert.Equal(Balance.StartingBellSeeds, s.Inventory.Seed(PepperSpecies.Bell));
+        Assert.Equal(Balance.StartingBananaSeeds, s.Inventory.Seed(PepperSpecies.Banana));
+        Assert.Equal(Balance.StartingBellMash, s.Inventory.MashOf(PepperSpecies.Bell));
+        foreach (var spice in Balance.StartingSpices) Assert.Equal(1, s.Inventory.SpiceOf(spice));
         Assert.NotNull(s.Quota);
         Assert.All(s.Quota!.Lines, l => Assert.True(RecipeBook.Get(l.RecipeId).UnlockLevel <= 1));
         Assert.Equal(1, s.Clock.Day);
         Assert.Equal("06:00", s.Clock.TimeText());
+    }
+
+    [Fact]
+    public void Starter_kit_bottles_a_hot_sauce_on_day_one_but_not_a_curry()
+    {
+        var s = Fresh();
+        Assert.Equal("", Actions.CookBlocker(s, RecipeBook.Get(1), false));
+        Assert.Contains("Bell pepper", Actions.CookBlocker(s, RecipeBook.Get(2), false));
+        Assert.True(Actions.Cook(s, 1, false).Ok);
+        Assert.Single(s.Inventory.Sauces);
+        Assert.Equal(0, s.Inventory.MashOf(PepperSpecies.Bell));
+        Assert.Equal(Balance.StartingPeppercorns - 1, s.Peppercorns);
+        Assert.True(Actions.Ship(s, 0).Ok);
+        var report = DayTick.Sleep(s);
+        Assert.Single(report.Sales);
+        Assert.True(report.PeppercornsEarned > 0);
     }
 
     [Fact]
@@ -126,7 +145,7 @@ public class ActionsTests
         Assert.False(Actions.EmptyJar(s, 0).Ok);
         DayTick.Sleep(s); DayTick.Sleep(s);
         Assert.True(Actions.EmptyJar(s, 0).Ok);
-        Assert.Equal(1, s.Inventory.Mash[(int)PepperSpecies.Bell]);
+        Assert.Equal(Balance.StartingBellMash + 1, s.Inventory.Mash[(int)PepperSpecies.Bell]);
         Assert.True(s.Shelf.Jars[0].IsEmpty);
 
         Actions.FillJar(s, 0, PepperSpecies.Bell);
@@ -152,6 +171,7 @@ public class ActionsTests
     public void Cooking_checks_ingredients_level_and_spice()
     {
         var s = Fresh();
+        s.Inventory.Mash[(int)PepperSpecies.Bell] = 0;
         Assert.Contains("Missing", Actions.CookBlocker(s, RecipeBook.Get(1), false));
         s.Inventory.Mash[(int)PepperSpecies.Bell] = 1;
         Assert.Equal("", Actions.CookBlocker(s, RecipeBook.Get(1), false));

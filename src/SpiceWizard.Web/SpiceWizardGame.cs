@@ -63,6 +63,7 @@ namespace SpiceWizard.Web
         float _cartTimer;
         float _confettiTimer;
         Station _hover;
+        int _sleepHintDay;            // the day the "nothing left to do" nudge was last shown
 
         public SpiceWizardGame(string savedJson, Action<string> saveHook, Action clearSaveHook, Func<int[]> pollClicks, string demo = null,
             string savedSettings = null, Action<string> saveSettingsHook = null, string demoPanel = null, int demoIndex = 0)
@@ -120,6 +121,12 @@ namespace SpiceWizard.Web
                 if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
                 if (_demo == "windy") _state.Weather = Weather.Windy;
                 if (_demo == "rain") { _state.Weather = Weather.Rain; WeatherInfo.ApplyRain(_state); }
+                if (_demo == "chores")
+                {
+                    // Day 1 with every plot planted and watered: the "nothing left to do" nudge should show at once.
+                    _state = GameState.NewGame(1);
+                    for (int i = 0; i < _state.UnlockedPlots; i++) { Actions.PlantSeed(_state, i, PepperSpecies.Bell); Actions.Water(_state, i); }
+                }
                 _session.Close();
                 _mixer.Unlock();
                 if (_demoPanel != null && Enum.TryParse<PanelKind>(_demoPanel, true, out var kind))
@@ -137,6 +144,7 @@ namespace SpiceWizard.Web
             _clearSaveHook?.Invoke();
             _session.HasSave = false;
             _crowd.Stop();
+            _sleepHintDay = 0;
             ResetSleep();
             _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff };
             _session.Open(PanelKind.Help);
@@ -287,6 +295,14 @@ namespace SpiceWizard.Web
                 if (_leafTimer <= 0) { _leafTimer = 0.3f; _particles.Leaf(Camera.Left, Layout.Horizon - 30, Camera.Bottom); }
             }
 
+            // Once every plant is tended and nothing is waiting to be harvested or shipped, nudge new players
+            // toward the door once a day so they do not sit out the clock.
+            if (!_session.PanelOpen && _sleepPhase == 0 && _sleepHintDay != _state.Clock.Day && ChoresDone())
+            {
+                _sleepHintDay = _state.Clock.Day;
+                _session.Say("Nothing left to do? Click the door or the moon to sleep.");
+            }
+
             _hover = null;
             if (!_session.PanelOpen && _sleepPhase == 0 && _mouse.Y > Camera.Top + Layout.HudHeight)
                 foreach (var st in Layout.Stations)
@@ -296,6 +312,22 @@ namespace SpiceWizard.Web
                 }
 
             base.Update(gameTime);
+        }
+
+        /// <summary>True when the garden is planted and watered, nothing is ripe, and no sauce is waiting for the crate.</summary>
+        bool ChoresDone()
+        {
+            bool anyPlant = false;
+            for (int i = 0; i < _state.UnlockedPlots; i++)
+            {
+                var plant = _state.Garden.Plots[i].Plant;
+                if (plant == null) continue;
+                anyPlant = true;
+                if (plant.IsMature || !plant.WateredToday) return false;
+            }
+            if (!anyPlant) return false;
+            if (_state.Inventory.Sauces.Count > 0 && !_state.Crate.IsFull) return false;
+            return true;
         }
 
         void UpdateSleep()

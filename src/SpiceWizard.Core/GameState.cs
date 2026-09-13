@@ -40,6 +40,9 @@ public sealed class GameState
     {
         var s = new GameState { Rng = new Rng(seed) };
         s.Inventory.Seeds[(int)PepperSpecies.Bell] = Balance.StartingBellSeeds;
+        s.Inventory.Seeds[(int)PepperSpecies.Banana] = Balance.StartingBananaSeeds;
+        s.Inventory.Mash[(int)PepperSpecies.Bell] = Balance.StartingBellMash;
+        foreach (var spice in Balance.StartingSpices) s.Inventory.Spices[(int)spice]++;
         s.Quota = Quota.Generate(1, 1, s.Rng);
         return s;
     }

@@ -31,13 +31,15 @@ namespace SpiceWizard.Web.Ui
 
             c.Sprite("ic_hat", rx + 268, top + 3);
             c.Text("Lv " + s.Level, rx + 279, top + 4, Palette.LightPurple);
-            ui.Bar(new Rectangle(rx + 312, top + 4, 46, 7), (float)s.Progression.Fraction, Palette.LightPurple);
-            if (ui.Hot(new Rectangle(rx + 268, top + 2, 90, 10)))
+            ui.Bar(new Rectangle(rx + 312, top + 4, 34, 7), (float)s.Progression.Fraction, Palette.LightPurple);
+            if (ui.Hot(new Rectangle(rx + 268, top + 2, 78, 10)))
             {
                 string next = Progression.UnlockAt(s.Level + 1);
                 ui.Tooltip = s.Progression.IsMaster ? "Master Spice Wizard" : s.Progression.Xp + "/" + s.Progression.XpToNext + " fame" + (next.Length > 0 ? ". Next: " + next : "");
             }
 
+            // The moon does what the tower door does: turn in early once the day's chores are done.
+            if (ui.Button(new Rectangle(rx + 349, top + 2, 14, 10), "", !ss.PanelOpen, ss.PanelOpen ? null : "Go to bed early", icon: "ic_moon")) ss.Open(PanelKind.Door);
             if (ui.Button(new Rectangle(rx + 366, top + 2, 14, 10), "?", true, "How to play")) ss.Open(PanelKind.Help);
         }
 
@@ -57,7 +59,7 @@ namespace SpiceWizard.Web.Ui
             c.Rect(Camera.View, Palette.Outline * 0.55f);
             int cx = Camera.Width / 2;
             c.Rect(Camera.Left, 34, Camera.View.Width, 50, Palette.Outline * 0.45f);
-            c.Rect(Camera.Left, 160, Camera.View.Width, 40, Palette.Outline * 0.45f);
+            c.Rect(Camera.Left, 160, Camera.View.Width, 50, Palette.Outline * 0.45f);
             BigText(c, "SPICE WIZARD", cx, 40, 3, Palette.Yellow);
             c.TextCentered("a cooking and farming tale", cx, 72, Palette.Cream);
             int bob = (int)(Math.Sin(time * 2) * 2);
@@ -66,11 +68,26 @@ namespace SpiceWizard.Web.Ui
             c.Sprite("ic_bonnet", cx + 18, 92); c.Sprite("ic_ghost", cx + 32, 92);
 
             int y = 120;
-            if (ui.Button(new Rectangle(cx - 50, y, 100, 16), "New game", true)) ss.RequestNewGame?.Invoke();
-            if (ss.HasSave && ui.Button(new Rectangle(cx - 50, y + 20, 100, 16), "Continue", true)) ss.RequestContinue?.Invoke();
+            if (ss.ConfirmNewGame)
+            {
+                // Starting over throws the saved game away, so the title asks first.
+                c.TextCentered("Start over? Your saved game will be lost.", cx, y - 12, Palette.Yellow);
+                if (ui.Button(new Rectangle(cx - 50, y, 100, 16), "Yes, start over", true)) ss.RequestNewGame?.Invoke();
+                if (ui.Button(new Rectangle(cx - 50, y + 20, 100, 16), "Back", true)) ss.ConfirmNewGame = false;
+            }
+            else
+            {
+                if (ui.Button(new Rectangle(cx - 50, y, 100, 16), "New game", true))
+                {
+                    if (ss.HasSave) ss.ConfirmNewGame = true;
+                    else ss.RequestNewGame?.Invoke();
+                }
+                if (ss.HasSave && ui.Button(new Rectangle(cx - 50, y + 20, 100, 16), "Continue", true)) ss.RequestContinue?.Invoke();
+            }
             c.TextCentered("Grow peppers, brew sauces, feed the town.", cx, 164, Palette.Cream);
             c.TextCentered("Become the Master Spice Wizard by level 20.", cx, 174, Palette.Cream);
-            c.TextCentered("Mouse to play. Esc pauses or closes a panel.", cx, 190, Palette.LightGrey);
+            c.TextCentered("Mouse to play. Esc pauses or closes a panel.", cx, 188, Palette.LightGrey);
+            c.TextCentered("A weekend jam game by Nopfed. Themes: Curry and Pepper.", cx, 200, Palette.LightGrey);
         }
 
         public static void Pause(Ui ui, Session ss)

@@ -19,7 +19,7 @@ dotnet test                                    # simulation tests + balance bot
 dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
 ```
 
-Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, or `?demo=night` for the same mid-game state at dusk.
+Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, or `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once).
 
 The yard is drawn at 384x216 pixels and scaled up by the largest whole number that fits your window; whatever room is left is filled with more sky and meadow, so there are no black bars. Resize the window and the game follows.
 
@@ -31,8 +31,9 @@ The yard is drawn at 384x216 pixels and scaled up by the largest whole number th
 | Close a panel | The `x` button or `Esc` |
 | Pause | `Esc` with nothing open: **Resume**, **Options** or **Quit to title** |
 | Help | The `?` button in the top-right corner |
+| Go to bed early | The moon button in the top-right corner, or the tower door |
 
-Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off. Quitting to the title from the pause menu also saves.
+Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off, and **New game** asks before it overwrites a save. Quitting to the title from the pause menu also saves.
 
 ## Options and sound
 
@@ -46,7 +47,7 @@ The gusts you hear are the same ones that sway the trees, bushes, flowers and ga
 
 ## The day
 
-A day runs from 06:00 to 22:00 in eight real minutes. The clock pauses while a panel is open, so reading and shopping are free. At 22:00 (or when you click the tower door) you sleep, and the night moves everything on at once:
+A day runs from 06:00 to 22:00 in six real minutes. The clock pauses while a panel is open, so reading and shopping are free. At 22:00 (or when you click the tower door or the moon button) you sleep, and the night moves everything on at once. Once every plant is watered and nothing is waiting to be harvested or shipped, the wizard suggests turning in early.
 
 1. Jars ferment one night and plants grow.
 2. The cart takes whatever is in the shipping crate to town; each sauce is rated and paid for.
@@ -72,6 +73,7 @@ Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. The
 
 ## Resources
 
+- **Starter kit**: 30 peppercorns, 4 Bell seeds, 1 Banana seed, 1 jar of Bell mash and one pinch each of Cumin, Coriander and Curry Leaves, so a Bell Hot Sauce can go to town on the very first night and a Golden Curry after the first harvest.
 - **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
 - **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, blending 2, grinding 1, a pep talk 1. Sleep refills it; eating a pepper restores its heat value.
 - **Spices** from the merchant: Cumin 3, Cinnamon 3, Curry Leaves 4, Coriander 3, Ginger 4 (level 1); Cardamom 6 (level 3); Cloves 6 and Fenugreek 5 (level 5). Meeting a quota also grants one rare spice.
