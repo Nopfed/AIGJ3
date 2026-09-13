@@ -1,4 +1,6 @@
+using System;
 using Microsoft.Xna.Framework;
+using SpiceWizard.Web.Art;
 
 namespace SpiceWizard.Web.Scene
 {
@@ -88,6 +90,18 @@ namespace SpiceWizard.Web.Scene
             list.Add(new Station(StationKind.Crate, 0, new Rectangle(Crate.X, Crate.Y, 18, 14), new Point(Crate.X + 24, Crate.Y + 18), "Shipping crate", "Send sauces to town"));
             list.Add(new Station(StationKind.Door, 0, new Rectangle(Door.X, Door.Y, 14, 26), DoorStand, "Tower door", "Go to bed"));
             return list.ToArray();
+        }
+
+        /// <summary>
+        /// Nudges a free-walk destination onto ground the wizard can actually stand on: below the
+        /// horizon, inside the view, and never behind the tower (he is drawn in front of it).
+        /// </summary>
+        public static Point ClampWalk(Point p)
+        {
+            int x = Math.Max(Camera.Left + 6, Math.Min(Camera.Right - 6, p.X));
+            int y = Math.Max(RoadTop, Math.Min(Camera.Bottom - 2, p.Y));
+            if (x >= Tower.X - 4 && x <= Tower.Right + 4 && y < Tower.Bottom + 6) y = Tower.Bottom + 6;
+            return new Point(x, y);
         }
 
         public static Station Find(StationKind kind, int index = 0)

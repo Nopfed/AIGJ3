@@ -353,10 +353,19 @@ namespace SpiceWizard.Web
 
         void HandleSceneClick()
         {
-            if (!_ui.Clicked || _session.PanelOpen || _sleepPhase != 0 || _hover == null) return;
-            _ui.ConsumeClick();
-            var st = _hover;
-            _wizard.WalkTo(st.Stand, () => UseStation(st));
+            if (!_ui.Clicked || _session.PanelOpen || _sleepPhase != 0) return;
+            if (_hover != null)
+            {
+                _ui.ConsumeClick();
+                var st = _hover;
+                _wizard.WalkTo(st.Stand, () => UseStation(st));
+            }
+            else if (_mouse.Y > Layout.Horizon)
+            {
+                // Anywhere else in the yard: just stroll over there.
+                _ui.ConsumeClick();
+                _wizard.WalkTo(Layout.ClampWalk(_mouse), null);
+            }
         }
 
         void UseStation(Station st)
