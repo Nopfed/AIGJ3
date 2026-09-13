@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using SpiceWizard.Core;
 using SpiceWizard.Web.Art;
@@ -238,8 +239,30 @@ namespace SpiceWizard.Web.Ui
                     ui.Label(Left + 10, y, "Every bottle of that kind earns an extra star.", Palette.Orange); y += 12;
                 }
                 if (q.IsMet) { y += 4; ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! The bonus arrives at the start of next week.", Palette.Green); y += 12; }
+                y += 4;
+                y = RushBlock(ui, s, y);
                 return y;
             });
+        }
+
+        /// <summary>The rush order pinned under the quota: what, how many, when, and how it is going.</summary>
+        static int RushBlock(Ui ui, GameState s, int y)
+        {
+            var rush = s.Rush;
+            if (rush == null)
+            {
+                ui.IconLabel(Left, y, "ic_envelope", Palette.Grey, "No rush orders today. Someone may run up with one at dawn.", Palette.Grey);
+                return y + Row;
+            }
+            var r = RecipeBook.Get(rush.RecipeId);
+            bool dueTonight = rush.DaysLeft(s.Clock.Day) <= 0;
+            ui.IconLabel(Left, y, "ic_envelope", Color.White, "Rush order, " + rush.DueText(s.Clock.Day) + ":", dueTonight ? Palette.DarkRed : Palette.Purple);
+            y += Row;
+            ui.IconLabel(Left + 6, y, ItemArt.SauceIcon(r), ItemArt.SauceColor(r.Id), rush.Count + "x " + r.Name, rush.IsMet ? Palette.Green : Palette.Outline);
+            ui.Label(Left + 150, y + 1, rush.Delivered + " / " + rush.Count, rush.IsMet ? Palette.Green : Palette.DarkRed);
+            if (rush.IsMet) ui.C.Sprite("ic_check", Left + 190, y);
+            y += Row + 2;
+            return ui.Paragraph(Left, y, MaxChars, "Those bottles pay " + rush.PayMultiplier + "x; filling the order earns " + Balance.RushXp + " fame. No penalty if it lapses.", Palette.Grey);
         }
 
         /// <summary>"twice" or "three times": how many repeats the town sits through before it tires of a sauce.</summary>
@@ -629,6 +652,17 @@ namespace SpiceWizard.Web.Ui
             ui.IconLabel(Left, y, "ic_hot", Palette.Red, s.Crate.Sauces.Count + " sauces in the crate for the cart.", s.Crate.Sauces.Count > 0 ? Palette.Outline : Palette.Grey); y += 12;
             ui.IconLabel(Left, y, "ic_flame", Color.White, "Sleeping refills your spice to " + s.Spice.Max + ".", Palette.Grey); y += 12;
             if (s.Clock.DayOfWeek == 7) { ui.Label(Left, y, "The week ends tonight! The quota is judged at dawn.", Palette.DarkRed); y += 12; }
+            if (s.Rush is RushOrder rush && !rush.IsMet)
+            {
+                var r = RecipeBook.Get(rush.RecipeId);
+                int inCrate = s.Crate.Sauces.Count(x => x.RecipeId == rush.RecipeId);
+                bool dueTonight = rush.DaysLeft(s.Clock.Day) <= 0;
+                int owed = rush.Count - rush.Delivered;
+                // The envelope says "rush order"; the words go on the deadline so the longest recipe name still fits.
+                string due = rush.DueText(s.Clock.Day);
+                string text = char.ToUpper(due[0]) + due.Substring(1) + ": " + owed + "x " + r.Name + ", " + inCrate + " in the crate" + (dueTonight ? "!" : ".");
+                ui.IconLabel(Left, y, "ic_envelope", Color.White, text, dueTonight && inCrate < owed ? Palette.DarkRed : Palette.Purple); y += 12;
+            }
             y += 8;
             if (ui.Button(new Rectangle(Left, y, 90, 16), "Sleep", true)) { ss.Close(); ss.PlaySfx?.Invoke(Sfx.Yawn); ss.RequestSleep?.Invoke(); }
             if (ui.Button(new Rectangle(Left + 100, y, 90, 16), "Not yet", true)) ss.Close();
@@ -673,6 +707,18 @@ namespace SpiceWizard.Web.Ui
                     ui.Label(Left, y, "A new request is pinned to the notice board.", Palette.Purple); y += 12;
                     if (s.Quota?.CravedType is SauceType craved) { ui.Label(Left + 10, y, Quota.CravingText(craved), Palette.Orange); y += 12; }
                 }
+                if (r.RushCompleted)
+                {
+                    ui.IconLabel(Left, y, "ic_envelope", Color.White, "Rush order filled! " + RecipeBook.Get(r.RushRecipeId).Name + " was in time: +" + r.RushBonusXp + " fame.", Palette.Green); y += 12;
+                }
+                else if (r.RushExpired)
+                {
+                    ui.IconLabel(Left, y, "ic_envelope", Palette.Grey, "The rush order for " + RecipeBook.Get(r.RushRecipeId).Name + " lapsed. No harm done.", Palette.Grey); y += 12;
+                }
+                if (r.RushPosted && s.Rush is RushOrder rush)
+                {
+                    ui.IconLabel(Left, y, "ic_envelope", Color.White, "A rush order! " + rush.Count + "x " + RecipeBook.Get(rush.RecipeId).Name + " by the cart " + (rush.DaysLeft(s.Clock.Day) == 1 ? "tomorrow night" : "in " + rush.DaysLeft(s.Clock.Day) + " nights") + ", paid double.", Palette.Purple); y += 12;
+                }
                 if (r.Weather != Weather.Clear)
                 {
                     ui.IconLabel(Left, y, r.Weather == Weather.Rain ? "ic_rain" : "ic_wind", r.Weather == Weather.Rain ? Color.White : Palette.Grey, WeatherInfo.Describe(r.Weather), r.Weather == Weather.Rain ? Palette.Blue : Palette.Grey);
@@ -707,6 +753,7 @@ namespace SpiceWizard.Web.Ui
                 "COOK|The cauldron brews hot sauces and curries for spice.",
                 "SELL|Bottles in the crate are rated at dawn and paid for in peppercorns, which are also an ingredient.",
                 "QUOTA|Fill the notice board request each week for bonuses.",
+                "RUSH|Some mornings bring a rush order: a sauce wanted within two nights, paid double. The envelope by the day shows one is open.",
                 "|Spice is your cooking energy: eat a pepper or sleep. Reach level 20 to become the Master Spice Wizard.",
             };
             Scroll(ui, ss, Content(), top =>

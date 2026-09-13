@@ -7,6 +7,7 @@ public sealed class Stats
     public int PeppercornsEarned { get; set; }
     public int QuotasMet { get; set; }
     public int FiveStarSauces { get; set; }
+    public int RushesFilled { get; set; }
 }
 
 /// <summary>The whole world. Plain data so it round-trips through JSON for saves.</summary>
@@ -20,6 +21,8 @@ public sealed class GameState
     public ShippingCrate Crate { get; set; } = new();
     public Town Town { get; set; } = new();
     public Quota? Quota { get; set; }
+    /// <summary>The open rush order, if any. See <see cref="RushOrder"/>.</summary>
+    public RushOrder? Rush { get; set; }
     public Progression Progression { get; set; } = new();
     public SpiceMeter Spice { get; set; } = new();
     public Rng Rng { get; set; } = new();
@@ -76,6 +79,14 @@ public sealed class MorningReport
     public int QuotaBonusXp { get; set; }
     public Spice? QuotaBonusSpice { get; set; }
     public bool NewQuotaPosted { get; set; }
+    /// <summary>A rush order arrived this morning (it is <see cref="GameState.Rush"/>).</summary>
+    public bool RushPosted { get; set; }
+    /// <summary>Last night's cart filled the rush order; <see cref="RushRecipeId"/> says which sauce.</summary>
+    public bool RushCompleted { get; set; }
+    /// <summary>The rush order lapsed unmet last night; <see cref="RushRecipeId"/> says which sauce.</summary>
+    public bool RushExpired { get; set; }
+    public int RushRecipeId { get; set; }
+    public int RushBonusXp { get; set; }
     public int PlantsReady { get; set; }
     public int JarsReady { get; set; }
     public bool BecameMaster { get; set; }

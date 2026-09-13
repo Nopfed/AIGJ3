@@ -112,6 +112,16 @@ public static class Balance
     /// <summary>Percent chance each week that the town craves one sauce type (+1 star for every bottle of it).</summary>
     public const int CravingChance = 50;
 
+    // Rush orders: a townsperson wants one sauce within a couple of days and pays double for it.
+    /// <summary>Percent chance each dawn, when none is open, that a rush order arrives.</summary>
+    public const int RushChance = 35;
+    public const int RushMinLevel = 3;
+    /// <summary>Nights from posting to the last cart that counts.</summary>
+    public const int RushDays = 2;
+    public const int RushPayMultiplier = 2;
+    /// <summary>Fame for filling a rush order in time.</summary>
+    public const int RushXp = 20;
+
     /// <summary>XP per star per recipe tier when a sauce sells.</summary>
     public const int XpPerStarTier = 6;
 

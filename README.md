@@ -19,7 +19,7 @@ dotnet test                                    # simulation tests + balance bot
 dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
 ```
 
-Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, or `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once).
+Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once), or `?demo=rush` for the mid-game state with the rush-order sauce crated (with `&panel=Morning` the report shows the order filled).
 
 The yard is drawn at 384x216 pixels and scaled up by the largest whole number that fits your window; whatever room is left is filled with more sky and meadow, so there are no black bars. Resize the window and the game follows.
 
@@ -61,7 +61,7 @@ A day runs from 06:00 to 22:00 in six real minutes. The clock pauses while a pan
 | **Garden plots** | Plant a seed, water it, give it a pep talk, harvest it. 4 plots to start, 8 by level 12. |
 | **Well** | Refills the watering bucket (4 waters). |
 | **Merchant cart** | Sells seeds and spices for peppercorns. Higher-level goods unlock as you level. |
-| **Notice board** | This week's quota and its progress. |
+| **Notice board** | This week's quota and its progress, plus any open rush order. |
 | **Cauldron** | Cooks the ten recipes. Costs 3 spice per sauce. |
 | **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash (3 from level 18). 2 jars to start, 4 by level 11. |
 | **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. From level 2 it also mixes powder, spices and peppercorns into your own **spice blends** for 2 spice. |
@@ -131,6 +131,10 @@ Every week the notice board asks for two or three sauces you can already cook. D
 
 Half the weeks the town also **craves** one kind of sauce — hot sauces on odd weeks, curries on even ones — and every bottle of that kind earns an extra star all week. The board and the morning report say when it does.
 
+## Rush orders
+
+From level 3, on 35% of mornings with no order open, someone in town posts a **rush order**: one or two bottles of a sauce you can cook (never one on this week's notice; cheap sauces are wanted in pairs, tier 3 and up singly), due with the cart two nights later. Bottles that fill it are paid **double** on top of their star rating, and completing the order earns 20 fame. Only one order is open at a time; an unmet one lapses on its due night with no penalty. An envelope beside the clock (blinking on the due day) shows one is open — hover it for the details — and the notice board, tower door and morning report track it.
+
 ## Progression
 
 Fame to the next level is 25 + 18 × (level − 1). Every level from 2 to 20 unlocks something; hover the level bar for the next one.
@@ -165,7 +169,7 @@ Level 20 wins the game; you can keep playing afterwards. A competent player gets
 SpiceWizard.sln
 src/SpiceWizard.Core/          pure simulation, no engine references
   Species.cs, Plant.cs, Garden.cs (plots + jars), Recipes.cs (+ Balance), Blends.cs,
-  Town.cs (ratings, novelty, quota), Progression.cs (+ SpiceMeter, GameClock),
+  Town.cs (ratings, novelty, quota, rush orders), Progression.cs (+ SpiceMeter, GameClock),
   Actions.cs (every player verb), DayTick.cs (night resolution), SaveSystem.cs
 src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers

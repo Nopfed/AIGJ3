@@ -8,13 +8,22 @@ namespace SpiceWizard.Web.Ui
     /// <summary>HUD strip, toast, title screen and the level-20 celebration.</summary>
     public static class Overlays
     {
-        public static void Hud(Ui ui, GameState s, Session ss)
+        public static void Hud(Ui ui, GameState s, Session ss, float time)
         {
             var c = ui.C;
             int top = Camera.Top, left = Camera.Left, right = Camera.Right;
             c.Rect(left, top, Camera.View.Width, Scene.Layout.HudHeight, Palette.Outline * 0.75f);
             c.Rect(left, top + Scene.Layout.HudHeight - 1, Camera.View.Width, 1, Palette.Gold * 0.5f);
             c.Text("Day " + s.Clock.Day + "  " + s.Clock.TimeText(), left + 4, top + 4, Palette.Cream);
+            if (s.Rush is RushOrder rush)
+            {
+                // The pip blinks on the due day so the deadline is hard to miss.
+                bool dueTonight = rush.DaysLeft(s.Clock.Day) <= 0;
+                var tint = dueTonight && (int)(time * 3) % 2 == 0 ? Palette.Yellow : Color.White;
+                c.Sprite("ic_envelope", left + 106, top + 3, tint);
+                if (ui.Hot(new Rectangle(left + 105, top + 2, 10, 10)))
+                    ui.Tooltip = "Rush order: " + rush.Count + "x " + RecipeBook.Get(rush.RecipeId).Name + ", " + rush.DueText(s.Clock.Day) + ". Pays double.";
+            }
             string sky = s.Weather == Weather.Rain ? "ic_rain" : s.Weather == Weather.Windy ? "ic_wind" : "ic_sun";
             c.Sprite(sky, left + 90, top + 3);
             if (ui.Hot(new Rectangle(left + 88, top + 2, 12, 10))) ui.Tooltip = WeatherInfo.Name(s.Weather) + ": " + WeatherInfo.Describe(s.Weather);
@@ -150,6 +159,7 @@ namespace SpiceWizard.Web.Ui
             Stat(c, cx - 140, sy + 11, "ic_star", Color.White, s.Stats.FiveStarSauces + " five-star bottles");
             Stat(c, cx + 8, sy + 11, "ic_check", Color.White, s.Stats.QuotasMet + " quotas met");
             Stat(c, cx - 140, sy + 22, "ic_peppercorn", Color.White, s.Stats.PeppercornsEarned + " peppercorns earned");
+            Stat(c, cx + 8, sy + 22, "ic_envelope", Color.White, s.Stats.RushesFilled + " rush orders filled");
             if (ui.Button(new Rectangle(cx - 84, box.Bottom - 18, 80, 14), "Keep playing", true)) ss.Close();
             if (ui.Button(new Rectangle(cx + 4, box.Bottom - 18, 80, 14), "New game", true)) ss.RequestNewGame?.Invoke();
         }

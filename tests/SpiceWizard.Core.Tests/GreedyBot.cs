@@ -92,7 +92,8 @@ public sealed class GreedyBot
     void CookEverything()
     {
         var s = State;
-        var recipes = RecipeBook.UnlockedAt(s.Level).OrderByDescending(r => r.BaseValue).ToList();
+        // The rush order pays double, so its recipe goes to the front of the queue.
+        var recipes = RecipeBook.UnlockedAt(s.Level).OrderByDescending(r => s.Rush?.Wants(r.Id) == true).ThenByDescending(r => r.BaseValue).ToList();
         bool progress = true;
         while (progress && s.Spice.CanSpend(Balance.CookSpiceCost))
         {

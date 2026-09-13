@@ -12,10 +12,11 @@ public static class DayTick
         s.Shelf.EndOfNight();
         s.Garden.EndOfNight();
 
-        // 2. The cart takes the crate to town; each sauce is rated and paid for.
+        // 2. The cart takes the crate to town; each sauce is rated and paid for. Bottles that fill an open
+        //    rush order earn double.
         foreach (var sauce in s.Crate.Sauces)
         {
-            var sale = s.Town.Rate(sauce, tonight, s.Quota, s.Level);
+            var sale = s.Town.Rate(sauce, tonight, s.Quota, s.Level, s.Rush);
             report.Sales.Add(sale);
             report.PeppercornsEarned += sale.Peppercorns;
             report.XpEarned += sale.Xp;
@@ -25,6 +26,21 @@ public static class DayTick
         s.Crate.Sauces.Clear();
         s.Peppercorns += report.PeppercornsEarned;
         s.Stats.PeppercornsEarned += report.PeppercornsEarned;
+
+        // 2b. The rush order closes: filled (fame bonus) or lapsed on its due night (no penalty).
+        if (s.Rush != null && (s.Rush.IsMet || tonight >= s.Rush.DueDay))
+        {
+            report.RushRecipeId = s.Rush.RecipeId;
+            if (s.Rush.IsMet)
+            {
+                report.RushCompleted = true;
+                report.RushBonusXp = Balance.RushXp;
+                report.XpEarned += Balance.RushXp;
+                s.Stats.RushesFilled++;
+            }
+            else report.RushExpired = true;
+            s.Rush = null;
+        }
 
         // 3. New day.
         s.Clock.NewDay();
@@ -68,6 +84,13 @@ public static class DayTick
         {
             s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng);
             report.NewQuotaPosted = true;
+        }
+
+        // 6b. Some mornings a rush order arrives, once the wizard has a few recipes to choose from.
+        if (s.Rush == null && s.Level >= Balance.RushMinLevel && s.Rng.Next(100) < Balance.RushChance)
+        {
+            s.Rush = RushOrder.Generate(s.Clock.Day, s.Level, s.Quota, s.Rng);
+            report.RushPosted = true;
         }
 
         // 7. Tomorrow's sky. Rain does the morning watering.

@@ -102,7 +102,7 @@ sauces are worth fermenting.
 Tests: `TownTests` for the craving star; `ProgressionTests` (new) asserting
 `UnlockAt(n)` is non-empty for every n in 2..20; bot median in range.
 
-## Phase 3 — Second event type: rush orders (~2 h)
+## Phase 3 — Second event type: rush orders (~2 h) — DONE 2026-09-12
 
 Goal: mornings vary; a reason to cook a specific sauce *now*.
 

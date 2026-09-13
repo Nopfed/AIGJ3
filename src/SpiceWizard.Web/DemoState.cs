@@ -46,6 +46,7 @@ namespace SpiceWizard.Web
 
             s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng);
             s.Quota.Lines[0].Sold = s.Quota.Lines[0].Required;
+            s.Rush = new RushOrder { RecipeId = 4, Count = 2, Delivered = 1, DueDay = s.Clock.Day + 1 };
             s.Stats.SaucesSold = 41; s.Stats.BlendsSold = 5; s.Stats.PeppercornsEarned = 2210; s.Stats.QuotasMet = 2; s.Stats.FiveStarSauces = 6;
             return s;
         }

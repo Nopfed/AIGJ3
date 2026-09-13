@@ -20,7 +20,7 @@ public class BotPlaythroughTests
             int day = bot.Play();
             Assert.True(day > 0, $"seed {seed} never reached level 20 (level {bot.State.Level} on day {bot.State.Clock.Day})");
             days.Add(day);
-            _out.WriteLine($"seed {seed}: master on day {day}, {bot.State.Stats.SaucesSold} sauces, {bot.State.Stats.BlendsSold} blends, {bot.State.Stats.PeppercornsEarned} pc earned, {bot.State.Stats.QuotasMet} quotas");
+            _out.WriteLine($"seed {seed}: master on day {day}, {bot.State.Stats.SaucesSold} sauces, {bot.State.Stats.BlendsSold} blends, {bot.State.Stats.PeppercornsEarned} pc earned, {bot.State.Stats.QuotasMet} quotas, {bot.State.Stats.RushesFilled} rushes");
         }
         days.Sort();
         int median = days[days.Count / 2];

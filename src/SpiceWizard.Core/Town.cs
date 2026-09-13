@@ -21,6 +21,46 @@ public sealed class SaleResult
     public bool Novel { get; set; }
     /// <summary>The sauce is of the type the town craves this week.</summary>
     public bool Craved { get; set; }
+    /// <summary>The sauce filled an open rush order and was paid at the rush rate.</summary>
+    public bool Rush { get; set; }
+}
+
+/// <summary>
+/// A rush order: someone in town wants a few bottles of one sauce within two days and pays double for
+/// them. Only one is open at a time; an unmet order simply lapses on its due night.
+/// </summary>
+public sealed class RushOrder
+{
+    public int RecipeId { get; set; }
+    public int Count { get; set; }
+    public int Delivered { get; set; }
+    /// <summary>The cart on the night of this day is the last one that counts.</summary>
+    public int DueDay { get; set; }
+    public int PayMultiplier { get; set; } = Balance.RushPayMultiplier;
+
+    public bool IsMet => Delivered >= Count;
+    public bool Wants(int recipeId) => !IsMet && recipeId == RecipeId;
+    public int DaysLeft(int day) => DueDay - day;
+
+    /// <summary>"due tonight" / "due tomorrow night" / "due in N nights".</summary>
+    public string DueText(int day) => DaysLeft(day) switch
+    {
+        <= 0 => "due tonight",
+        1 => "due tomorrow night",
+        int n => "due in " + n + " nights",
+    };
+
+    /// <summary>
+    /// Rolls an order from the recipes the wizard can cook, avoiding this week's quota so the two pull in
+    /// different directions. Cheap sauces are wanted in pairs, dear ones singly.
+    /// </summary>
+    public static RushOrder Generate(int day, int level, Quota? quota, Rng rng)
+    {
+        var pool = RecipeBook.UnlockedAt(level).Where(r => quota == null || !quota.Wants(r.Id)).ToList();
+        if (pool.Count == 0) pool = RecipeBook.UnlockedAt(level).ToList();
+        var r = rng.Pick(pool);
+        return new RushOrder { RecipeId = r.Id, Count = r.Tier >= 3 ? 1 : 2, DueDay = day + Balance.RushDays };
+    }
 }
 
 public sealed class ShippingCrate
@@ -50,21 +90,25 @@ public sealed class Town
     /// <summary>
     /// Rates one sauce or blend delivered on the night of <paramref name="day"/> and records the sale.
     /// <paramref name="level"/> is the wizard's level, which sets how many repeats the town forgives.
+    /// A bottle that fills an open <paramref name="rush"/> order is paid at the rush rate.
     /// </summary>
-    public SaleResult Rate(Sauce sauce, int day, Quota? quota, int level = 1)
+    public SaleResult Rate(Sauce sauce, int day, Quota? quota, int level = 1, RushOrder? rush = null)
     {
         var blend = sauce.Blend;
         bool onQuota = blend == null && quota != null && quota.Wants(sauce.RecipeId);
+        bool rushed = blend == null && rush != null && rush.Wants(sauce.RecipeId);
         bool craved = blend == null && quota?.CravedType != null && quota.CravedType == sauce.Recipe!.Type;
         bool novel = blend != null && !HasTasted(blend);
         bool bored = (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThresholdAt(level);
         int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) + (craved ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
         int pay = (int)Math.Round(sauce.BaseValue * Balance.StarMultiplier[stars]);
+        if (rushed) pay *= rush!.PayMultiplier;
         int xp = stars * sauce.Tier * Balance.XpPerStarTier;
 
         Sales.Add(new SaleRecord { Day = day, RecipeId = sauce.RecipeId, BlendKey = blend?.Key });
         if (novel) TastedBlends.Add(blend!.Key);
         if (blend == null) quota?.RecordSale(sauce.RecipeId);
+        if (rushed) rush!.Delivered++;
 
         return new SaleResult
         {
@@ -76,13 +120,15 @@ public sealed class Town
             Bored = bored,
             Novel = novel,
             Craved = craved,
-            Remark = Remark(stars, bored, onQuota, novel, craved, sauce.Name),
+            Rush = rushed,
+            Remark = Remark(stars, bored, onQuota, novel, craved, rushed, sauce.Name),
         };
     }
 
-    static string Remark(int stars, bool bored, bool onQuota, bool novel, bool craved, string name)
+    static string Remark(int stars, bool bored, bool onQuota, bool novel, bool craved, bool rushed, string name)
     {
         if (bored && stars < 5) return "\"" + name + " again? We have had our fill.\"";
+        if (rushed) return "\"The baker ran the whole way. Double pay, as promised.\"";
         if (onQuota && stars >= 4) return "\"Just what the notice asked for. Splendid!\"";
         if (novel && stars >= 4) return "\"A new flavour! Everyone wants a pinch.\"";
         if (craved && stars >= 4) return "\"Exactly what we were craving. More!\"";

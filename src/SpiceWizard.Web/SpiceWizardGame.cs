@@ -121,6 +121,8 @@ namespace SpiceWizard.Web
                 if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
                 if (_demo == "windy") _state.Weather = Weather.Windy;
                 if (_demo == "rain") { _state.Weather = Weather.Rain; WeatherInfo.ApplyRain(_state); }
+                // The demo rush order wants one more Sunset Curry: crate it so ?demo=rush&panel=Morning shows it filled.
+                if (_demo == "rush") _state.Crate.Sauces.Add(new Sauce(4, 4, _state.Clock.Day));
                 if (_demo == "chores")
                 {
                     // Day 1 with every plot planted and watered: the "nothing left to do" nudge should show at once.
@@ -445,7 +447,7 @@ namespace SpiceWizard.Web
             }
             else
             {
-                Overlays.Hud(_ui, _state, _session);
+                Overlays.Hud(_ui, _state, _session, _time);
                 if (_session.Panel == PanelKind.Celebration) Overlays.Celebration(_ui, _state, _session, _time);
                 else if (_session.Panel == PanelKind.Pause) Overlays.Pause(_ui, _session);
                 else if (_session.Panel == PanelKind.Options) Overlays.Options(_ui, _session);
