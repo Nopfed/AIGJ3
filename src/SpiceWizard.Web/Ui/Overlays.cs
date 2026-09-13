@@ -151,19 +151,20 @@ namespace SpiceWizard.Web.Ui
             BigText(c, "MASTER", cx, 22, 2, Palette.Yellow * pulse);
             BigText(c, "SPICE WIZARD!", cx, 40, 2, Palette.Yellow * pulse);
 
-            var box = new Rectangle(cx - 150, 112, 300, 84);
+            // Wide enough that a five-digit peppercorn total stays clear of the right-hand column.
+            var box = new Rectangle(cx - 160, 112, 320, 84);
             c.Rect(box, Palette.Outline * 0.85f);
             c.Border(box, Palette.Gold * 0.6f);
             c.TextCentered("The whole town came to cheer!", cx, box.Y + 5, Palette.White);
             if (ss.NewRecord) c.TextCentered("Mastered on day " + s.WonOnDay + ". New record!", cx, box.Y + 17, Palette.Yellow * pulse);
             else c.TextCentered("Mastered on day " + s.WonOnDay + (ss.Settings.BestDay > 0 ? ". Best: day " + ss.Settings.BestDay : ""), cx, box.Y + 17, Palette.Cream);
             int sy = box.Y + 31;
-            Stat(c, cx - 140, sy, "ic_hot", Palette.Red, s.Stats.SaucesSold + " sauces sold");
-            Stat(c, cx + 8, sy, "ic_blend", Palette.LightPurple, s.Stats.BlendsSold + " blends sold");
-            Stat(c, cx - 140, sy + 11, "ic_star", Color.White, s.Stats.FiveStarSauces + " five-star bottles");
-            Stat(c, cx + 8, sy + 11, "ic_check", Color.White, s.Stats.QuotasMet + " quotas met");
-            Stat(c, cx - 140, sy + 22, "ic_peppercorn", Color.White, s.Stats.PeppercornsEarned + " peppercorns earned");
-            Stat(c, cx + 8, sy + 22, "ic_envelope", Color.White, s.Stats.RushesFilled + " rush orders filled");
+            Stat(c, cx - 150, sy, "ic_hot", Palette.Red, s.Stats.SaucesSold + " sauces sold");
+            Stat(c, cx + 6, sy, "ic_blend", Palette.LightPurple, s.Stats.BlendsSold + " blends sold");
+            Stat(c, cx - 150, sy + 11, "ic_star", Color.White, s.Stats.FiveStarSauces + " five-star bottles");
+            Stat(c, cx + 6, sy + 11, "ic_check", Color.White, s.Stats.QuotasMet + " quotas met");
+            Stat(c, cx - 150, sy + 22, "ic_peppercorn", Color.White, s.Stats.PeppercornsEarned + " peppercorns earned");
+            Stat(c, cx + 6, sy + 22, "ic_envelope", Color.White, s.Stats.RushesFilled + " rush orders filled");
             if (ui.Button(new Rectangle(cx - 84, box.Bottom - 18, 80, 14), "Keep playing", true)) ss.Close();
             if (ui.Button(new Rectangle(cx + 4, box.Bottom - 18, 80, 14), "New game", true)) ss.RequestNewGame?.Invoke();
         }

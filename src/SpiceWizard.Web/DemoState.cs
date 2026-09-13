@@ -29,12 +29,15 @@ namespace SpiceWizard.Web
             s.Shelf.Jars[2].Species = PepperSpecies.Bonnet; s.Shelf.Jars[2].Nights = 2;
 
             var inv = s.Inventory;
-            inv.Peppers[0] = 5; inv.Peppers[1] = 3; inv.Peppers[2] = 2; inv.Peppers[3] = 1;
-            inv.Powder[1] = 1; inv.Powder[3] = 1;
+            // Two-digit counts and the longest names, so the panels are checked at their widest.
+            inv.Peppers[0] = 5; inv.Peppers[1] = 12; inv.Peppers[2] = 2; inv.Peppers[3] = 1;
+            inv.Powder[1] = 12; inv.Powder[3] = 1;
             inv.Mash[1] = 1; inv.AgedMash[0] = 1;
             inv.Seeds[0] = 2; inv.Seeds[2] = 1;
             for (int i = 0; i < Inventory.SpiceCount; i++) inv.Spices[i] = 2;
+            inv.Spices[(int)Spice.CurryLeaves] = 12;
             inv.Sauces.Add(new Sauce(3, 4, 22));
+            inv.Sauces.Add(new Sauce(9, 5, 23));
             inv.Sauces.Add(new Sauce(7, 5, 23));
             var blend = new Blend { Peppercorns = 1 };
             blend.Powder[(int)PepperSpecies.Bonnet] = 1;
@@ -45,12 +48,15 @@ namespace SpiceWizard.Web
             var rub = new Blend { Powder = { [(int)PepperSpecies.Bonnet] = 1 }, Peppercorns = 1 };
             s.Town.Rate(new Sauce(rub, rub.Quality, 16), 16, null, s.Level);
             s.Town.Rate(new Sauce(new Blend { Powder = { [(int)PepperSpecies.Banana] = 1 }, Spices = { [(int)Spice.Ginger] = 1, [(int)Spice.Cinnamon] = 1 } }, 3, 19), 19, null, s.Level);
+            var wide = new Blend { Powder = { [(int)PepperSpecies.Bonnet] = 1 }, Spices = { [(int)Spice.CurryLeaves] = 1, [(int)Spice.Cardamom] = 1, [(int)Spice.Fenugreek] = 1 }, Peppercorns = 1 };
+            s.Town.Rate(new Sauce(wide, wide.Quality, 21), 21, null, s.Level);
             s.Crate.Sauces.Add(new Sauce(2, 3, 22));
             s.Crate.Sauces.Add(new Sauce(5, 4, 23));
+            s.Crate.Sauces.Add(new Sauce(9, 4, 23));
 
             s.Quota = Quota.Generate(s.Clock.Week, s.Level, s.Rng, s.Town);
             s.Quota.Lines[0].Sold = s.Quota.Lines[0].Required;
-            s.Rush = new RushOrder { RecipeId = 4, Count = 2, Delivered = 1, DueDay = s.Clock.Day + 1 };
+            s.Rush = new RushOrder { RecipeId = 9, Count = 2, Delivered = 1, DueDay = s.Clock.Day + 1 };
             s.Stats.SaucesSold = 41; s.Stats.BlendsSold = 5; s.Stats.PeppercornsEarned = 2210; s.Stats.QuotasMet = 2; s.Stats.FiveStarSauces = 6;
             return s;
         }
