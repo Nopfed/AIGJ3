@@ -19,7 +19,7 @@ dotnet test                                    # simulation tests + balance bot
 dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
 ```
 
-Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once), or `?demo=rush` for the mid-game state with the rush-order sauce crated (with `&panel=Morning` the report shows the order filled).
+Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once), `?demo=rush` for the mid-game state with the rush-order sauce crated (with `&panel=Morning` the report shows the order filled), or `?demo=levelup` to go straight to bed one fame short of a level (the level-up cheer in the yard, then the villagers collecting the crate).
 
 The yard is drawn at 384x216 pixels and scaled up by the largest whole number that fits your window; whatever room is left is filled with more sky and meadow, so there are no black bars. Resize the window and the game follows.
 
@@ -28,6 +28,7 @@ The yard is drawn at 384x216 pixels and scaled up by the largest whole number th
 | Action | Input |
 | --- | --- |
 | Use a station | Click it — the wizard walks over and a panel opens |
+| Find something to do | A bobbing `!` marks a ripe plot, a ready jar, sauces waiting in the pantry, and (after 18:00) an empty crate with sauces still to ship |
 | Close a panel | The `x` button or `Esc` |
 | Pause | `Esc` with nothing open: **Resume**, **Options** or **Quit to title** |
 | Help | The `?` button in the top-right corner |
@@ -68,6 +69,8 @@ A day runs from 06:00 to 22:00 in six real minutes. The clock pauses while a pan
 | **Pantry** | Everything you own. Eat peppers here to restore spice. |
 | **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery (8 from level 14). |
 | **Tower door** | Go to bed early. |
+
+The wizard acts everything out behind the panel: he tips the bucket when he waters, stirs with a long ladle when he cooks (the cauldron takes on the sauce's colour and belches steam while a bottle lobs over to the pantry), pounds the pestle when he grinds or blends, and throws his arms up for a pep talk. Sauces that went to town are fetched at dawn by two villagers who walk up the road and carry the crate off between them.
 
 Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. They stroll about, nap in the grass, roll over, scratch the trees and the stump, hide in the bushes with only their eyes showing, and jump up onto the fence, the crate, the pantry, the well and the branches. They are purely decorative and never get in the way of anything.
 
@@ -161,7 +164,7 @@ Fame to the next level is 25 + 18 × (level − 1). Every level from 2 to 20 unl
 | 19 | the town forgives one more repeat, +1 spice |
 | 20 | Master Spice Wizard — the town celebrates |
 
-Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 29.
+A new level is celebrated in the yard as the wizard steps out in the morning — a cheer, a ring of sparks and a big "Level N!" — before the morning report comes up. Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 29.
 
 ## Project structure
 

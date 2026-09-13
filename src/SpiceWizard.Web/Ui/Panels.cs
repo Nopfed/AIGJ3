@@ -170,7 +170,7 @@ namespace SpiceWizard.Web.Ui
                 {
                     var r = Actions.PepTalk(s, i);
                     ss.Say(r);
-                    if (r.Ok) ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Pink);
+                    if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Pink); ss.OnPose?.Invoke(WizardActor.PoseCheer); }
                 }
                 if (ui.Button(new Rectangle(Left + 184, by, 86, 16), "Harvest", plant.IsMature, "Yields " + sp.Yield + " peppers", icon: ItemArt.PepperIcon(plant.Species)))
                 {
@@ -346,7 +346,7 @@ namespace SpiceWizard.Web.Ui
                     {
                         var res = Actions.Cook(s, r.Id, ss.ExtraPeppercorn);
                         ss.Say(res, Sfx.Cook);
-                        if (res.Ok) ss.OnSparkle?.Invoke(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2), ItemArt.SauceColor(r.Id));
+                        if (res.Ok) ss.OnCooked?.Invoke(ItemArt.SauceColor(r.Id));
                     }
                 }
 

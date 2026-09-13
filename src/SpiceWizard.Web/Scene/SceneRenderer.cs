@@ -89,6 +89,15 @@ namespace SpiceWizard.Web.Scene
         public bool WindowsLit;
         /// <summary>While true, little z's drift up from the bedroom window.</summary>
         public bool Snoring;
+        /// <summary>Bobbing "!" markers over anything that wants clicking; off while a panel covers the yard.</summary>
+        public bool ShowMarkers = true;
+        /// <summary>Extra steam for a moment after a sauce is cooked (the game triples the steam while it runs).</summary>
+        public float BurstTimer;
+        // The brew takes the colour of the last sauce cooked and settles back to the everyday green over ~20 s.
+        Color _brewColor = Palette.LightGreen;
+        float _brewFade;
+        const float BrewFadeSeconds = 20f;
+        readonly List<Point> _markers = new List<Point>();
 
         // Scenery outside the 384x216 design box, generated once per window size.
         public struct Prop { public string Sprite; public int X, Y; public int Base; }
@@ -109,9 +118,19 @@ namespace SpiceWizard.Web.Scene
 
         public SceneRenderer(Canvas canvas) { _c = canvas; }
 
+        /// <summary>Something was just cooked: the cauldron takes on the sauce's colour and belches steam.</summary>
+        public void Brew(Color sauce)
+        {
+            _brewColor = sauce;
+            _brewFade = BrewFadeSeconds;
+            BurstTimer = 1.5f;
+        }
+
         public void Update(float dt)
         {
             _time += dt;
+            if (_brewFade > 0) _brewFade -= dt;
+            if (BurstTimer > 0) BurstTimer -= dt;
             float windy = Weather == Weather.Windy ? 1f : Weather == Weather.Rain ? 0.35f : 0f;
             float overcast = Weather == Weather.Rain ? 1f : 0f;
             _windy = Approach(_windy, windy, dt * 0.5f);
@@ -133,13 +152,14 @@ namespace SpiceWizard.Web.Scene
             }
         }
 
-        public void Draw(GameState s, WizardActor wizard, Particles particles, Crowd crowd, Cats cats, Station hover)
+        public void Draw(GameState s, WizardActor wizard, Particles particles, Crowd crowd, Cats cats, Villagers villagers, Station hover)
         {
             double f = s.Clock.DayFraction;
             Weather = s.Weather;
             EnsureProps();
             _hover = hover;
             _hoverParts.Clear();
+            _markers.Clear();
 
             DrawSky(f);
             DrawHills(f);
@@ -152,9 +172,11 @@ namespace SpiceWizard.Web.Scene
             DrawStations(s, hover);
             DrawHover();
             crowd.Draw(_c);
+            villagers.Draw(_c);
             cats.Draw(_c, DayNight.IsDark(f));
             if (!wizard.InDoorway) wizard.Draw(_c);
             particles.Draw(_c);
+            DrawMarkers();
             // Under rain clouds the whole yard goes a shade cooler and dimmer, then the rain falls over it.
             if (_overcast > 0.01f) _c.Rect(Camera.View, new Color(60, 76, 110) * (0.2f * _overcast * (1f - DayNight.Darkness(f))));
             DrawRain();
@@ -200,6 +222,15 @@ namespace SpiceWizard.Web.Scene
         }
 
         bool Hot(StationKind kind, int index = 0) => _hover != null && _hover.Kind == kind && _hover.Index == index;
+
+        /// <summary>Queues a "!" to bob at (x, y): x is the marker's centre, y where its bottom edge hovers.</summary>
+        void Marker(int x, int y) { if (ShowMarkers) _markers.Add(new Point(x, y)); }
+
+        void DrawMarkers()
+        {
+            int bob = (int)Math.Round(Math.Sin(_time * 5) * 1.5);
+            foreach (var m in _markers) _c.Sprite("ic_bang", m.X - 2, m.Y - 8 + bob);
+        }
 
         /// <summary>Draws one sprite of a station, remembering it for the hover outline when that station is hot.</summary>
         void StationSprite(bool hot, string sprite, int x, int y) => StationSprite(hot, sprite, x, y, Color.White, 0f);
@@ -661,11 +692,7 @@ namespace SpiceWizard.Web.Scene
                         int bob = (int)(Math.Sin(_time * 3 + i) * 2);
                         StationSprite(hot, "ghost", p.X + 7, p.Y - 14 + bob);
                     }
-                    if (plant.IsMature)
-                    {
-                        int blink = (int)(_time * 3) % 2;
-                        if (blink == 0) _c.Sprite("ic_check", p.X + 16, p.Y - 14);
-                    }
+                    if (plant.IsMature) Marker(p.X + 19, p.Y - 12);
                     else if (plant.PepTalkedToday)
                     {
                         _c.TextShadow("!", p.X + 20, p.Y - 12, Palette.Pink);
@@ -701,10 +728,12 @@ namespace SpiceWizard.Web.Scene
                 StationSprite(Hot(StationKind.Market), "merchant", Layout.Merchant.X, Layout.Merchant.Y);
             }
 
-            // Shipping crate.
+            // Shipping crate. Late in the day an empty crate with sauces still in the pantry gets a nudge.
             StationSprite(Hot(StationKind.Crate), s.Crate.Sauces.Count > 0 ? "crate_full" : "crate", Layout.Crate.X, Layout.Crate.Y);
             if (s.Crate.Sauces.Count > 0)
                 _c.TextShadow(s.Crate.Sauces.Count.ToString(), Layout.Crate.X + 20, Layout.Crate.Y + 2, Palette.White);
+            else if (s.Clock.Minute >= 18 * 60 && s.Inventory.Sauces.Count > 0)
+                Marker(Layout.Crate.X + 9, Layout.Crate.Y - 2);
 
             // Cauldron standing over a log fire: the logs sit on the ground under its feet and a
             // flickering pool of firelight spreads out around them.
@@ -716,7 +745,8 @@ namespace SpiceWizard.Web.Scene
             StationSprite(Hot(StationKind.Cauldron), fire, cp.X - 2, cp.Y + 11);
             StationSprite(Hot(StationKind.Cauldron), "cauldron", cp.X, cp.Y);
             string bubbles = "bubbles" + ((int)(_time * 3) % 3);
-            StationSprite(Hot(StationKind.Cauldron), bubbles, cp.X, cp.Y - 2, Palette.LightGreen);
+            var brew = Color.Lerp(Palette.LightGreen, _brewColor, Math.Clamp(_brewFade / BrewFadeSeconds, 0f, 1f));
+            StationSprite(Hot(StationKind.Cauldron), bubbles, cp.X, cp.Y - 2, brew);
 
             // Jar shelf on the tower wall.
             bool shelfHot = Hot(StationKind.Shelf);
@@ -732,7 +762,7 @@ namespace SpiceWizard.Web.Scene
                     StationSprite(shelfHot, "jar_fill", jx, jy, jar.IsReady ? color : Color.Lerp(color, Palette.Grey, 0.5f));
                 }
                 StationSprite(shelfHot, "jar", jx, jy);
-                if (!jar.IsEmpty && jar.IsReady && (int)(_time * 2) % 2 == 0) _c.Rect(jx + 4, jy - 3, 2, 2, jar.IsAged ? Palette.Pink : Palette.White);
+                if (jar.IsReady) Marker(jx + 5, jy - 1);
             }
 
             // Mortar on a stump, pantry chest.
@@ -740,6 +770,7 @@ namespace SpiceWizard.Web.Scene
             StationSprite(Hot(StationKind.Mortar), "stump", Layout.Stump.X, Layout.Stump.Y);
             StationSprite(Hot(StationKind.Mortar), "mortar", Layout.Mortar.X, Layout.Mortar.Y);
             StationSprite(Hot(StationKind.Pantry), "pantry", Layout.Pantry.X, Layout.Pantry.Y);
+            if (s.Inventory.Sauces.Count > 0) Marker(Layout.Pantry.X + 9, Layout.Pantry.Y - 2);
         }
     }
 }

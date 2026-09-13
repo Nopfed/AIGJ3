@@ -33,7 +33,7 @@ namespace SpiceWizard.Web.Pages
             if (_game == null)
             {
                 string demo = null;
-                foreach (var flag in new[] { "master", "night", "rain", "windy", "chores", "rush" })
+                foreach (var flag in new[] { "master", "night", "rain", "windy", "chores", "rush", "levelup" })
                     if (Nav.Uri.Contains("demo=" + flag)) demo = flag;
                 if (demo == null && Nav.Uri.Contains("demo")) demo = "mid";
                 var panel = System.Text.RegularExpressions.Regex.Match(Nav.Uri, "panel=([A-Za-z]+)");

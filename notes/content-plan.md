@@ -122,7 +122,7 @@ Goal: mornings vary; a reason to cook a specific sauce *now*.
 
 Tests: `RushOrderTests` — posts, pays double, expires, never overlaps.
 
-## Phase 4 — Feel: action feedback in the yard (~3 h)
+## Phase 4 — Feel: action feedback in the yard (~3 h) — DONE 2026-09-12
 
 Goal: every verb has a visible wizard action; level-up is a moment.
 

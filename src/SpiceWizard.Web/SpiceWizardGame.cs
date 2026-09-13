@@ -38,6 +38,7 @@ namespace SpiceWizard.Web
         Particles _particles;
         Crowd _crowd;
         Cats _cats;
+        Villagers _villagers;
         AudioMixer _mixer;
         GameState _state;
 
@@ -55,7 +56,8 @@ namespace SpiceWizard.Web
         float _leafTimer;
 
         // Bedtime, in order: 0 awake, 3 walking to the door, 4 door opening, 5 stepping inside,
-        // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out).
+        // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out),
+        // 8 cheering a new level in the yard before the morning report.
         int _sleepPhase;
         float _fade;
         float _sleepTimer;
@@ -92,6 +94,7 @@ namespace SpiceWizard.Web
             _particles = new Particles();
             _crowd = new Crowd();
             _cats = new Cats();
+            _villagers = new Villagers();
             _wizard = new WizardActor(Layout.WizardStart);
             _mixer = new AudioMixer { Settings = Settings.Parse(_savedSettings) };
 
@@ -100,8 +103,10 @@ namespace SpiceWizard.Web
                 Particles = _particles,
                 Settings = _mixer.Settings,
                 HasSave = SaveSystem.FromJson(_savedJson) != null,
-                OnWatered = p => { _particles.Water(p); _mixer.Play(Sfx.Splash); },
+                OnWatered = p => { _particles.Water(p); _mixer.Play(Sfx.Splash); _wizard.Pose(WizardActor.PoseWater, 1.2f); },
                 OnSparkle = (p, color) => { _particles.Sparkle(p, color); _mixer.Play(Sfx.Sparkle); },
+                OnCooked = Cooked,
+                OnPose = pose => _wizard.Pose(pose, pose == WizardActor.PoseCheer ? 1.4f : 2f, PoseFacing(pose)),
                 RequestSleep = StartSleep,
                 RequestNewGame = NewGame,
                 RequestContinue = Continue,
@@ -136,8 +141,25 @@ namespace SpiceWizard.Web
                     if (kind == PanelKind.Morning) DayTick.Sleep(_state);
                     _session.Open(kind, _demoIndex);
                 }
+                // One fame short of the next level with a full crate: turn in at once to see the level-up
+                // beat and the villagers collecting the crate.
+                if (_demo == "levelup") { _state.Progression.Xp = Balance.XpToNext(_state.Level) - 1; StartSleep(); }
             }
         }
+
+        /// <summary>A sauce came out of the cauldron: sparks, a coloured brew, a burst of steam and a bottle lobbed to the pantry.</summary>
+        void Cooked(Color color)
+        {
+            var top = new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2);
+            _particles.Sparkle(top, color);
+            _mixer.Play(Sfx.Sparkle);
+            _scene.Brew(color);
+            _particles.Bottle(top, new Point(Layout.Pantry.X + 9, Layout.Pantry.Y + 2), color);
+            _wizard.Pose(WizardActor.PoseStir, 2f, false);
+        }
+
+        /// <summary>The cauldron and the mortar both sit to the right of where he stands to use them.</summary>
+        static bool? PoseFacing(string pose) => pose == WizardActor.PoseStir || pose == WizardActor.PoseGrind ? false : (bool?)null;
 
         void NewGame()
         {
@@ -146,6 +168,7 @@ namespace SpiceWizard.Web
             _clearSaveHook?.Invoke();
             _session.HasSave = false;
             _crowd.Stop();
+            _villagers.Stop();
             _sleepHintDay = 0;
             ResetSleep();
             _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff };
@@ -239,7 +262,9 @@ namespace SpiceWizard.Web
             _wizard.Update(_dt);
             _particles.Update(_dt);
             _scene.Update(_dt);
+            _scene.ShowMarkers = !_session.PanelOpen && _sleepPhase == 0;
             _crowd.Update(_dt);
+            _villagers.Update(_dt);
             _cats.Update(_dt, _scene, _particles);
             bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
             _mixer.WizardFeet = _wizard.Feet;
@@ -285,8 +310,10 @@ namespace SpiceWizard.Web
                 if (_confettiTimer <= 0) { _confettiTimer = 0.05f; _particles.Confetti(Camera.Left, Camera.Right, Camera.Top); }
             }
 
-            // Cauldron steam while a fire is going, and the odd puff of wood smoke that rises past the pot.
-            if ((int)(_time * 10) % 4 == 0) _particles.Steam(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2));
+            // Cauldron steam while a fire is going (three times as much just after a sauce is cooked), and the
+            // odd puff of wood smoke that rises past the pot.
+            int steam = _scene.BurstTimer > 0 ? 3 : (int)(_time * 10) % 4 == 0 ? 1 : 0;
+            for (int i = 0; i < steam; i++) _particles.Steam(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2));
             _smokeTimer -= _dt;
             if (_smokeTimer <= 0) { _smokeTimer = 0.55f; _particles.Smoke(new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y - 6)); }
 
@@ -365,12 +392,14 @@ namespace SpiceWizard.Web
                     if (_fade >= 1f)
                     {
                         _fade = 1f;
+                        bool shipped = _state.Crate.Sauces.Count > 0;
                         var report = DayTick.Sleep(_state);
                         Save();
-                        _mixer.Play(report.LevelsGained > 0 ? Sfx.LevelUp : Sfx.Chime);
+                        _mixer.Play(Sfx.Chime);
                         _sleepPhase = 2;
                         _emerged = false;
                         _cartTimer = 2f;
+                        if (shipped) _villagers.Start();
                         _scene.Snoring = false;
                         _scene.WindowsLit = false;
                         _scene.DoorOpen = true;
@@ -388,9 +417,25 @@ namespace SpiceWizard.Web
                     if (_fade <= 0f)
                     {
                         _fade = 0f;
-                        _sleepPhase = 0;
-                        _session.Open(_state.LastReport != null && _state.LastReport.BecameMaster ? PanelKind.Celebration : PanelKind.Morning);
+                        var report = _state.LastReport;
+                        if (report != null && report.BecameMaster) { _sleepPhase = 0; _session.Open(PanelKind.Celebration); }
+                        else if (report != null && report.LevelsGained > 0)
+                        {
+                            // A new level is celebrated out in the yard before the report comes up.
+                            _sleepPhase = 8;
+                            _sleepTimer = 1.6f;
+                            _mixer.Play(Sfx.LevelUp);
+                            _wizard.Pose(WizardActor.PoseCheer, 1.6f);
+                            var at = _wizard.Feet.ToPoint();
+                            _particles.Ring(new Point(at.X, at.Y - 10), Palette.LightPurple);
+                        }
+                        else { _sleepPhase = 0; _session.Open(PanelKind.Morning); }
                     }
+                    break;
+                case 8:
+                    if (_sleepTimer > 0) break;
+                    _sleepPhase = 0;
+                    _session.Open(PanelKind.Morning);
                     break;
             }
         }
@@ -439,7 +484,7 @@ namespace SpiceWizard.Web
             _batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
 
             _ui.Begin(_mouse, _clicked, _wheel, _down);
-            _scene.Draw(_state, _wizard, _particles, _crowd, _cats, _hover);
+            _scene.Draw(_state, _wizard, _particles, _crowd, _cats, _villagers, _hover);
 
             if (_session.Panel == PanelKind.Title)
             {
@@ -455,6 +500,12 @@ namespace SpiceWizard.Web
                 if (_hover != null && !_session.PanelOpen) _ui.Tooltip = _hover.Name + ": " + _hover.Hint;
                 HandleSceneClick();
                 Overlays.Toast(_ui, _session);
+                if (_sleepPhase == 8)
+                {
+                    // "Level N!" rises off the wizard's hat and hangs there for the length of the cheer.
+                    int rise = (int)Math.Min(8f, (1.6f - _sleepTimer) * 24f);
+                    Overlays.BigText(_canvas, "Level " + _state.Level + "!", (int)_wizard.Feet.X, (int)_wizard.Feet.Y - 40 - rise, 2, Palette.Yellow);
+                }
             }
             _ui.DrawTooltip();
 

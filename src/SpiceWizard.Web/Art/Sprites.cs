@@ -157,6 +157,127 @@ namespace SpiceWizard.Web.Art
                 "KddK....KddK",
             },
 
+            // ---- Action poses (played over the idle while a panel is open; see WizardActor.Pose) ----
+            // Watering: the arm reaches out and tips the bucket, two columns wider on the right.
+            ["wizard_water"] = new[]
+            {
+                "......KK......",
+                ".....KpPK.....",
+                "....KpPPK.....",
+                "...KppPPK.....",
+                "..KppPPPPK....",
+                ".KYyyyyyYYK...",
+                "..KkkkkkK.....",
+                ".KkkKkkKkK....",
+                ".KkkkkkkUK....",
+                "..KWWWWWK.....",
+                "..KWWwWwK.....",
+                "...KWwwK...KK.",
+                ".KPPPPPPvKKbdK",
+                "KpPPPPPPPPkKdK",
+                "KpPPYyyYPvK.Kc",
+                "KpPPPPPPPvK..c",
+                "KpPPPPPPPvK...",
+                ".KPPPPPPvK....",
+                "..KddKKddK....",
+                "..KddK.KddK...",
+            },
+            // Stirring the cauldron: a long ladle raised, then dipped. Both two columns wider on the right.
+            ["wizard_stir0"] = new[]
+            {
+                "......KK......",
+                ".....KpPK.....",
+                "....KpPPK.....",
+                "...KppPPK...KK",
+                "..KppPPPPK.KgK",
+                ".KYyyyyyYYK.KK",
+                "..KkkkkkK...dK",
+                ".KkkKkkKkK..dK",
+                ".KkkkkkkUK.dK.",
+                "..KWWWWWK..dK.",
+                "..KWWwWwK.dK..",
+                "...KWwwK.KkK..",
+                ".KPPPPPPPPkK..",
+                "KpPPPPPPPvK...",
+                "KpPPYyyYPvK...",
+                "KpPPPPPPPvK...",
+                "KpPPPPPPPvK...",
+                ".KPPPPPPvK....",
+                "..KddKKddK....",
+                "..KddK.KddK...",
+            },
+            ["wizard_stir1"] = new[]
+            {
+                "......KK......",
+                ".....KpPK.....",
+                "....KpPPK.....",
+                "...KppPPK.....",
+                "..KppPPPPK....",
+                ".KYyyyyyYYK...",
+                "..KkkkkkK.....",
+                ".KkkKkkKkK....",
+                ".KkkkkkkUK....",
+                "..KWWWWWK.....",
+                "..KWWwWwK.....",
+                "...KWwwK......",
+                ".KPPPPPPvK.KKK",
+                "KpPPPPPPPPkddK",
+                "KpPPYyyYPvKKgK",
+                "KpPPPPPPPvK.KK",
+                "KpPPPPPPPvK...",
+                ".KPPPPPPvK....",
+                "..KddKKddK....",
+                "..KddK.KddK...",
+            },
+            // Grinding: both hands on a pestle held down in front; the actor bobs it up and down.
+            ["wizard_grind"] = new[]
+            {
+                "......KK....",
+                ".....KpPK...",
+                "....KpPPK...",
+                "...KppPPK...",
+                "..KppPPPPK..",
+                ".KYyyyyyYYK.",
+                "..KkkkkkK...",
+                ".KkkKkkKkK..",
+                ".KkkkkkkUK..",
+                "..KWWWWWK...",
+                "..KWWwWwK.KK",
+                "...KWwwK..Kd",
+                ".KPPPPPPvKKd",
+                "KpPPPPPPPkKd",
+                "KpPPYyyYPkKd",
+                "KpPPPPPPPvKK",
+                "KpPPPPPPPvK.",
+                ".KPPPPPPvK..",
+                "..KddKKddK..",
+                "..KddK.KddK.",
+            },
+            // Cheering: both arms straight up. One column wider on each side, so the actor shifts it left by one.
+            ["wizard_cheer"] = new[]
+            {
+                ".......KK.....",
+                "KK....KpPK..KK",
+                "KkK..KpPPK.KkK",
+                "KPK.KppPPK.KPK",
+                "KPKKppPPPPKKPK",
+                "KPKYyyyyyYYKPK",
+                "KPKKkkkkkK.KPK",
+                "KPKkkKkkKkK.PK",
+                "KPKkkkkkkUK.PK",
+                "KPKKWWWWWK.KPK",
+                "KPKKWWwWwK.KPK",
+                "KPK.KWwwK..KPK",
+                "KPPPPPPPPvPPvK",
+                "KKpPPPPPPPvKKK",
+                ".KpPPYyyYPvK..",
+                ".KpPPPPPPPvK..",
+                ".KpPPPPPPPvK..",
+                "..KPPPPPPvK...",
+                "...KddKKddK...",
+                "...KddK.KddK..",
+            },
+
             // ---- Garden (24x16 plots, 16x16 plants) --------------------------------
             // A raised bed: light top board, dark front board, furrowed soil.
             ["plot"] = new[]
@@ -485,6 +606,19 @@ namespace SpiceWizard.Web.Art
                 "..KddKKddK..",
                 "..KddK.KddK.",
                 "............",
+            },
+            // A bottle that pops out of the cauldron and arcs over to the pantry (tinted with the sauce).
+            ["bottle"] = new[]
+            {
+                "..KK..",
+                "..KK..",
+                ".KggK.",
+                "KWWWgK",
+                "KWWWgK",
+                "KWWWgK",
+                "KWWggK",
+                ".KggK.",
+                "..KK..",
             },
             ["crate"] = new[]
             {
@@ -1532,6 +1666,17 @@ namespace SpiceWizard.Web.Art
                 "..WWWWWg",
                 ".W....Wg",
                 "WWWWWg..",
+            },
+            // Bobs over anything that wants clicking: a ripe plot, a ready jar, sauces waiting to ship.
+            ["ic_bang"] = new[]
+            {
+                ".KKK.",
+                ".KZK.",
+                ".KyK.",
+                ".KyK.",
+                ".KKK.",
+                ".KZK.",
+                ".KKK.",
             },
             ["ic_check"] = new[]
             {

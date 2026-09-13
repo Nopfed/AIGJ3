@@ -30,6 +30,10 @@ namespace SpiceWizard.Web.Ui
         public Particles Particles;
         public Action<Point> OnWatered;
         public Action<Point, Color> OnSparkle;
+        /// <summary>A sauce of this colour just came out of the cauldron.</summary>
+        public Action<Color> OnCooked;
+        /// <summary>The wizard acts out what just happened (a <see cref="WizardActor"/> pose name).</summary>
+        public Action<string> OnPose;
         public Action RequestSleep;
         public Action RequestNewGame;
         public Action RequestContinue;
@@ -69,6 +73,8 @@ namespace SpiceWizard.Web.Ui
             {
                 if (okSfx != null) PlaySfx?.Invoke(okSfx);
                 OnAffirm?.Invoke();
+                string pose = WizardActor.PoseFor(okSfx);
+                if (pose != null) OnPose?.Invoke(pose);
             }
         }
 
