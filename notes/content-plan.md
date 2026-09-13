@@ -186,7 +186,7 @@ Only if the game still feels frictionless after Phases 1–5.
 
 Tests: `WeatherTests` and `PlantTests` for the point loss and spoilage.
 
-## Phase 7 — Sound pass (~1 h, all synth)
+## Phase 7 — Sound pass (~1 h, all synth) — DONE 2026-09-13 (Phase 6 skipped)
 
 1. Quota-met jingle (`Sfx.Fanfare`) at the morning report; distinct from
    `Chime`.
@@ -199,6 +199,11 @@ Tests: `WeatherTests` and `PlantTests` for the point loss and spoilage.
 5. Cat meow/purr one-shots on the cat behaviours (Cats already has
    behaviour switches to hook); cart wheels + hoof clops during `_cartTimer`.
 6. Rush-order envelope "flap" and rain-on-cauldron hiss are nice-to-have.
+
+Done as: `Sfx.Fanfare/Cheer/Cart/Flap/Purr` and `Sfx.Meow` ×3; `Music.MothLamp`
+and `Music.Festival` as separate tracks (the day rotation stays 3);
+`AudioMixer.Bedtime`/`Celebrating` flags drive the lullaby and party slots;
+`Ambience.Hiss` scaled by rain × cauldron proximity; `Cats.OnMeow/OnPurr`.
 
 ---
 

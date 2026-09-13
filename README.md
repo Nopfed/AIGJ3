@@ -40,9 +40,9 @@ Mouse (or touch) only. The game autosaves every morning to your browser's local 
 
 The pause menu's **Options** screen has three volume sliders — **Music**, **Ambience** and **SFX** — which are remembered in local storage separately from the save.
 
-- **Music**: three tunes, one per day in rotation (*Morning Meadow*, a G major waltz; *Simmering Pot*, a bouncing D dorian tune with bubbling blips; *Turmeric Sun*, slow F lydian pads). Music plays in daylight only, fading out at dusk and back in at dawn.
-- **Ambience**: the wind always blows in slow gusts; birds chirp by day and crickets take over at night.
-- **SFX**: clicks, watering splashes, sparkles and the morning chime.
+- **Music**: three daytime tunes, one per day in rotation (*Morning Meadow*, a G major waltz; *Simmering Pot*, a bouncing D dorian tune with bubbling blips; *Turmeric Sun*, slow F lydian pads), fading out at dusk and back in at dawn. From 20:00 — and whenever the tower door's bedtime panel is open — the quiet A minor lullaby *Moth Lamp* takes over until the night fades. While the town is in the yard celebrating a new Master, the fast D major jig *Festival* plays instead.
+- **Ambience**: the wind always blows in slow gusts; birds chirp by day and crickets take over at night; on rainy days the rain hisses on the hot cauldron, louder the closer you stand to it.
+- **SFX**: clicks, watering splashes, sparkles, the morning chime, and a brassy fanfare on a morning when the week's request was met. A rush order going up on the board flaps its envelope; the merchant's cart rumbles and clops in at dawn; the crowd cheers when the celebration starts; and the cats meow when they settle or stretch and purr when they roll or curl up (only the ones on screen).
 
 The gusts you hear are the same ones that sway the trees, bushes, flowers and garden plants — the meadow leans with the wind. Everything is synthesised in code at start-up; there are no audio files.
 
@@ -186,7 +186,7 @@ src/SpiceWizard.Web/           KNI Blazor WebAssembly host
   Art/      palette, 5x7 pixel font, sprites as text, runtime atlas, canvas helpers
   Scene/    layout of the single screen, renderer, day/night, wizard, particles, crowd, cats
   Ui/       immediate-mode widgets, station panels, HUD/title/pause/options overlays, settings
-  Audio/    software synth, the three music tracks, wind/birds/crickets, effects, mixer
+  Audio/    software synth, the five music tracks, wind/birds/crickets/rain, effects, mixer
   SpiceWizardGame.cs, DemoState.cs, Pages/Index.razor(.cs), wwwroot/index.html
 tests/SpiceWizard.Core.Tests/  xunit: one file per system + GreedyBot balance playthrough
 ```

@@ -11,9 +11,9 @@ namespace SpiceWizard.Web.Audio
         public const string Open = "open", Close = "close", Denied = "denied";
         public const string Plant = "plant", Harvest = "harvest", Coin = "coin", Cook = "cook", Jar = "jar", Grind = "grind";
         public const string Pinch = "pinch", Blend = "blend", Eat = "eat", Ship = "ship", Unship = "unship", Bucket = "bucket";
-        public const string LevelUp = "levelup", Yawn = "yawn";
-        public const string Step = "step", Blorp = "blorp", Mumble = "mumble", Think = "think", Affirm = "affirm";
-        public const int StepVariants = 4, BlorpVariants = 3, MumbleVariants = 4, ThinkVariants = 3, AffirmVariants = 3;
+        public const string LevelUp = "levelup", Yawn = "yawn", Fanfare = "fanfare", Cheer = "cheer", Cart = "cart", Flap = "flap", Purr = "purr";
+        public const string Step = "step", Blorp = "blorp", Mumble = "mumble", Think = "think", Affirm = "affirm", Meow = "meow";
+        public const int StepVariants = 4, BlorpVariants = 3, MumbleVariants = 4, ThinkVariants = 3, AffirmVariants = 3, MeowVariants = 3;
 
         /// <summary>Name of a numbered variant: "step2", "mumble0".</summary>
         public static string Variant(string family, int n) => family + n;
@@ -269,6 +269,114 @@ namespace SpiceWizard.Web.Audio
                     Synth.Delay(b, 0.18, 0.4f, 0.5f);
                     return b;
                 }
+                case Fanfare:
+                {
+                    // The town's quota is met: a brassy "ta-ta-daa" over a drum thump, nothing like the morning chime.
+                    var b = Synth.Buffer(1.8);
+                    Synth.Burst(b, rng, 0, 0.12, 0.8f, 0.05f, 25);
+                    Synth.Note(b, Synth.Wave.Sine, 70, 0, 0.1, 0.4f, 0.002, 0.08, 0.3, 0.06);
+                    int[] notes = { 67, 67, 72, 76, 79 };
+                    double[] at = { 0, 0.13, 0.26, 0.6, 0.72 };
+                    double[] len = { 0.08, 0.08, 0.25, 0.08, 0.08 };
+                    for (int i = 0; i < notes.Length; i++)
+                    {
+                        Synth.Note(b, Synth.Wave.Saw, Synth.Midi(notes[i]), at[i], len[i], 0.22f, 0.01, 0.04, 0.7, 0.06, 0.004, 0.005);
+                        Synth.Note(b, Synth.Wave.Square, Synth.Midi(notes[i] - 12), at[i], len[i], 0.12f, 0.01, 0.04, 0.7, 0.06);
+                    }
+                    int[] chord = { 60, 67, 72, 76, 84 };
+                    foreach (int p in chord)
+                        Synth.Note(b, Synth.Wave.Saw, Synth.Midi(p), 0.84, 0.55, 0.13f, 0.02, 0.1, 0.8, 0.3, 0.006, 0.006);
+                    Synth.Burst(b, rng, 0.84, 0.1, 0.6f, 0.06f, 30);
+                    Synth.LowPass(b, 0.35f);
+                    Synth.Delay(b, 0.16, 0.35f, 0.4f);
+                    return b;
+                }
+                case Cheer:
+                {
+                    // A crowd going up: a swell of vowel-ish noise with a few whoops rising out of it.
+                    var b = Synth.Buffer(2.6);
+                    var src = Synth.Buffer(2.6);
+                    Synth.Noise(src, rng, 0.5f);
+                    for (int i = 0; i < src.Length; i++)
+                    {
+                        double t = i / (double)Synth.Rate;
+                        src[i] *= (float)(Math.Min(1, t / 0.25) * Math.Exp(-Math.Max(0, t - 0.6) * 1.6) * (0.85 + 0.15 * Math.Sin(t * 23)));
+                    }
+                    Synth.Mix(b, Synth.Resonate(src, 620, 140, 1.2f), 1f);
+                    Synth.Mix(b, Synth.Resonate(src, 1150, 220, 0.8f), 1f);
+                    Synth.Mix(b, Synth.Resonate(src, 2500, 400, 0.35f), 1f);
+                    for (int k = 0; k < 7; k++)
+                    {
+                        double t0 = 0.15 + k * 0.22 + rng.NextDouble() * 0.1, f0 = 380 + rng.Next(260), len = 0.25 + rng.NextDouble() * 0.15;
+                        int i0 = (int)(t0 * Synth.Rate), n = (int)(len * Synth.Rate);
+                        double phase = 0;
+                        for (int i = 0; i < n && i0 + i < b.Length; i++)
+                        {
+                            double s = i / (double)n;
+                            phase += f0 * (1 + 0.8 * Math.Sin(s * Math.PI * 0.5)) / Synth.Rate;
+                            b[i0 + i] += Synth.Osc(Synth.Wave.Triangle, phase) * 0.12f * (float)Math.Sin(s * Math.PI);
+                        }
+                    }
+                    Synth.Normalize(b, 0.8f);
+                    return b;
+                }
+                case Cart:
+                {
+                    // The merchant's cart rolling in: a rumble of wheels, an axle creak and hooves clopping, easing off as it parks.
+                    var b = Synth.Buffer(2.2);
+                    var rumble = Synth.Buffer(2.2);
+                    float y = 0;
+                    for (int i = 0; i < rumble.Length; i++)
+                    {
+                        y += (float)(rng.NextDouble() * 2 - 1) * 0.1f;
+                        y *= 0.96f;
+                        double t = i / (double)Synth.Rate;
+                        rumble[i] = y * (0.7f + 0.3f * (float)Math.Sin(t * Math.PI * 2 * 1.6));
+                    }
+                    Synth.LowPass(rumble, 0.05f);
+                    Synth.Normalize(rumble, 0.35f);
+                    Synth.Mix(b, rumble, 1f);
+                    for (int k = 0; k < 3; k++)
+                        Synth.Note(b, Synth.Wave.Saw, 180 + k * 25, 0.3 + k * 0.62, 0.14, 0.07f, 0.04, 0.05, 0.6, 0.08, 0.06);
+                    for (int k = 0; k < 7; k++)
+                    {
+                        double t0 = 0.05 + k * 0.29 + (k % 2) * 0.03;
+                        Synth.Burst(b, rng, t0, 0.05, 0.55f, 0.3f, 90);
+                        Synth.Note(b, Synth.Wave.Sine, k % 2 == 0 ? 320 : 250, t0, 0.03, 0.18f, 0.002, 0.03, 0.2, 0.03);
+                    }
+                    for (int i = 0; i < b.Length; i++)
+                    {
+                        double t = i / (double)Synth.Rate;
+                        b[i] *= t < 1.7 ? 1f : (float)Math.Max(0, 1 - (t - 1.7) / 0.5);
+                    }
+                    Synth.LowPass(b, 0.4f);
+                    return b;
+                }
+                case Flap:
+                {
+                    // An envelope pulled from the board: two flicks of paper and a snap.
+                    var b = Synth.Buffer(0.3);
+                    Synth.Burst(b, rng, 0, 0.05, 0.5f, 0.6f, 70);
+                    Synth.Burst(b, rng, 0.08, 0.06, 0.45f, 0.5f, 60);
+                    Synth.Burst(b, rng, 0.17, 0.03, 0.7f, 0.9f, 160);
+                    Synth.HighPass(b, 0.25f);
+                    Synth.Note(b, Synth.Wave.Sine, 1100, 0.17, 0.02, 0.08f, 0.002, 0.02, 0.2, 0.03);
+                    return b;
+                }
+                case Purr:
+                {
+                    // A purr: a slow pulse train of soft low thumps under a breathing swell.
+                    var b = Synth.Buffer(1.6);
+                    for (double t = 0; t < 1.5; t += 0.04)
+                        Synth.Burst(b, rng, t, 0.03, 0.5f, 0.08f, 90);
+                    for (int i = 0; i < b.Length; i++)
+                    {
+                        double t = i / (double)Synth.Rate;
+                        b[i] *= (float)(Math.Sin(Math.Min(1, t / 1.5) * Math.PI) * (0.7 + 0.3 * Math.Sin(t * Math.PI * 2 * 1.3)));
+                    }
+                    Synth.Normalize(b, 0.5f);
+                    return b;
+                }
                 case Yawn: return Voice.Yawn();
                 default: // Chime
                 {
@@ -303,6 +411,27 @@ namespace SpiceWizard.Web.Audio
                 {
                     buf = Synth.Buffer(0.3);
                     Bubbles(buf, rng, 0, 1 + n % 2, 0.35f);
+                    return true;
+                }
+                case Meow:
+                {
+                    // "Mee-ow": a buzzy source sliding up then down through two vowel formants; each cat is pitched a little differently.
+                    double len = 0.32 + n * 0.08, f0 = 520 - n * 60;
+                    buf = Synth.Buffer(len + 0.1);
+                    var src = Synth.Buffer(len + 0.1);
+                    int samples = (int)(len * Synth.Rate);
+                    double phase = 0;
+                    for (int i = 0; i < samples; i++)
+                    {
+                        double s = i / (double)samples;
+                        double f = f0 * (s < 0.35 ? 1 + 0.5 * s / 0.35 : 1.5 - 0.75 * (s - 0.35) / 0.65) * (1 + 0.02 * Math.Sin(s * len * Math.PI * 2 * 7));
+                        phase += f / Synth.Rate;
+                        src[i] = Synth.Osc(Synth.Wave.Saw, phase) * (float)Math.Sin(s * Math.PI);
+                    }
+                    Synth.Mix(buf, Synth.Resonate(src, 900 + n * 80, 160, 1.4f), 1f);
+                    Synth.Mix(buf, Synth.Resonate(src, 2100 - n * 120, 260, 0.6f), 1f);
+                    Synth.Mix(buf, src, 0.15f);
+                    Synth.Normalize(buf, 0.45f);
                     return true;
                 }
                 case Mumble: buf = Voice.Mumble(n); return true;

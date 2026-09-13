@@ -9,8 +9,10 @@ namespace SpiceWizard.Web.Audio
 {
     /// <summary>
     /// Three buses (music, ambience, effects) with the player's volumes applied on top. Music is one of the
-    /// three tracks, chosen by the day number, and only plays in daylight; the wind always blows, birds sing
-    /// by day and crickets take over at night. Nothing starts until <see cref="Unlock"/>, which the title
+    /// three daytime tracks, chosen by the day number, and only plays in daylight; from 20:00 and while the
+    /// wizard is turning in, the lullaby takes over, and the party tune plays while the crowd is in the yard.
+    /// The wind always blows, birds sing by day and crickets take over at night; rain hisses on the cauldron.
+    /// Nothing starts until <see cref="Unlock"/>, which the title
     /// screen calls from a click so the browser lets the audio context run. The cauldron simmers louder
     /// the closer the wizard stands to it, and the wizard hums, wonders and cheers to himself now and then.
     /// </summary>
@@ -22,12 +24,18 @@ namespace SpiceWizard.Web.Audio
         public Vector2 WizardFeet;
         /// <summary>A panel is open: the wizard is deliberating, so his idle noises turn to "hmm".</summary>
         public bool Deliberating;
+        /// <summary>The Door panel is open or the wizard is on his way to bed: the lullaby plays whatever the hour.</summary>
+        public bool Bedtime;
+        /// <summary>The crowd is in the yard: the party tune replaces the day's music.</summary>
+        public bool Celebrating;
 
-        SoundEffectInstance _music, _wind, _crickets, _cauldron, _rain;
+        SoundEffectInstance _music, _night, _party, _wind, _crickets, _cauldron, _rain, _hiss;
         float _rainLevel;           // rain fade 0..1
         float _windyLevel;          // windy-day fade 0..1
         int _track = -1;
         float _musicLevel;          // current fade 0..1 toward daylight
+        float _nightLevel;          // lullaby fade 0..1
+        float _partyLevel;          // celebration fade 0..1
         float _duck = 1f;           // lowered while paused
         float _cauldronLevel;       // proximity fade 0..1
         double _windTime;
@@ -149,10 +157,23 @@ namespace SpiceWizard.Web.Audio
             else Speak(Sfx.Think, Sfx.ThinkVariants, 0.5f);
         }
 
+        /// <summary>The lullaby fades in over the half hour after 20:00 (and at once at the door); the party tune follows the crowd.</summary>
+        static float NightWanted(GameState s, bool onTitle, bool bedtime, bool celebrating)
+        {
+            if (onTitle || celebrating) return 0f;
+            if (bedtime) return 1f;
+            return Math.Clamp((float)(s.Clock.Minute - 20 * 60) / 30f, 0f, 1f);
+        }
+
         void UpdateMusic(float dt, GameState s, bool onTitle, float dark)
         {
+            float night = NightWanted(s, onTitle, Bedtime, Celebrating);
+            float party = !onTitle && Celebrating ? 1f : 0f;
+            Loop(ref _night, ref _nightLevel, Music.MothLamp, night, dt / 2f, Settings.Music * _duck);
+            Loop(ref _party, ref _partyLevel, Music.Festival, party, dt / 1.5f, Settings.Music * _duck);
+
             int want = onTitle ? -1 : (s.Clock.Day - 1) % Music.Tracks.Length;
-            float target = onTitle || dark > 0.99f ? 0f : 1f - dark;
+            float target = onTitle || dark > 0.99f || night > 0f || party > 0f ? 0f : 1f - dark;
 
             // Fade out before swapping tracks so the day change is a cross-fade through silence.
             if (_music != null && (_track != want || target <= 0f))
@@ -178,6 +199,23 @@ namespace SpiceWizard.Web.Audio
             }
         }
 
+        /// <summary>Runs one looping track toward a target level, starting it when wanted and dropping it once silent.</summary>
+        static void Loop(ref SoundEffectInstance inst, ref float level, Track track, float target, float step, float bus)
+        {
+            if (inst == null && target > 0f)
+            {
+                inst = track.Effect.CreateInstance();
+                inst.IsLooped = true;
+                inst.Volume = 0f;
+                inst.Play();
+                level = 0f;
+            }
+            if (inst == null) return;
+            level = Approach(level, target, step);
+            inst.Volume = Math.Clamp(level * bus, 0f, 1f);
+            if (level <= 0f && target <= 0f) { inst.Stop(); inst.Dispose(); inst = null; }
+        }
+
         void UpdateAmbience(float dt, GameState s, bool onTitle, float dark)
         {
             float amb = Settings.Ambience * _duck * (onTitle ? 0.5f : 1f);
@@ -191,6 +229,15 @@ namespace SpiceWizard.Web.Audio
                 _rain.Play();
             }
             _rain.Volume = Math.Clamp(amb * 0.7f * _rainLevel, 0f, 1f);
+
+            // Rain spits on the hot cauldron, louder the nearer the wizard stands to it.
+            if (_hiss == null && _rainLevel > 0f)
+            {
+                _hiss = Ambience.Hiss.CreateInstance();
+                _hiss.IsLooped = true;
+                _hiss.Play();
+            }
+            if (_hiss != null) _hiss.Volume = Math.Clamp(amb * 0.5f * _rainLevel * _cauldronLevel, 0f, 1f);
 
             if (_wind == null)
             {

@@ -17,13 +17,14 @@ namespace SpiceWizard.Web.Audio
             return (float)Math.Max(0, Math.Min(1, w));
         }
 
-        static SoundEffect _wind, _crickets, _cauldron, _rain;
+        static SoundEffect _wind, _crickets, _cauldron, _rain, _hiss;
         static SoundEffect[] _birds;
 
         public static SoundEffect Wind => _wind ??= RenderWind();
         public static SoundEffect Crickets => _crickets ??= RenderCrickets();
         public static SoundEffect Cauldron => _cauldron ??= RenderCauldron();
         public static SoundEffect Rain => _rain ??= RenderRain();
+        public static SoundEffect Hiss => _hiss ??= RenderHiss();
 
         public static SoundEffect Bird(int variant)
         {
@@ -80,6 +81,35 @@ namespace SpiceWizard.Web.Audio
                 {
                     double t = i / (double)Synth.Rate;
                     buf[(i0 + i) % buf.Length] += (float)(rng.NextDouble() * 2 - 1) * vol * (float)Math.Exp(-t * decay);
+                }
+            }
+            Synth.FadeEnds(buf, 0.01);
+            return Synth.ToSoundEffect(buf);
+        }
+
+        /// <summary>Rain hitting the hot cauldron: a bright, spitting hiss that flares with each drop. Loops every 2 s.</summary>
+        static SoundEffect RenderHiss()
+        {
+            const double len = 2;
+            var buf = Synth.Buffer(len);
+            var rng = new Random(41);
+            Synth.Noise(buf, rng, 0.4f);
+            Synth.HighPass(buf, 0.3f);
+            for (int i = 0; i < buf.Length; i++)
+            {
+                double t = i / (double)Synth.Rate;
+                buf[i] *= 0.6f + 0.4f * (float)Math.Sin(t * Math.PI * 2 * 2 / len + 0.8 * Math.Sin(t * 5.3));
+            }
+            Synth.Normalize(buf, 0.25f);
+            // Each drop that lands in the fire spits: a sharper flare of noise with a quick tail.
+            for (int k = 0; k < 24; k++)
+            {
+                int i0 = rng.Next(buf.Length), n = (int)(0.06 * Synth.Rate);
+                float vol = 0.15f + (float)rng.NextDouble() * 0.2f;
+                for (int i = 0; i < n; i++)
+                {
+                    double t = i / (double)Synth.Rate;
+                    buf[(i0 + i) % buf.Length] += (float)(rng.NextDouble() * 2 - 1) * vol * (float)Math.Exp(-t * 70);
                 }
             }
             Synth.FadeEnds(buf, 0.01);

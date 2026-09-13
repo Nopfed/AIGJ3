@@ -117,6 +117,8 @@ namespace SpiceWizard.Web
             };
             _wizard.OnStep = _mixer.Footstep;
             _wizard.OnPuff = _particles.Puff;
+            _cats.OnMeow = () => { if (_session.Panel != PanelKind.Title) _mixer.PlayVariant(Sfx.Meow, Sfx.MeowVariants, 0.45f, 0.1f); };
+            _cats.OnPurr = () => { if (_session.Panel != PanelKind.Title) _mixer.Play(Sfx.Purr, 0.5f, 0f); };
             _ui.OnClick = () => _mixer.Play(Sfx.Click);
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _session.Panel = PanelKind.Title;
@@ -269,6 +271,8 @@ namespace SpiceWizard.Web
             bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
             _mixer.WizardFeet = _wizard.Feet;
             _mixer.Deliberating = _session.PanelOpen && !paused && _session.Panel != PanelKind.Celebration;
+            _mixer.Bedtime = _session.Panel == PanelKind.Door || (_sleepPhase >= 3 && _sleepPhase <= 7) || _sleepPhase == 1;
+            _mixer.Celebrating = _crowd.Active;
             _mixer.Update(_dt, _state, paused, _session.Panel == PanelKind.Title);
             _scene.Wind = _mixer.Wind;
             _scene.Weather = _state.Weather;
@@ -396,6 +400,7 @@ namespace SpiceWizard.Web
                         var report = DayTick.Sleep(_state);
                         Save();
                         _mixer.Play(Sfx.Chime);
+                        _mixer.Play(Sfx.Cart);
                         _sleepPhase = 2;
                         _emerged = false;
                         _cartTimer = 2f;
@@ -423,7 +428,7 @@ namespace SpiceWizard.Web
                     {
                         _fade = 0f;
                         var report = _state.LastReport;
-                        if (report != null && report.BecameMaster) { _sleepPhase = 0; _session.Open(PanelKind.Celebration); }
+                        if (report != null && report.BecameMaster) { _sleepPhase = 0; _mixer.Play(Sfx.Cheer); _session.Open(PanelKind.Celebration); }
                         else if (report != null && report.LevelsGained > 0)
                         {
                             // A new level is celebrated out in the yard before the report comes up.
@@ -434,15 +439,24 @@ namespace SpiceWizard.Web
                             var at = _wizard.Feet.ToPoint();
                             _particles.Ring(new Point(at.X, at.Y - 10), Palette.LightPurple);
                         }
-                        else { _sleepPhase = 0; _session.Open(PanelKind.Morning); }
+                        else { _sleepPhase = 0; OpenMorning(); }
                     }
                     break;
                 case 8:
                     if (_sleepTimer > 0) break;
                     _sleepPhase = 0;
-                    _session.Open(PanelKind.Morning);
+                    OpenMorning();
                     break;
             }
+        }
+
+        /// <summary>The morning report, with a fanfare when the week's quota was met and a flap of paper when a rush order went up.</summary>
+        void OpenMorning()
+        {
+            var report = _state.LastReport;
+            if (report != null && report.QuotaMet) _mixer.Play(Sfx.Fanfare);
+            if (report != null && report.RushPosted) _mixer.Play(Sfx.Flap, 0.8f, 0f);
+            _session.Open(PanelKind.Morning);
         }
 
         void HandleSceneClick()

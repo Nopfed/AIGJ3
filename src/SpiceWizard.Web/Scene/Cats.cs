@@ -50,6 +50,9 @@ namespace SpiceWizard.Web.Scene
         Rectangle _spotsFor;
         Particles _particles;
 
+        /// <summary>Sound hooks: a meow when a cat settles or stretches, a purr when it rolls or curls up. Only cats on screen make a noise.</summary>
+        public Action OnMeow, OnPurr;
+
         // Where the eye pixels sit in each pose, for a cat facing right; flipped with the sprite.
         static readonly Dictionary<string, Point[]> EyeSpots = new Dictionary<string, Point[]>
         {
@@ -231,8 +234,17 @@ namespace SpiceWizard.Web.Scene
 
         void Rest(Cat cat, Mood mood, float seconds)
         {
+            bool settling = cat.Mood == Mood.Walk || cat.Mood == Mood.Jump;
             cat.Mood = mood;
             cat.Timer = seconds;
+            if (!Camera.View.Contains((int)cat.Feet.X, (int)cat.Feet.Y)) return;
+            switch (mood)
+            {
+                case Mood.Sit: if (settling && _rng.Next(3) == 0) OnMeow?.Invoke(); break;
+                case Mood.Stretch: if (_rng.Next(2) == 0) OnMeow?.Invoke(); break;
+                case Mood.Sleep: case Mood.Roll: OnPurr?.Invoke(); break;
+                case Mood.Perch: if (cat.Napping) OnPurr?.Invoke(); break;
+            }
         }
 
         float Between(float lo, float hi) => lo + (float)_rng.NextDouble() * (hi - lo);
