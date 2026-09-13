@@ -20,7 +20,7 @@ Conventions that hold throughout:
 
 ---
 
-## Phase 1 — First impression (~1.5 h)
+## Phase 1 — First impression (~1.5 h) — DONE 2026-09-12
 
 Goal: a new player understands the loop and sees money within 10 minutes.
 
@@ -47,7 +47,7 @@ Goal: a new player understands the loop and sees money within 10 minutes.
 Tests: `ActionsTests` — new game can cook Bell Hot Sauce on day 1 and cannot
 cook Golden Curry. Bot test still passes (starter kit shortens runs by ~1 day).
 
-## Phase 2 — Progression curve (~2 h)
+## Phase 2 — Progression curve (~2 h) — DONE 2026-09-12
 
 Goal: every level from 2 to 20 says something in the "Next:" tooltip; hot
 sauces are worth fermenting.

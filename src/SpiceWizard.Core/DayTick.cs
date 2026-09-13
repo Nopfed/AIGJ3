@@ -15,7 +15,7 @@ public static class DayTick
         // 2. The cart takes the crate to town; each sauce is rated and paid for.
         foreach (var sauce in s.Crate.Sauces)
         {
-            var sale = s.Town.Rate(sauce, tonight, s.Quota);
+            var sale = s.Town.Rate(sauce, tonight, s.Quota, s.Level);
             report.Sales.Add(sale);
             report.PeppercornsEarned += sale.Peppercorns;
             report.XpEarned += sale.Xp;
@@ -28,7 +28,7 @@ public static class DayTick
 
         // 3. New day.
         s.Clock.NewDay();
-        s.HastenedToday = false;
+        s.HastensToday = 0;
         report.Day = s.Clock.Day;
 
         // 4. Weekly quota is judged on the first morning of the next week.

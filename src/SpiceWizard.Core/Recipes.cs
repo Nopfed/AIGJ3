@@ -36,14 +36,17 @@ public static class RecipeBook
 {
     public static readonly Recipe[] All =
     {
-        new(1, "Bell Hot Sauce", SauceType.Hot,   12, 1, new[] { Ingredient.Mash(PepperSpecies.Bell), Ingredient.Peppercorns(1) }),
-        new(2, "Golden Curry",   SauceType.Curry, 16, 1, new[] { Ingredient.Pepper(PepperSpecies.Bell, 2), Ingredient.Of(Spice.Cumin), Ingredient.Of(Spice.Coriander), Ingredient.Of(Spice.CurryLeaves) }),
-        new(3, "Banana Blaze",   SauceType.Hot,   20, 2, new[] { Ingredient.Mash(PepperSpecies.Banana), Ingredient.Of(Spice.Ginger), Ingredient.Peppercorns(1) }),
-        new(4, "Sunset Curry",   SauceType.Curry, 24, 3, new[] { Ingredient.Powder(PepperSpecies.Banana), Ingredient.Of(Spice.Cinnamon), Ingredient.Of(Spice.Cardamom), Ingredient.Of(Spice.Ginger) }),
-        new(5, "Bonnet Fire",    SauceType.Hot,   32, 5, new[] { Ingredient.Mash(PepperSpecies.Bonnet), Ingredient.Of(Spice.Coriander), Ingredient.Of(Spice.Cumin), Ingredient.Peppercorns(2) }),
-        new(6, "Bonnet Curry",   SauceType.Curry, 40, 6, new[] { Ingredient.Powder(PepperSpecies.Bonnet), Ingredient.Of(Spice.Fenugreek), Ingredient.Of(Spice.Cumin), Ingredient.Of(Spice.CurryLeaves), Ingredient.Of(Spice.Cloves) }),
-        new(7, "Phantom Sauce",  SauceType.Hot,   55, 9, new[] { Ingredient.Mash(PepperSpecies.Ghost), Ingredient.Of(Spice.Cloves), Ingredient.Of(Spice.Cinnamon), Ingredient.Peppercorns(2) }),
-        new(8, "Spectral Curry", SauceType.Curry, 70, 11, new[] { Ingredient.Powder(PepperSpecies.Ghost), Ingredient.Of(Spice.Cardamom), Ingredient.Of(Spice.Cloves), Ingredient.Of(Spice.Fenugreek), Ingredient.Peppercorns(3) }),
+        // Hot sauces pay a quarter more than the curry of their tier: fermenting costs a jar and two nights.
+        new(1,  "Bell Hot Sauce",  SauceType.Hot,    15, 1,  new[] { Ingredient.Mash(PepperSpecies.Bell), Ingredient.Peppercorns(1) }),
+        new(2,  "Golden Curry",    SauceType.Curry,  16, 1,  new[] { Ingredient.Pepper(PepperSpecies.Bell, 2), Ingredient.Of(Spice.Cumin), Ingredient.Of(Spice.Coriander), Ingredient.Of(Spice.CurryLeaves) }),
+        new(3,  "Banana Blaze",    SauceType.Hot,    25, 2,  new[] { Ingredient.Mash(PepperSpecies.Banana), Ingredient.Of(Spice.Ginger), Ingredient.Peppercorns(1) }),
+        new(4,  "Sunset Curry",    SauceType.Curry,  24, 4,  new[] { Ingredient.Powder(PepperSpecies.Banana), Ingredient.Of(Spice.Cinnamon), Ingredient.Of(Spice.Cardamom), Ingredient.Of(Spice.Ginger) }),
+        new(5,  "Bonnet Fire",     SauceType.Hot,    40, 5,  new[] { Ingredient.Mash(PepperSpecies.Bonnet), Ingredient.Of(Spice.Coriander), Ingredient.Of(Spice.Cumin), Ingredient.Peppercorns(2) }),
+        new(6,  "Bonnet Curry",    SauceType.Curry,  40, 7,  new[] { Ingredient.Powder(PepperSpecies.Bonnet), Ingredient.Of(Spice.Fenugreek), Ingredient.Of(Spice.Cumin), Ingredient.Of(Spice.CurryLeaves), Ingredient.Of(Spice.Cloves) }),
+        new(7,  "Phantom Sauce",   SauceType.Hot,    70, 10, new[] { Ingredient.Mash(PepperSpecies.Ghost), Ingredient.Of(Spice.Cloves), Ingredient.Of(Spice.Cinnamon), Ingredient.Peppercorns(2) }),
+        new(8,  "Spectral Curry",  SauceType.Curry,  70, 13, new[] { Ingredient.Powder(PepperSpecies.Ghost), Ingredient.Of(Spice.Cardamom), Ingredient.Of(Spice.Cloves), Ingredient.Of(Spice.Fenugreek), Ingredient.Peppercorns(3) }),
+        new(9,  "Rainbow Chutney", SauceType.Hot,    85, 15, new[] { Ingredient.Mash(PepperSpecies.Bonnet), Ingredient.Mash(PepperSpecies.Banana), Ingredient.Of(Spice.Ginger), Ingredient.Of(Spice.Cinnamon), Ingredient.Peppercorns(2) }),
+        new(10, "Wizard's Curry",  SauceType.Curry, 100, 17, new[] { Ingredient.Powder(PepperSpecies.Ghost), Ingredient.Powder(PepperSpecies.Bonnet), Ingredient.Of(Spice.Cardamom), Ingredient.Of(Spice.Fenugreek), Ingredient.Of(Spice.Cloves), Ingredient.Peppercorns(3) }),
     };
 
     public static Recipe Get(int id) => All[id - 1];
@@ -66,9 +69,17 @@ public static class Balance
     public const int CookSpiceCost = 3;
     public const int GrindSpiceCost = 1;
     public const int PepTalkSpiceCost = 1;
-    /// <summary>The once-a-day hasten spell: costs this much spice and pushes a plant or jar this many nights ahead.</summary>
+    /// <summary>The hasten spell: costs this much spice and pushes a plant or jar this many nights ahead.</summary>
     public const int HastenSpiceCost = 2;
     public const int HastenNights = 2;
+    /// <summary>Casts per day: one, then two from <see cref="SecondHastenLevel"/>.</summary>
+    public const int SecondHastenLevel = 16;
+
+    // Fermenting.
+    public const int NightsToFerment = 2;
+    public const int NightsToAge = 4;
+    /// <summary>From this level mash ages a night sooner.</summary>
+    public const int QuickAgeLevel = 18;
 
     // Spice blends mixed at the mortar.
     public const int BlendUnlockLevel = 2;
@@ -91,8 +102,15 @@ public static class Balance
     public const int SpiceMaxCap = 14;
 
     public const int CrateCapacity = 6;
+    public const int BigCrateCapacity = 8;
+    /// <summary>From this level the crate holds <see cref="BigCrateCapacity"/>.</summary>
+    public const int BigCrateLevel = 14;
     public const int BoredomWindowDays = 3;
     public const int BoredomThreshold = 2;
+    /// <summary>From this level the town forgives one more repeat before it tires of a sauce.</summary>
+    public const int ForgivingTownLevel = 19;
+    /// <summary>Percent chance each week that the town craves one sauce type (+1 star for every bottle of it).</summary>
+    public const int CravingChance = 50;
 
     /// <summary>XP per star per recipe tier when a sauce sells.</summary>
     public const int XpPerStarTier = 6;
@@ -109,8 +127,12 @@ public static class Balance
     public const int DayStartMinute = 6 * 60;
     public const int DayEndMinute = 22 * 60;
 
-    public static int XpToNext(int level) => 25 + 15 * (level - 1);
+    public static int XpToNext(int level) => 25 + 18 * (level - 1);
     public static int SpiceMaxAt(int level) => Math.Min(SpiceMaxCap, BaseSpiceMax + (level - 1) / 3);
+    public static int CrateCapacityAt(int level) => level >= BigCrateLevel ? BigCrateCapacity : CrateCapacity;
+    public static int HastenCastsAt(int level) => level >= SecondHastenLevel ? 2 : 1;
+    public static int NightsToAgeAt(int level) => level >= QuickAgeLevel ? NightsToAge - 1 : NightsToAge;
+    public static int BoredomThresholdAt(int level) => level >= ForgivingTownLevel ? BoredomThreshold + 1 : BoredomThreshold;
     public static int QuotaBonusPeppercorns(int week) => 40 + 25 * week;
     public static int QuotaBonusXp(int week) => 30 + 10 * week;
 }

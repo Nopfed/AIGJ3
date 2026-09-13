@@ -90,7 +90,8 @@ public class PlantTests
         Assert.Equal(8, Garden.UnlockedPlots(20));
         Assert.Equal(2, FermentShelf.UnlockedJars(1));
         Assert.Equal(3, FermentShelf.UnlockedJars(5));
-        Assert.Equal(4, FermentShelf.UnlockedJars(10));
+        Assert.Equal(3, FermentShelf.UnlockedJars(10));
+        Assert.Equal(4, FermentShelf.UnlockedJars(11));
     }
 
     [Fact]

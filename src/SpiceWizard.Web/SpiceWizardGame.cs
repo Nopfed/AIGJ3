@@ -326,7 +326,7 @@ namespace SpiceWizard.Web
                 if (plant.IsMature || !plant.WateredToday) return false;
             }
             if (!anyPlant) return false;
-            if (_state.Inventory.Sauces.Count > 0 && !_state.Crate.IsFull) return false;
+            if (_state.Inventory.Sauces.Count > 0 && !_state.Crate.IsFull(_state.Level)) return false;
             return true;
         }
 

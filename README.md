@@ -62,11 +62,11 @@ A day runs from 06:00 to 22:00 in six real minutes. The clock pauses while a pan
 | **Well** | Refills the watering bucket (4 waters). |
 | **Merchant cart** | Sells seeds and spices for peppercorns. Higher-level goods unlock as you level. |
 | **Notice board** | This week's quota and its progress. |
-| **Cauldron** | Cooks the eight recipes. Costs 3 spice per sauce. |
-| **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash. 2 jars to start, 4 by level 10. |
+| **Cauldron** | Cooks the ten recipes. Costs 3 spice per sauce. |
+| **Jar shelf** | Ferments 2 peppers of one kind into mash in 2 nights; leave it 4 nights for aged mash (3 from level 18). 2 jars to start, 4 by level 11. |
 | **Mortar** | Grinds 1 pepper into 1 powder for 1 spice. From level 2 it also mixes powder, spices and peppercorns into your own **spice blends** for 2 spice. |
 | **Pantry** | Everything you own. Eat peppers here to restore spice. |
-| **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery. |
+| **Shipping crate** | Holds up to 6 sauces or blends for tonight's delivery (8 from level 14). |
 | **Tower door** | Go to bed early. |
 
 Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. They stroll about, nap in the grass, roll over, scratch the trees and the stump, hide in the bushes with only their eyes showing, and jump up onto the fence, the crate, the pantry, the well and the branches. They are purely decorative and never get in the way of anything.
@@ -75,7 +75,7 @@ Three cats (a ginger tabby, a grey and a smoky black) also live in the yard. The
 
 - **Starter kit**: 30 peppercorns, 4 Bell seeds, 1 Banana seed, 1 jar of Bell mash and one pinch each of Cumin, Coriander and Curry Leaves, so a Bell Hot Sauce can go to town on the very first night and a Golden Curry after the first harvest.
 - **Peppercorns** are the town's currency *and* an ingredient. Recipes that call for peppercorns spend them from your purse.
-- **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, blending 2, grinding 1, a pep talk 1. Sleep refills it; eating a pepper restores its heat value.
+- **Spice** is your cooking energy: 8 at level 1, +1 every three levels (max 14). Cooking costs 3, blending 2, grinding 1, a pep talk 1, the hasten spell 2 (pushes a plant or jar 2 nights ahead; once a day, twice from level 16). Sleep refills it; eating a pepper restores its heat value.
 - **Spices** from the merchant: Cumin 3, Cinnamon 3, Curry Leaves 4, Coriander 3, Ginger 4 (level 1); Cardamom 6 (level 3); Cloves 6 and Fenugreek 5 (level 5). Meeting a quota also grants one rare spice.
 
 ## Peppers
@@ -97,14 +97,18 @@ Hot sauces need fermented mash; curries need fresh peppers or powder.
 
 | Sauce | Type | Ingredients | Value | Unlocks |
 | --- | --- | --- | --- | --- |
-| Bell Hot Sauce | hot | Bell mash, 1 peppercorn | 12 | level 1 |
+| Bell Hot Sauce | hot | Bell mash, 1 peppercorn | 15 | level 1 |
 | Golden Curry | curry | 2 Bell peppers, Cumin, Coriander, Curry Leaves | 16 | level 1 |
-| Banana Blaze | hot | Banana mash, Ginger, 1 peppercorn | 20 | level 2 |
-| Sunset Curry | curry | Banana powder, Cinnamon, Cardamom, Ginger | 24 | level 3 |
-| Bonnet Fire | hot | Bonnet mash, Coriander, Cumin, 2 peppercorns | 32 | level 5 |
-| Bonnet Curry | curry | Bonnet powder, Fenugreek, Cumin, Curry Leaves, Cloves | 40 | level 6 |
-| Phantom Sauce | hot | Ghost mash, Cloves, Cinnamon, 2 peppercorns | 55 | level 9 |
-| Spectral Curry | curry | Ghost powder, Cardamom, Cloves, Fenugreek, 3 peppercorns | 70 | level 11 |
+| Banana Blaze | hot | Banana mash, Ginger, 1 peppercorn | 25 | level 2 |
+| Sunset Curry | curry | Banana powder, Cinnamon, Cardamom, Ginger | 24 | level 4 |
+| Bonnet Fire | hot | Bonnet mash, Coriander, Cumin, 2 peppercorns | 40 | level 5 |
+| Bonnet Curry | curry | Bonnet powder, Fenugreek, Cumin, Curry Leaves, Cloves | 40 | level 7 |
+| Phantom Sauce | hot | Ghost mash, Cloves, Cinnamon, 2 peppercorns | 70 | level 10 |
+| Spectral Curry | curry | Ghost powder, Cardamom, Cloves, Fenugreek, 3 peppercorns | 70 | level 13 |
+| Rainbow Chutney | hot | Bonnet mash, Banana mash, Ginger, Cinnamon, 2 peppercorns | 85 | level 15 |
+| Wizard's Curry | curry | Ghost powder, Bonnet powder, Cardamom, Fenugreek, Cloves, 3 peppercorns | 100 | level 17 |
+
+Hot sauces pay a quarter more than the curry of their tier to make up for the jar and the two nights of fermenting.
 
 Every sauce is bottled with a **quality** of 1–5 stars: 3 by default, +1 for aged mash, +1 for adding an extra peppercorn, −1 while the recipe is new to you (below its unlock level + 2), +1 once mastered (unlock level + 6).
 
@@ -119,15 +123,41 @@ From level 2 the mortar also mixes blends of your own design: **2 to 5 pinches**
 
 ## Selling
 
-Overnight the town rates each bottle in the crate: quality, **+1 star** if the sauce is on this week's notice, **+1 star** for a blend the town has never tasted, **−1 star** if the town has already had two of that sauce or blend in the last three days. Pay is the product's value × 0.5 / 0.8 / 1 / 1.4 / 2 for 1–5 stars; fame (XP) is stars × tier × 6.
+Overnight the town rates each bottle in the crate: quality, **+1 star** if the sauce is on this week's notice, **+1 star** if it is the type the town craves this week, **+1 star** for a blend the town has never tasted, **−1 star** if the town has already had two of that sauce or blend in the last three days (three from level 19). Pay is the product's value × 0.5 / 0.8 / 1 / 1.4 / 2 for 1–5 stars; fame (XP) is stars × tier × 6.
 
 ## Weekly quota
 
 Every week the notice board asks for two or three sauces you can already cook. Deliver them all by the end of day 7 for a bonus of 40 + 25 × week peppercorns, 30 + 10 × week fame and a rare spice.
 
+Half the weeks the town also **craves** one kind of sauce — hot sauces on odd weeks, curries on even ones — and every bottle of that kind earns an extra star all week. The board and the morning report say when it does.
+
 ## Progression
 
-Fame to the next level is 25 + 15 × (level − 1). Levels unlock recipes, blending (2), seeds, spices, garden plots (3, 6, 9, 12), jars (5, 10) and spice capacity. Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 30.
+Fame to the next level is 25 + 18 × (level − 1). Every level from 2 to 20 unlocks something; hover the level bar for the next one.
+
+| Level | Unlock |
+| --- | --- |
+| 2 | spice blends |
+| 3 | plot 5, Cardamom |
+| 4 | Bonnet seeds, Sunset Curry, +1 spice |
+| 5 | Bonnet Fire, jar 3, Cloves, Fenugreek |
+| 6 | plot 6 |
+| 7 | Bonnet Curry, +1 spice |
+| 8 | Ghost seeds |
+| 9 | plot 7 |
+| 10 | Phantom Sauce, +1 spice |
+| 11 | jar 4 |
+| 12 | plot 8 |
+| 13 | Spectral Curry, +1 spice |
+| 14 | the crate holds 8 |
+| 15 | Rainbow Chutney |
+| 16 | a second hasten spell each day, +1 spice |
+| 17 | Wizard's Curry |
+| 18 | mash ages in 3 nights |
+| 19 | the town forgives one more repeat, +1 spice |
+| 20 | Master Spice Wizard — the town celebrates |
+
+Level 20 wins the game; you can keep playing afterwards. A competent player gets there in roughly a month of game days — the balance bot in the tests does it in a median of 29.
 
 ## Project structure
 

@@ -45,6 +45,10 @@ public sealed class Progression
         if (Garden.UnlockedPlots(level) > Garden.UnlockedPlots(level - 1)) parts.Add("garden plot");
         if (FermentShelf.UnlockedJars(level) > FermentShelf.UnlockedJars(level - 1)) parts.Add("fermenting jar");
         if (Balance.SpiceMaxAt(level) > Balance.SpiceMaxAt(level - 1)) parts.Add("+1 max spice");
+        if (level == Balance.BigCrateLevel) parts.Add("a bigger crate (" + Balance.BigCrateCapacity + " bottles)");
+        if (level == Balance.SecondHastenLevel) parts.Add("a second hasten spell each day");
+        if (level == Balance.QuickAgeLevel) parts.Add("mash ages in " + Balance.NightsToAgeAt(level) + " nights");
+        if (level == Balance.ForgivingTownLevel) parts.Add("the town forgives one more repeat");
         if (level == Balance.MaxLevel) parts.Add("the town celebrates!");
         return string.Join(", ", parts);
     }

@@ -24,8 +24,8 @@ public sealed class GameState
     public SpiceMeter Spice { get; set; } = new();
     public Rng Rng { get; set; } = new();
     public Stats Stats { get; set; } = new();
-    /// <summary>The hasten spell has been cast today; it comes back at dawn.</summary>
-    public bool HastenedToday { get; set; }
+    /// <summary>Hasten spells cast today; the count resets at dawn. See <see cref="Balance.HastenCastsAt"/>.</summary>
+    public int HastensToday { get; set; }
     /// <summary>Today's sky. Rain waters the garden; wind just blows.</summary>
     public Weather Weather { get; set; }
     public bool Won { get; set; }
@@ -35,6 +35,9 @@ public sealed class GameState
     public int Level => Progression.Level;
     public int UnlockedPlots => Garden.UnlockedPlots(Level);
     public int UnlockedJars => FermentShelf.UnlockedJars(Level);
+    public int CrateCapacity => Balance.CrateCapacityAt(Level);
+    public int HastenCasts => Balance.HastenCastsAt(Level);
+    public int HastensLeft => Math.Max(0, HastenCasts - HastensToday);
 
     public static GameState NewGame(ulong seed)
     {

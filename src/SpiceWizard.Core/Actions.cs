@@ -66,7 +66,7 @@ public static class Actions
     /// <summary>Why the hasten spell cannot be cast right now, or empty when it can.</summary>
     public static string HastenBlocker(GameState s)
     {
-        if (s.HastenedToday) return "The hasten spell is spent for today.";
+        if (s.HastensLeft == 0) return "The hasten spell is spent for today.";
         if (!s.Spice.CanSpend(Balance.HastenSpiceCost)) return $"Hastening takes {Balance.HastenSpiceCost} spice. Eat a pepper or rest.";
         return "";
     }
@@ -79,7 +79,7 @@ public static class Actions
         string blocker = HastenBlocker(s);
         if (blocker.Length > 0) return ActionResult.Fail(blocker);
         s.Spice.TrySpend(Balance.HastenSpiceCost);
-        s.HastenedToday = true;
+        s.HastensToday++;
         plant.Hasten(Balance.HastenNights);
         return ActionResult.Success("Time hurries along! " + plant.Mood());
     }
@@ -93,8 +93,8 @@ public static class Actions
         string blocker = HastenBlocker(s);
         if (blocker.Length > 0) return ActionResult.Fail(blocker);
         s.Spice.TrySpend(Balance.HastenSpiceCost);
-        s.HastenedToday = true;
-        j.Nights = Math.Min(Jar.NightsToAge, j.Nights + Balance.HastenNights);
+        s.HastensToday++;
+        j.Nights = Math.Min(j.AgeNights, j.Nights + Balance.HastenNights);
         return ActionResult.Success("Time hurries along! " + j.Status());
     }
 
@@ -124,6 +124,7 @@ public static class Actions
         s.Inventory.Peppers[(int)species] -= Jar.PeppersPerJar;
         j.Species = species;
         j.Nights = 0;
+        j.AgeNights = Balance.NightsToAgeAt(s.Level);
         return ActionResult.Success($"{Species.NameOf(species)} peppers packed. Ready in {Jar.NightsToFerment} nights.");
     }
 
@@ -284,7 +285,7 @@ public static class Actions
     public static ActionResult Ship(GameState s, int sauceIndex)
     {
         if (sauceIndex < 0 || sauceIndex >= s.Inventory.Sauces.Count) return ActionResult.Fail("No such sauce.");
-        if (s.Crate.IsFull) return ActionResult.Fail("The crate is full.");
+        if (s.Crate.IsFull(s.Level)) return ActionResult.Fail("The crate is full.");
         var sauce = s.Inventory.Sauces[sauceIndex];
         s.Inventory.Sauces.RemoveAt(sauceIndex);
         s.Crate.Sauces.Add(sauce);

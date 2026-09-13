@@ -10,7 +10,7 @@ public class TownTests
         var town = new Town();
         var sale = town.Rate(new Sauce(1, 3, 1), 1, null);
         Assert.Equal(3, sale.Stars);
-        Assert.Equal(12, sale.Peppercorns);
+        Assert.Equal(15, sale.Peppercorns);
         Assert.Equal(3 * 1 * Balance.XpPerStarTier, sale.Xp);
 
         var big = town.Rate(new Sauce(8, 5, 1), 1, null);
@@ -43,6 +43,50 @@ public class TownTests
         Assert.True(third.Bored);
         Assert.Equal(2, town.Rate(new Sauce(1, 3, 3), 3, null).Stars);   // days 1..3 still count
         Assert.Equal(3, town.Rate(new Sauce(1, 3, 4), 4, null).Stars);   // day 1 sales have faded
+    }
+
+    [Fact]
+    public void Craved_type_adds_a_star_all_week_but_not_to_blends()
+    {
+        var town = new Town();
+        var quota = new Quota { Week = 1, CravedType = SauceType.Hot };
+        var hot = town.Rate(new Sauce(1, 3, 1), 1, quota);
+        Assert.Equal(4, hot.Stars);
+        Assert.True(hot.Craved);
+        var curry = town.Rate(new Sauce(2, 3, 1), 1, quota);
+        Assert.Equal(3, curry.Stars);
+        Assert.False(curry.Craved);
+        var blend = new Blend { Peppercorns = 2 };
+        Assert.False(town.Rate(new Sauce(blend, 3, 1), 1, quota).Craved);
+        Assert.False(town.Rate(new Sauce(1, 3, 1), 1, null).Craved);
+    }
+
+    [Fact]
+    public void Craving_is_rolled_with_the_quota_and_alternates_by_week()
+    {
+        var rng = new Rng(7);
+        var types = new HashSet<SauceType>();
+        for (int week = 1; week <= 40; week++)
+        {
+            var q = Quota.Generate(week, 20, rng);
+            if (q.CravedType is SauceType t)
+            {
+                Assert.Equal(week % 2 == 1 ? SauceType.Hot : SauceType.Curry, t);
+                types.Add(t);
+            }
+        }
+        Assert.Equal(2, types.Count);
+    }
+
+    [Fact]
+    public void A_forgiving_town_sits_through_one_more_repeat()
+    {
+        var town = new Town();
+        int lv = Balance.ForgivingTownLevel;
+        Assert.Equal(3, town.Rate(new Sauce(1, 3, 1), 1, null, lv).Stars);
+        Assert.Equal(3, town.Rate(new Sauce(1, 3, 1), 1, null, lv).Stars);
+        Assert.Equal(3, town.Rate(new Sauce(1, 3, 1), 1, null, lv).Stars);
+        Assert.Equal(2, town.Rate(new Sauce(1, 3, 1), 1, null, lv).Stars);
     }
 
     [Fact]
@@ -129,7 +173,7 @@ public class TownTests
         Assert.Equal(1, p.AddXp(25));
         Assert.Equal(2, p.Level);
         Assert.Equal(0, p.Xp);
-        Assert.Equal(2, p.AddXp(40 + 55 + 3));
+        Assert.Equal(2, p.AddXp(Balance.XpToNext(2) + Balance.XpToNext(3) + 3));
         Assert.Equal(3, p.Xp);
         Assert.Contains("Bonnet seeds", Progression.UnlockAt(4));
         Assert.Contains("garden plot", Progression.UnlockAt(3));

@@ -104,7 +104,7 @@ public class ActionsTests
         Assert.False(Actions.HastenJar(s, 0).Ok);
 
         DayTick.Sleep(s);
-        Assert.False(s.HastenedToday);
+        Assert.Equal(0, s.HastensToday);
         s.Spice.Current = Balance.HastenSpiceCost - 1;
         Assert.False(Actions.HastenJar(s, 0).Ok);     // too little spice
         s.Spice.Current = Balance.HastenSpiceCost;
@@ -233,7 +233,7 @@ public class ActionsTests
         for (int i = 0; i < 7; i++) s.Inventory.Sauces.Add(new Sauce(1, 3, 1));
         for (int i = 0; i < 6; i++) Assert.True(Actions.Ship(s, 0).Ok);
         Assert.False(Actions.Ship(s, 0).Ok);
-        Assert.True(s.Crate.IsFull);
+        Assert.True(s.Crate.IsFull(s.Level));
         Assert.True(Actions.Unship(s, 0).Ok);
         Assert.Equal(2, s.Inventory.Sauces.Count);
     }

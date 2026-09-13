@@ -36,22 +36,23 @@ public sealed class Garden
 public sealed class Jar
 {
     public const int PeppersPerJar = 2;
-    public const int NightsToFerment = 2;
-    public const int NightsToAge = 4;
+    public const int NightsToFerment = Balance.NightsToFerment;
 
     public PepperSpecies? Species { get; set; }
     public int Nights { get; set; }
+    /// <summary>Nights until the mash counts as aged, fixed from the wizard's level when the jar was packed.</summary>
+    public int AgeNights { get; set; } = Balance.NightsToAge;
 
     public bool IsEmpty => Species == null;
     public bool IsReady => !IsEmpty && Nights >= NightsToFerment;
-    public bool IsAged => !IsEmpty && Nights >= NightsToAge;
+    public bool IsAged => !IsEmpty && Nights >= AgeNights;
 
     public string Status()
     {
         if (IsEmpty) return "Empty jar";
         string name = Core.Species.NameOf(Species!.Value);
         if (IsAged) return $"Aged {name} mash";
-        if (IsReady) return $"{name} mash ready. Aged in {NightsToAge - Nights} more";
+        if (IsReady) return $"{name} mash ready. Aged in {AgeNights - Nights} more";
         return $"{name} fermenting. {NightsToFerment - Nights} night{(NightsToFerment - Nights == 1 ? "" : "s")} left";
     }
 }
@@ -62,13 +63,10 @@ public sealed class FermentShelf
 
     public Jar[] Jars { get; set; } = Enumerable.Range(0, MaxJars).Select(_ => new Jar()).ToArray();
 
-    public static int UnlockedJars(int level)
-    {
-        int n = 2;
-        if (level >= 5) n++;
-        if (level >= 10) n++;
-        return n;
-    }
+    /// <summary>Level at which jar <paramref name="index"/> (0-based) is unlocked.</summary>
+    public static readonly int[] JarUnlockLevels = { 1, 1, 5, 11 };
+
+    public static int UnlockedJars(int level) => JarUnlockLevels.Count(l => l <= level);
 
     public void EndOfNight()
     {

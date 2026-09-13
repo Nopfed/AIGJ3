@@ -49,7 +49,7 @@ public sealed class GreedyBot
     void ShipEverything()
     {
         var s = State;
-        for (int i = s.Inventory.Sauces.Count - 1; i >= 0 && !s.Crate.IsFull; i--) Actions.Ship(s, i);
+        for (int i = s.Inventory.Sauces.Count - 1; i >= 0 && !s.Crate.IsFull(s.Level); i--) Actions.Ship(s, i);
     }
 
     /// <summary>
@@ -171,10 +171,12 @@ public sealed class GreedyBot
         for (int p = 0; p < s.UnlockedPlots; p++)
         {
             if (!s.Garden.Plots[p].IsEmpty) continue;
-            // Best unlocked species we can afford while keeping a small float for spices.
-            foreach (var info in Species.All.OrderByDescending(i => i.UnlockLevel))
+            // Best unlocked species we can afford while keeping a small float for spices. Odd plots take the
+            // runner-up so the late recipes that mix two peppers (Rainbow Chutney, Wizard's Curry) stay cookable.
+            var choices = Species.All.Where(i => i.UnlockLevel <= s.Level).OrderByDescending(i => i.UnlockLevel).ToList();
+            if (p % 2 == 1 && choices.Count > 1) choices.RemoveAt(0);
+            foreach (var info in choices)
             {
-                if (info.UnlockLevel > s.Level) continue;
                 if (s.Inventory.Seed(info.Species) == 0)
                 {
                     if (s.Peppercorns - info.SeedCost < 8) continue;

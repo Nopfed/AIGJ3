@@ -184,14 +184,16 @@ namespace SpiceWizard.Web.Ui
             });
         }
 
-        /// <summary>The once-a-day hasten spell button: one shared look, one shared set of reasons it is greyed out.</summary>
+        /// <summary>The hasten spell button: one shared look, one shared set of reasons it is greyed out.</summary>
         static void HastenButton(Ui ui, Session ss, Rectangle rect, GameState s, bool targetOk, string tip, Func<ActionResult> cast, Point sparkleAt)
         {
             string blocker = Actions.HastenBlocker(s);
             bool enabled = targetOk && blocker.Length == 0;
-            string label = s.HastenedToday ? "Hasten (used today)" : "Hasten spell";
-            if (!ui.Button(rect, label, enabled, blocker.Length > 0 ? blocker : "Once a day, costs " + Balance.HastenSpiceCost + " spice. " + tip,
-                badge: s.HastenedToday ? null : Cost(Balance.HastenSpiceCost))) return;
+            bool spent = s.HastensLeft == 0;
+            string label = spent ? "Hasten (used today)" : s.HastenCasts > 1 ? "Hasten spell (" + s.HastensLeft + " left)" : "Hasten spell";
+            string perDay = s.HastenCasts == 1 ? "Once a day" : s.HastenCasts + " casts a day";
+            if (!ui.Button(rect, label, enabled, blocker.Length > 0 ? blocker : perDay + ", costs " + Balance.HastenSpiceCost + " spice. " + tip,
+                badge: spent ? null : Cost(Balance.HastenSpiceCost))) return;
             var r = cast();
             ss.Say(r, Sfx.Chime);
             if (r.Ok) ss.OnSparkle?.Invoke(sparkleAt, Palette.Purple);
@@ -227,11 +229,21 @@ namespace SpiceWizard.Web.Ui
                 ui.IconLabel(Left + 208, y, "ic_pouch", Palette.Tan, "a rare spice", Palette.Outline);
                 y += 14;
                 ui.Label(Left, y, "Sauces on the list earn an extra star when sold.", Palette.Grey); y += 10;
-                ui.Label(Left, y, "The town tires of the same sauce twice in three days.", Palette.Grey); y += 12;
+                ui.Label(Left, y, "The same sauce " + RepeatWord(s) + " in three days tires the town.", Palette.Grey); y += 12;
+                if (q.CravedType is SauceType craved)
+                {
+                    ui.IconLabel(Left, y, craved == SauceType.Hot ? "ic_hot" : "ic_curry", craved == SauceType.Hot ? Palette.Red : Palette.Yellow,
+                        Quota.CravingText(craved), Palette.Orange);
+                    y += 10;
+                    ui.Label(Left + 10, y, "Every bottle of that kind earns an extra star.", Palette.Orange); y += 12;
+                }
                 if (q.IsMet) { y += 4; ui.IconLabel(Left, y, "ic_check", Color.White, "Quota met! The bonus arrives at the start of next week.", Palette.Green); y += 12; }
                 return y;
             });
         }
+
+        /// <summary>"twice" or "three times": how many repeats the town sits through before it tires of a sauce.</summary>
+        static string RepeatWord(GameState s) => Balance.BoredomThresholdAt(s.Level) switch { 2 => "twice", 3 => "three times", int n => n + " times" };
 
         // ---- Merchant --------------------------------------------------------------------
 
@@ -290,7 +302,7 @@ namespace SpiceWizard.Web.Ui
             {
                 int y1 = top;
                 ui.Heading(Left, y1, "Recipes");
-                ui.Label(Left + 100, y1, "sells for", Palette.Grey);
+                ui.Label(Left + 68, y1, "sells for, pc", Palette.Grey);
                 y1 += 12;
                 for (int k = 0; k < RecipeBook.All.Length; k++, y1 += 12)
                 {
@@ -301,7 +313,9 @@ namespace SpiceWizard.Web.Ui
                     if (selected) ui.C.Rect(rowRect, Palette.Yellow * 0.5f);
                     else if (ui.Hot(rowRect)) ui.C.Rect(rowRect, Palette.Yellow * 0.2f);
                     ui.IconLabel(Left + 2, y1, ItemArt.SauceIcon(r), unlocked ? ItemArt.SauceColor(r.Id) : Palette.Grey, r.Name, unlocked ? Palette.Outline : Palette.Grey);
-                    if (unlocked) ui.Label(Left + 104, y1 + 1, r.BaseValue + "pc", Palette.Outline);
+                    // Right-aligned against the row so three-digit prices and long names both fit.
+                    string price = r.BaseValue.ToString();
+                    if (unlocked) ui.Label(rowRect.Right - PixelFont.Measure(price), y1 + 1, price, Palette.Outline);
                     else ui.IconLabel(Left + 104, y1, "ic_lock", Color.White, "Lv" + r.UnlockLevel, Palette.Grey);
                     if (ui.Take(rowRect)) ss.SelectedRecipe = r.Id;
                     string blocker = Actions.CookBlocker(s, r, ss.ExtraPeppercorn);
@@ -342,7 +356,7 @@ namespace SpiceWizard.Web.Ui
             if (!Open(ui, ss, "Fermenting shelf")) return;
             Scroll(ui, ss, Content(), top =>
             {
-                ui.Label(Left, top, "Pack " + Jar.PeppersPerJar + " peppers of one kind: mash in " + Jar.NightsToFerment + " nights, aged in " + Jar.NightsToAge + ".", Palette.Grey);
+                ui.Label(Left, top, "Pack " + Jar.PeppersPerJar + " peppers of one kind: mash in " + Jar.NightsToFerment + " nights, aged in " + Balance.NightsToAgeAt(s.Level) + ".", Palette.Grey);
                 int y = top + 14;
                 for (int j = 0; j < FermentShelf.MaxJars; j++, y += 34)
                 {
@@ -351,7 +365,7 @@ namespace SpiceWizard.Web.Ui
                     if (!unlocked)
                     {
                         ui.C.Sprite("jar_lock", Left, y);
-                        ui.Label(Left + 16, y + 3, "Unlocks at level " + (j == 2 ? 5 : 10), Palette.Grey);
+                        ui.Label(Left + 16, y + 3, "Unlocks at level " + FermentShelf.JarUnlockLevels[j], Palette.Grey);
                         continue;
                     }
                     if (!jar.IsEmpty)
@@ -374,7 +388,7 @@ namespace SpiceWizard.Web.Ui
                     }
                     else if (jar.IsReady)
                     {
-                        if (ui.Button(new Rectangle(Left + 16, y + 14, 96, 14), "Collect mash", true, jar.IsAged ? "Aged mash: +1 star when cooked" : "Leave it " + (Jar.NightsToAge - jar.Nights) + " more nights to age",
+                        if (ui.Button(new Rectangle(Left + 16, y + 14, 96, 14), "Collect mash", true, jar.IsAged ? "Aged mash: +1 star when cooked" : "Leave it " + (jar.AgeNights - jar.Nights) + " more nights to age",
                             icon: "ic_mash", tint: ItemArt.SpeciesColor(jar.Species.Value)))
                             ss.Say(Actions.EmptyJar(s, j), Sfx.Jar);
                     }
@@ -576,13 +590,14 @@ namespace SpiceWizard.Web.Ui
                     var sauce = s.Inventory.Sauces[k];
                     ui.IconLabel(Left, y1, ItemArt.ProductIcon(sauce), ItemArt.ProductColor(sauce), sauce.Name, Palette.Outline);
                     ui.Stars(Left + 94, y1, sauce.Quality);
-                    if (ui.Button(new Rectangle(Left + 132, y1 - 1, 34, 11), "Ship", !s.Crate.IsFull, s.Crate.IsFull ? "The crate is full" : "Put it in the crate"))
+                    bool full = s.Crate.IsFull(s.Level);
+                    if (ui.Button(new Rectangle(Left + 132, y1 - 1, 34, 11), "Ship", !full, full ? "The crate is full" : "Put it in the crate"))
                         ss.Say(Actions.Ship(s, k), Sfx.Ship);
                 }
 
                 int cx = Left + 172;
                 int y2 = top;
-                ui.Heading(cx, y2, "In the crate (" + s.Crate.Sauces.Count + "/" + Balance.CrateCapacity + ")");
+                ui.Heading(cx, y2, "In the crate (" + s.Crate.Sauces.Count + "/" + s.CrateCapacity + ")");
                 y2 += 12;
                 if (s.Crate.Sauces.Count == 0) y2 = ui.Paragraph(cx, y2, ColChars, "Empty. The cart leaves at nightfall.", Palette.Grey);
                 for (int k = 0; k < s.Crate.Sauces.Count; k++, y2 += Row)
@@ -595,7 +610,7 @@ namespace SpiceWizard.Web.Ui
 
                 return Math.Max(y1, y2);
             });
-            ui.Paragraph(Left, Frame.Bottom - 24, MaxChars, "Rated overnight. Quota sauces and new blends gain a star; repeats within three days lose one.", Palette.Grey);
+            ui.Paragraph(Left, Frame.Bottom - 24, MaxChars, "Rated overnight. Quota sauces" + (s.Quota?.CravedType is SauceType ct ? ", " + (ct == SauceType.Hot ? "hot sauces" : "curries") : "") + " and new blends gain a star; repeats within three days lose one.", Palette.Grey);
         }
 
         // ---- Tower door: sleep ---------------------------------------------------------------------
@@ -653,7 +668,11 @@ namespace SpiceWizard.Web.Ui
                     else ui.IconLabel(Left, y, "ic_cross", Color.White, "The council sighs: last week's quota went unmet.", Palette.DarkRed);
                     y += 12;
                 }
-                if (r.NewQuotaPosted) { ui.Label(Left, y, "A new request is pinned to the notice board.", Palette.Purple); y += 12; }
+                if (r.NewQuotaPosted)
+                {
+                    ui.Label(Left, y, "A new request is pinned to the notice board.", Palette.Purple); y += 12;
+                    if (s.Quota?.CravedType is SauceType craved) { ui.Label(Left + 10, y, Quota.CravingText(craved), Palette.Orange); y += 12; }
+                }
                 if (r.Weather != Weather.Clear)
                 {
                     ui.IconLabel(Left, y, r.Weather == Weather.Rain ? "ic_rain" : "ic_wind", r.Weather == Weather.Rain ? Color.White : Palette.Grey, WeatherInfo.Describe(r.Weather), r.Weather == Weather.Rain ? Palette.Blue : Palette.Grey);

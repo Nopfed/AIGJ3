@@ -19,12 +19,14 @@ public sealed class SaleResult
     public bool Bored { get; set; }
     /// <summary>A blend the town had never tasted before.</summary>
     public bool Novel { get; set; }
+    /// <summary>The sauce is of the type the town craves this week.</summary>
+    public bool Craved { get; set; }
 }
 
 public sealed class ShippingCrate
 {
     public List<Sauce> Sauces { get; set; } = new();
-    public bool IsFull => Sauces.Count >= Balance.CrateCapacity;
+    public bool IsFull(int level) => Sauces.Count >= Balance.CrateCapacityAt(level);
 }
 
 /// <summary>
@@ -45,14 +47,18 @@ public sealed class Town
 
     public bool HasTasted(Blend blend) => TastedBlends.Contains(blend.Key);
 
-    /// <summary>Rates one sauce or blend delivered on the night of <paramref name="day"/> and records the sale.</summary>
-    public SaleResult Rate(Sauce sauce, int day, Quota? quota)
+    /// <summary>
+    /// Rates one sauce or blend delivered on the night of <paramref name="day"/> and records the sale.
+    /// <paramref name="level"/> is the wizard's level, which sets how many repeats the town forgives.
+    /// </summary>
+    public SaleResult Rate(Sauce sauce, int day, Quota? quota, int level = 1)
     {
         var blend = sauce.Blend;
         bool onQuota = blend == null && quota != null && quota.Wants(sauce.RecipeId);
+        bool craved = blend == null && quota?.CravedType != null && quota.CravedType == sauce.Recipe!.Type;
         bool novel = blend != null && !HasTasted(blend);
-        bool bored = (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThreshold;
-        int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
+        bool bored = (blend == null ? RecentSales(sauce.RecipeId, day) : RecentBlendSales(blend.Key, day)) >= Balance.BoredomThresholdAt(level);
+        int stars = Math.Clamp(sauce.Quality + (onQuota ? 1 : 0) + (craved ? 1 : 0) + (novel ? 1 : 0) - (bored ? 1 : 0), 1, 5);
         int pay = (int)Math.Round(sauce.BaseValue * Balance.StarMultiplier[stars]);
         int xp = stars * sauce.Tier * Balance.XpPerStarTier;
 
@@ -69,15 +75,17 @@ public sealed class Town
             OnQuota = onQuota,
             Bored = bored,
             Novel = novel,
-            Remark = Remark(stars, bored, onQuota, novel, sauce.Name),
+            Craved = craved,
+            Remark = Remark(stars, bored, onQuota, novel, craved, sauce.Name),
         };
     }
 
-    static string Remark(int stars, bool bored, bool onQuota, bool novel, string name)
+    static string Remark(int stars, bool bored, bool onQuota, bool novel, bool craved, string name)
     {
         if (bored && stars < 5) return "\"" + name + " again? We have had our fill.\"";
         if (onQuota && stars >= 4) return "\"Just what the notice asked for. Splendid!\"";
         if (novel && stars >= 4) return "\"A new flavour! Everyone wants a pinch.\"";
+        if (craved && stars >= 4) return "\"Exactly what we were craving. More!\"";
         return stars switch
         {
             5 => "\"The whole square is talking about it!\"",
@@ -101,7 +109,11 @@ public sealed class Quota
 {
     public int Week { get; set; }
     public List<QuotaLine> Lines { get; set; } = new();
+    /// <summary>Some weeks the town craves hot sauces or curries: every bottle of that type earns a star.</summary>
+    public SauceType? CravedType { get; set; }
     public bool IsMet => Lines.All(l => l.IsMet);
+
+    public static string CravingText(SauceType type) => "The town craves " + (type == SauceType.Hot ? "hot sauces" : "curries") + " this week.";
 
     public bool Wants(int recipeId) => Lines.Any(l => l.RecipeId == recipeId);
 
@@ -125,6 +137,8 @@ public sealed class Quota
             quota.Lines.Add(new QuotaLine { RecipeId = r.Id, Required = required });
         }
         quota.Lines.Sort((a, b) => a.RecipeId.CompareTo(b.RecipeId));
+        // The craving alternates between the two types so neither is favoured over a long game.
+        if (rng.Next(100) < Balance.CravingChance) quota.CravedType = week % 2 == 1 ? SauceType.Hot : SauceType.Curry;
         return quota;
     }
 }

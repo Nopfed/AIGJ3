@@ -44,7 +44,9 @@ namespace SpiceWizard.Web.Scene
             5 => Palette.Red,
             6 => Palette.DarkRed,
             7 => Palette.GhostShade,
-            _ => Palette.LightPurple,
+            8 => Palette.LightPurple,
+            9 => Palette.Pink,
+            _ => Palette.Purple,
         };
 
         public static string SauceIcon(Recipe r) => r.Type == SauceType.Hot ? "ic_hot" : "ic_curry";
