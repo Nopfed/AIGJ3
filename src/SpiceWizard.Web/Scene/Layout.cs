@@ -53,12 +53,13 @@ namespace SpiceWizard.Web.Scene
         public static readonly Point Crate = new Point(236, 150);
         public static readonly Point WizardStart = new Point(200, 178);
 
-        public static readonly Point[] Trees = { new Point(8, 104), new Point(222, 100), new Point(370, 88) };
+        // The middle tree stays clear of the road and of the lanes the villagers walk down to the crate.
+        public static readonly Point[] Trees = { new Point(8, 104), new Point(198, 110), new Point(370, 88) };
         public static readonly Point[] Bushes = { new Point(62, 122), new Point(196, 198), new Point(284, 150) };
         // A low fence along the top of the garden beds, and a few flowers in the grass.
         public static readonly Point Fence = new Point(6, 130);
         public const int FenceBays = 9;
-        public static readonly Point[] Flowers = { new Point(120, 124), new Point(210, 120), new Point(180, 200), new Point(300, 196), new Point(40, 204), new Point(250, 130), new Point(336, 178) };
+        public static readonly Point[] Flowers = { new Point(120, 124), new Point(216, 132), new Point(180, 200), new Point(300, 196), new Point(40, 204), new Point(250, 130), new Point(336, 178) };
 
         public const int PlotCols = 4;
         public const int PlotRows = 2;

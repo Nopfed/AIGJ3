@@ -622,6 +622,9 @@ namespace SpiceWizard.Web.Scene
     public sealed class Villagers
     {
         const float Speed = 45f;
+        /// <summary>The x each villager walks down and back up on, just outside the crate on either side.</summary>
+        static int LaneA => Layout.Crate.X - 7;
+        static int LaneB => Layout.Crate.X + 25;
         /// <summary>Fires with a villager's feet and facing each time one lands a hop, for a kick of dust.</summary>
         public Action<Vector2, bool> OnStep;
         Walker _a, _b;
@@ -637,8 +640,10 @@ namespace SpiceWizard.Web.Scene
             int road = Layout.RoadBottom - 4;
             _a = new Walker { Feet = new Vector2(Camera.Left - 12, road), Sprite = Rng.Next(3) };
             _b = new Walker { Feet = new Vector2(Camera.Left - 26, road + 2), Sprite = (_a.Sprite + 1 + Rng.Next(2)) % 3 };
-            _a.Target = new Vector2(Layout.Crate.X - 8, road);
-            _b.Target = new Vector2(Layout.Crate.X + 26, road + 2);
+            // They stop on the road either side of the crate's column, then walk straight down
+            // the grass beside it: the lanes are kept free of trees, bushes and the cauldron.
+            _a.Target = new Vector2(LaneA, road);
+            _b.Target = new Vector2(LaneB, road + 2);
             _phase = 1;
         }
 
@@ -663,8 +668,8 @@ namespace SpiceWizard.Web.Scene
             switch (_phase)
             {
                 case 1:
-                    _a.Target = new Vector2(Layout.Crate.X - 8, Layout.Crate.Y + 20);
-                    _b.Target = new Vector2(Layout.Crate.X + 26, Layout.Crate.Y + 18);
+                    _a.Target = new Vector2(LaneA, Layout.Crate.Y + 16);
+                    _b.Target = new Vector2(LaneB, Layout.Crate.Y + 15);
                     _phase = 2;
                     break;
                 case 2:
