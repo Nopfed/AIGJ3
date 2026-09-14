@@ -236,7 +236,7 @@ namespace SpiceWizard.Web
 
             var mouse = Mouse.GetState();
             _mouse = _camera.ToVirtual(mouse.X, mouse.Y);
-            _clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
+            bool clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
             _down = mouse.LeftButton == ButtonState.Pressed;
             _wheel = mouse.ScrollWheelValue - _prevMouse.ScrollWheelValue;
             _prevMouse = mouse;
@@ -246,15 +246,18 @@ namespace SpiceWizard.Web
             if (queued != null && queued.Length >= 3)
             {
                 _mouse = _camera.ToVirtual(queued[queued.Length - 2], queued[queued.Length - 1]);
-                _clicked = true;
+                clicked = true;
                 _clickLatch = true;
             }
             else if (_clickLatch)
             {
                 // The polled state may report the same press one frame later; do not double-click.
                 _clickLatch = false;
-                if (mouse.LeftButton == ButtonState.Pressed) _clicked = false;
+                if (mouse.LeftButton == ButtonState.Pressed) clicked = false;
             }
+            // The UI only sees clicks in Draw. When the game runs slowly several Updates run per Draw, so a
+            // click is held until a frame has actually been drawn rather than cleared by the next Update.
+            if (clicked) _clicked = true;
 
             var keys = Keyboard.GetState();
             _escape = queuedEscape || (keys.IsKeyDown(Keys.Escape) && !_prevKeys.IsKeyDown(Keys.Escape));
@@ -535,6 +538,7 @@ namespace SpiceWizard.Web
             }
 
             _batch.End();
+            _clicked = false;
             base.Draw(gameTime);
         }
     }

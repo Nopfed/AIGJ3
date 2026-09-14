@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../src/SpiceWizard.Web/Audio/Synth.cs" />
+    <Compile Include="../../../src/SpiceWizard.Web/Audio/Music.cs" />
+    <Compile Include="../../../src/SpiceWizard.Web/Audio/Ambience.cs" />
+    <Compile Include="../../../src/SpiceWizard.Web/Audio/Sfx.cs" />
+    <Compile Include="../../../src/SpiceWizard.Web/Audio/Voice.cs" />
+  </ItemGroup>
+</Project>

@@ -10,3 +10,6 @@ TestResults/
 # Leftovers from the old JS build
 node_modules/
 dist/
+
+# Other
+*.mp4
