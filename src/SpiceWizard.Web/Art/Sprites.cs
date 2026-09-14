@@ -1636,14 +1636,14 @@ namespace SpiceWizard.Web.Art
             },
             ["ic_moon"] = new[]
             {
-                "...ZZZ..",
-                "..ZZ....",
-                ".ZZ...w.",
-                ".ZZ.....",
-                ".ZZ.....",
-                "..ZZ..w.",
-                "...ZZZ..",
-                "........",
+                "....KK....",
+                "...KWWK...",
+                "..KWWK....",
+                ".KWWK...K.",
+                ".KWWK..KWK",
+                ".KWWwKKWwK",
+                "..KWWwwwK.",
+                "...KKKKK..",
             },
             ["ic_rain"] = new[]
             {
