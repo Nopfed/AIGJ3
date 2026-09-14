@@ -21,6 +21,16 @@ namespace SpiceWizard.Web.Audio
 
         static readonly Dictionary<string, SoundEffect> _cache = new Dictionary<string, SoundEffect>();
 
+        /// <summary>Every effect the game can play, interface sounds first, so the <see cref="Preloader"/> can render them all up front.</summary>
+        public static IEnumerable<string> AllNames()
+        {
+            foreach (var n in new[] { Click, Tick, Open, Close, Denied, Splash, Sparkle, Bubble, Thud, Chime, Plant, Harvest, Coin, Cook, Jar, Grind,
+                                      Pinch, Blend, Eat, Ship, Unship, Bucket, LevelUp, Yawn, Fanfare, Cheer, Cart, Flap, Purr, Thunder })
+                yield return n;
+            foreach (var (family, count) in new[] { (Step, StepVariants), (Blorp, BlorpVariants), (Meow, MeowVariants), (Mumble, MumbleVariants), (Think, ThinkVariants), (Affirm, AffirmVariants) })
+                for (int i = 0; i < count; i++) yield return Variant(family, i);
+        }
+
         public static SoundEffect Get(string name)
         {
             if (!_cache.TryGetValue(name, out var fx))

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework.Audio;
 
 namespace SpiceWizard.Web.Audio
@@ -25,6 +26,17 @@ namespace SpiceWizard.Web.Audio
         public static SoundEffect Cauldron => _cauldron ??= RenderCauldron();
         public static SoundEffect Rain => _rain ??= RenderRain();
         public static SoundEffect Hiss => _hiss ??= RenderHiss();
+
+        /// <summary>Renders each loop and bird in turn, for the <see cref="Preloader"/>.</summary>
+        public static IEnumerable<Func<SoundEffect>> All()
+        {
+            yield return () => Wind;
+            yield return () => Cauldron;
+            yield return () => Crickets;
+            yield return () => Rain;
+            yield return () => Hiss;
+            for (int i = 0; i < 4; i++) { int n = i; yield return () => Bird(n); }
+        }
 
         public static SoundEffect Bird(int variant)
         {

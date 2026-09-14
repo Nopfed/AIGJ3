@@ -106,6 +106,7 @@ namespace SpiceWizard.Web
             _villagers = new Villagers();
             _wizard = new WizardActor(Layout.WizardStart);
             _mixer = new AudioMixer { Settings = Settings.Parse(_savedSettings) };
+            _mixer.Prepare();
 
             _session = new Session
             {

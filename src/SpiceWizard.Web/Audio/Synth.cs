@@ -182,45 +182,14 @@ namespace SpiceWizard.Web.Audio
             if (max > 0) Gain(buf, peak / max);
         }
 
-        /// <summary>
-        /// The master chain every sound goes through on its way out: a rumble-cutting high-pass, a soft-knee
-        /// saturator so peaks round off instead of clipping, a two-pole low-pass that takes the piercing
-        /// edge off the square and saw harmonics, and a few dB of headroom. Runs in place.
-        /// </summary>
-        public static void Master(float[] buf)
-        {
-            const float knee = 0.55f;        // above this the saturator starts to bend
-            const float gain = 0.55f;        // about -5 dB of headroom after everything else
-            float hp = Coefficient(40), lp = Coefficient(4200);
-            float dc = 0, y1 = 0, y2 = 0;
-            for (int i = 0; i < buf.Length; i++)
-            {
-                dc += hp * (buf[i] - dc);
-                float x = buf[i] - dc;
-                float a = Math.Abs(x);
-                if (a > knee) x = Math.Sign(x) * (knee + (1 - knee) * (float)Math.Tanh((a - knee) / (1 - knee)));
-                y1 += lp * (x - y1);
-                y2 += lp * (y1 - y2);
-                buf[i] = y2 * gain;
-            }
-        }
-
         /// <summary>One-pole filter coefficient for a cutoff in Hz at this sample rate.</summary>
         public static float Coefficient(double hz) => (float)(1 - Math.Exp(-TwoPi * hz / Rate));
 
         public static SoundEffect ToSoundEffect(float[] buf)
         {
-            Master(buf);
-            var pcm = new byte[buf.Length * 2];
-            for (int i = 0; i < buf.Length; i++)
-            {
-                float v = buf[i];
-                if (v > 1) v = 1; else if (v < -1) v = -1;
-                short s = (short)(v * 32767);
-                pcm[i * 2] = (byte)(s & 0xff);
-                pcm[i * 2 + 1] = (byte)((s >> 8) & 0xff);
-            }
-            return new SoundEffect(pcm, Rate, AudioChannels.Mono);
+            var encoder = new Encoder(buf);
+            encoder.Step(buf.Length);
+            return encoder.Finish();
         }
     }
 }

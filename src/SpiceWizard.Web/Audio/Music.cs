@@ -5,45 +5,67 @@ namespace SpiceWizard.Web.Audio
 {
     /// <summary>
     /// The three daytime tunes, the night lullaby and the celebration tune, written as note lists and
-    /// rendered through <see cref="Synth"/> the first time they are needed. Each loops seamlessly; the
+    /// rendered through <see cref="Score"/> a slice at a time by the <see cref="Preloader"/>. Each loops seamlessly; the
     /// mixer picks a daytime one per day and brings the others in for the evening and the mastery party.
     /// </summary>
     public sealed class Track
     {
         public string Name;
-        public Func<float[]> Render;
+        public Func<Score> Compose;
         SoundEffect _effect;
+        Score _score;
+        Encoder _encoder;
 
-        public SoundEffect Effect => _effect ??= Synth.ToSoundEffect(Render());
         public bool IsRendered => _effect != null;
+
+        /// <summary>The rendered track, built on the spot if the <see cref="Preloader"/> has not got to it yet.</summary>
+        public SoundEffect Effect { get { while (!Step()) { } return _effect; } }
+
+        /// <summary>A slice of rendering work; true once the track is ready to play.</summary>
+        public bool Step()
+        {
+            if (_effect != null) return true;
+            if (_encoder == null)
+            {
+                _score ??= Compose();
+                if (!_score.Step()) return false;
+                _encoder = new Encoder(_score.Buffer);
+                _score = null;
+                return false;
+            }
+            if (!_encoder.Step(Synth.Rate / 10)) return false;
+            _effect = _encoder.Finish();
+            _encoder = null;
+            return true;
+        }
     }
 
     public static class Music
     {
         public static readonly Track[] Tracks =
         {
-            new Track { Name = "Morning Meadow", Render = MorningMeadow },
-            new Track { Name = "Simmering Pot", Render = SimmeringPot },
-            new Track { Name = "Turmeric Sun", Render = TurmericSun },
+            new Track { Name = "Morning Meadow", Compose = MorningMeadow },
+            new Track { Name = "Simmering Pot", Compose = SimmeringPot },
+            new Track { Name = "Turmeric Sun", Compose = TurmericSun },
         };
 
         /// <summary>The evening lullaby: plays from 20:00 and while the wizard is deciding to turn in.</summary>
-        public static readonly Track MothLamp = new Track { Name = "Moth Lamp", Render = RenderMothLamp };
+        public static readonly Track MothLamp = new Track { Name = "Moth Lamp", Compose = RenderMothLamp };
 
         /// <summary>The town's party tune, for as long as the crowd is in the yard.</summary>
-        public static readonly Track Festival = new Track { Name = "Festival", Render = RenderFestival };
+        public static readonly Track Festival = new Track { Name = "Festival", Compose = RenderFestival };
 
         // A note is (midi, start beat, length in beats).
         struct N { public int P; public double S, L; public N(int p, double s, double l) { P = p; S = s; L = l; } }
 
         // ---- 1. Morning Meadow: a G major waltz, plucked bass and a bright triangle lead ----------------
 
-        static float[] MorningMeadow()
+        static Score MorningMeadow()
         {
             const double bpm = 96, beat = 60.0 / bpm;
             const int bars = 16, beatsPerBar = 3;
             double loop = bars * beatsPerBar * beat;
-            var buf = Synth.Buffer(loop * 2);       // two passes: the second adds a high arpeggio
+            var buf = new Score(loop * 2);       // two passes: the second adds a high arpeggio
 
             int[] roots = { 55, 52, 48, 50, 55, 47, 48, 50, 55, 52, 48, 50, 55, 47, 48, 50 };  // G Em C D G Bm C D
             int[] thirds = { 4, 3, 4, 4, 4, 3, 4, 4, 4, 3, 4, 4, 4, 3, 4, 4 };
@@ -74,32 +96,30 @@ namespace SpiceWizard.Web.Audio
                 {
                     double t = off + bar * beatsPerBar * beat;
                     int root = roots[bar];
-                    Synth.Pluck(buf, Synth.Midi(root), t, beat * 1.2, 0.45f);
-                    Synth.Pluck(buf, Synth.Midi(root + 12 + thirds[bar]), t + beat, beat * 0.9, 0.22f);
-                    Synth.Pluck(buf, Synth.Midi(root + 12 + 7), t + 2 * beat, beat * 0.9, 0.22f);
+                    buf.Pluck(Synth.Midi(root), t, beat * 1.2, 0.45f);
+                    buf.Pluck(Synth.Midi(root + 12 + thirds[bar]), t + beat, beat * 0.9, 0.22f);
+                    buf.Pluck(Synth.Midi(root + 12 + 7), t + 2 * beat, beat * 0.9, 0.22f);
                     if (pass == 1)
                         for (int e = 0; e < 6; e++)
                         {
                             int tone = e % 3 == 0 ? root + 24 : e % 3 == 1 ? root + 24 + thirds[bar] : root + 24 + 7;
-                            Synth.Note(buf, Synth.Wave.Sine, Synth.Midi(tone), t + e * beat / 2, beat * 0.4, 0.09f, 0.005, 0.1, 0.3, 0.05);
+                            buf.Note(Synth.Wave.Sine, Synth.Midi(tone), t + e * beat / 2, beat * 0.4, 0.09f, 0.005, 0.1, 0.3, 0.05);
                         }
                 }
                 foreach (var n in lead)
-                    Synth.Note(buf, Synth.Wave.Triangle, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.92, 0.32f, 0.02, 0.08, 0.75, 0.12, 0.004);
+                    buf.Note(Synth.Wave.Triangle, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.92, 0.32f, 0.02, 0.08, 0.75, 0.12, 0.004);
             }
-            Synth.Delay(buf, beat * 0.5, 0.3f, 0.35f);
-            Synth.FadeEnds(buf, 0.01);
-            Synth.Normalize(buf, 0.8f);
+            buf.Finish(beat * 0.5, 0.3f, 0.35f, 0.01, 0.8f);
             return buf;
         }
 
         // ---- 2. Simmering Pot: D dorian, bouncing bass, square lead and bubbling blips -----------------
 
-        static float[] SimmeringPot()
+        static Score SimmeringPot()
         {
             const double bpm = 110, beat = 60.0 / bpm;
             const int bars = 16;
-            var buf = Synth.Buffer(bars * 4 * beat);
+            var buf = new Score(bars * 4 * beat);
             var rng = new Random(7);
 
             int[] roots = { 38, 43, 38, 36, 38, 43, 38, 36, 38, 43, 38, 36, 38, 43, 36, 38 };  // Dm G Dm C ...
@@ -125,21 +145,25 @@ namespace SpiceWizard.Web.Audio
                 {
                     int p = e % 2 == 0 ? root : root + 12;
                     if (e == 6) p = root + 7;
-                    Synth.Note(buf, Synth.Wave.Triangle, Synth.Midi(p), t + e * beat / 2, beat * 0.35, 0.5f, 0.005, 0.06, 0.5, 0.04);
+                    buf.Note(Synth.Wave.Triangle, Synth.Midi(p), t + e * beat / 2, beat * 0.35, 0.5f, 0.005, 0.06, 0.5, 0.04);
                 }
                 // A ticking noise on every eighth, louder on the beat.
                 for (int e = 0; e < 8; e++)
                 {
-                    var tick = Synth.Buffer(0.03);
-                    Synth.Noise(tick, rng, e % 2 == 0 ? 0.18f : 0.08f);
-                    Synth.LowPass(tick, 0.5f);
-                    Mix(buf, tick, t + e * beat / 2, 1f, true);
+                    float vol = e % 2 == 0 ? 0.18f : 0.08f;
+                    buf.Clip(0.03, () =>
+                    {
+                        var tick = Synth.Buffer(0.03);
+                        Synth.Noise(tick, rng, vol);
+                        Synth.LowPass(tick, 0.5f);
+                        return tick;
+                    }, t + e * beat / 2, true);
                 }
                 // Bubbles: a rising blip after beats 2 and 4, pitched by a hash so it burbles.
                 for (int e = 1; e < 4; e += 2)
                 {
                     double f0 = 900 + (bar * 37 + e * 91) % 7 * 120;
-                    Bubble(buf, f0, t + (e + 0.5) * beat, 0.08f);
+                    buf.Bubble(f0, t + (e + 0.5) * beat, 0.08f);
                 }
             }
             for (int rep = 0; rep < 2; rep++)
@@ -148,36 +172,22 @@ namespace SpiceWizard.Web.Audio
                 foreach (var n in phrase)
                 {
                     if (rep == 1 && n.S >= 28) continue;
-                    Synth.Note(buf, Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.05, 0.7, 0.05, 0.003);
+                    buf.Note(Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.05, 0.7, 0.05, 0.003);
                 }
                 if (rep == 1) foreach (var n in ending)
-                    Synth.Note(buf, Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.05, 0.7, 0.05, 0.003);
+                    buf.Note(Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.05, 0.7, 0.05, 0.003);
             }
-            Synth.Delay(buf, beat * 0.75, 0.25f, 0.3f);
-            Synth.FadeEnds(buf, 0.01);
-            Synth.Normalize(buf, 0.8f);
+            buf.Finish(beat * 0.75, 0.25f, 0.3f, 0.01, 0.8f);
             return buf;
-        }
-
-        static void Bubble(float[] buf, double f0, double start, float vol)
-        {
-            int i0 = (int)(start * Synth.Rate), n = (int)(0.12 * Synth.Rate);
-            double phase = 0;
-            for (int i = 0; i < n && i0 + i < buf.Length; i++)
-            {
-                double t = i / (double)Synth.Rate;
-                phase += (f0 * (1 + t * 6)) / Synth.Rate;
-                buf[i0 + i] += (float)Math.Sin(phase * Math.PI * 2) * vol * (float)Math.Exp(-t * 30);
-            }
         }
 
         // ---- 3. Turmeric Sun: F lydian pads, a slow sine melody and a warm delay ---------------------
 
-        static float[] TurmericSun()
+        static Score TurmericSun()
         {
             const double bpm = 80, beat = 60.0 / bpm;
             const int bars = 16;
-            var buf = Synth.Buffer(bars * 4 * beat);
+            var buf = new Score(bars * 4 * beat);
 
             // Two bars per chord: Fmaj7 G Am7 C Fmaj7 Dm7 G C
             int[][] chords =
@@ -197,33 +207,30 @@ namespace SpiceWizard.Web.Audio
                 new N(76,56,3), new N(79,59,1), new N(72,60,3.5),
             };
 
-            var pad = Synth.Buffer(bars * 4 * beat);
+            var pad = new Score(bars * 4 * beat);
             for (int c = 0; c < chords.Length; c++)
             {
                 double t = c * 8 * beat;
                 foreach (int p in chords[c])
-                    Synth.Note(pad, Synth.Wave.Saw, Synth.Midi(p), t, 8 * beat - 0.3, 0.16f, 0.7, 0.4, 0.8, 0.9, 0.002, 0.006);
-                Synth.Pluck(buf, Synth.Midi(chords[c][0] - 12), t, beat * 2, 0.4f);
-                Synth.Pluck(buf, Synth.Midi(chords[c][0] - 12), t + 4 * beat, beat * 2, 0.3f);
-                Synth.Pluck(buf, Synth.Midi(chords[c][2] - 12), t + 6 * beat, beat, 0.2f);
+                    pad.Note(Synth.Wave.Saw, Synth.Midi(p), t, 8 * beat - 0.3, 0.16f, 0.7, 0.4, 0.8, 0.9, 0.002, 0.006);
+                buf.Pluck(Synth.Midi(chords[c][0] - 12), t, beat * 2, 0.4f);
+                buf.Pluck(Synth.Midi(chords[c][0] - 12), t + 4 * beat, beat * 2, 0.3f);
+                buf.Pluck(Synth.Midi(chords[c][2] - 12), t + 6 * beat, beat, 0.2f);
             }
-            Synth.LowPass(pad, 0.12f);
-            Mix(buf, pad, 0, 1f, false);
+            buf.Layer(pad, 0.12f);
             foreach (var n in lead)
-                Synth.Note(buf, Synth.Wave.Sine, Synth.Midi(n.P), n.S * beat, n.L * beat * 0.95, 0.3f, 0.08, 0.2, 0.8, 0.3, 0.006);
-            Synth.Delay(buf, beat * 0.5, 0.42f, 0.5f);
-            Synth.FadeEnds(buf, 0.02);
-            Synth.Normalize(buf, 0.8f);
+                buf.Note(Synth.Wave.Sine, Synth.Midi(n.P), n.S * beat, n.L * beat * 0.95, 0.3f, 0.08, 0.2, 0.8, 0.3, 0.006);
+            buf.Finish(beat * 0.5, 0.42f, 0.5f, 0.02, 0.8f);
             return buf;
         }
 
         // ---- 4. Moth Lamp: an A minor lullaby, slow plucked bass, a soft pad and a sine melody with a wide vibrato ----
 
-        static float[] RenderMothLamp()
+        static Score RenderMothLamp()
         {
             const double bpm = 66, beat = 60.0 / bpm;
             const int bars = 8;
-            var buf = Synth.Buffer(bars * 4 * beat);
+            var buf = new Score(bars * 4 * beat);
 
             // One chord per bar: Am F C G Am F E Am
             int[][] chords =
@@ -244,38 +251,35 @@ namespace SpiceWizard.Web.Audio
                 new N(69,28,3.8),
             };
 
-            var pad = Synth.Buffer(bars * 4 * beat);
+            var pad = new Score(bars * 4 * beat);
             for (int bar = 0; bar < bars; bar++)
             {
                 double t = bar * 4 * beat;
                 foreach (int p in chords[bar])
-                    Synth.Note(pad, Synth.Wave.Triangle, Synth.Midi(p), t, 4 * beat - 0.2, 0.14f, 0.6, 0.3, 0.8, 0.7, 0.003, 0.004);
-                Synth.Pluck(buf, Synth.Midi(roots[bar]), t, beat * 2.5, 0.35f);
-                Synth.Pluck(buf, Synth.Midi(roots[bar] + 7), t + 2 * beat, beat * 1.5, 0.18f);
+                    pad.Note(Synth.Wave.Triangle, Synth.Midi(p), t, 4 * beat - 0.2, 0.14f, 0.6, 0.3, 0.8, 0.7, 0.003, 0.004);
+                buf.Pluck(Synth.Midi(roots[bar]), t, beat * 2.5, 0.35f);
+                buf.Pluck(Synth.Midi(roots[bar] + 7), t + 2 * beat, beat * 1.5, 0.18f);
                 // A slow rocking arpeggio on the off-beats, like a music box winding down.
                 for (int e = 1; e < 8; e += 2)
                 {
                     int tone = chords[bar][(e / 2) % chords[bar].Length] + 12;
-                    Synth.Note(buf, Synth.Wave.Sine, Synth.Midi(tone), t + e * beat / 2, beat * 0.4, 0.07f, 0.01, 0.15, 0.3, 0.2);
+                    buf.Note(Synth.Wave.Sine, Synth.Midi(tone), t + e * beat / 2, beat * 0.4, 0.07f, 0.01, 0.15, 0.3, 0.2);
                 }
             }
-            Synth.LowPass(pad, 0.15f);
-            Mix(buf, pad, 0, 1f, false);
+            buf.Layer(pad, 0.15f);
             foreach (var n in lead)
-                Synth.Note(buf, Synth.Wave.Sine, Synth.Midi(n.P), n.S * beat, n.L * beat * 0.95, 0.26f, 0.1, 0.2, 0.8, 0.35, 0.008);
-            Synth.Delay(buf, beat * 0.75, 0.4f, 0.4f);
-            Synth.FadeEnds(buf, 0.02);
-            Synth.Normalize(buf, 0.55f);
+                buf.Note(Synth.Wave.Sine, Synth.Midi(n.P), n.S * beat, n.L * beat * 0.95, 0.26f, 0.1, 0.2, 0.8, 0.35, 0.008);
+            buf.Finish(beat * 0.75, 0.4f, 0.4f, 0.02, 0.55f);
             return buf;
         }
 
         // ---- 5. Festival: a D major jig, oom-pah bass, square lead, claps on the off-beats ------------
 
-        static float[] RenderFestival()
+        static Score RenderFestival()
         {
             const double bpm = 140, beat = 60.0 / bpm;
             const int bars = 16;
-            var buf = Synth.Buffer(bars * 4 * beat);
+            var buf = new Score(bars * 4 * beat);
             var rng = new Random(19);
 
             int[] roots = { 50, 45, 43, 50, 50, 45, 43, 50 };   // D A G D, twice
@@ -298,51 +302,42 @@ namespace SpiceWizard.Web.Audio
                 // Oom-pah: root on the beat, the fifth and third above on the off-beat.
                 for (int e = 0; e < 4; e++)
                 {
-                    Synth.Note(buf, Synth.Wave.Triangle, Synth.Midi(e % 2 == 0 ? root : root + 7), t + e * beat, beat * 0.4, 0.45f, 0.005, 0.06, 0.5, 0.05);
-                    Synth.Note(buf, Synth.Wave.Square, Synth.Midi(root + 16), t + (e + 0.5) * beat, beat * 0.25, 0.1f, 0.005, 0.04, 0.4, 0.04);
-                    Synth.Note(buf, Synth.Wave.Square, Synth.Midi(root + 19), t + (e + 0.5) * beat, beat * 0.25, 0.1f, 0.005, 0.04, 0.4, 0.04);
+                    buf.Note(Synth.Wave.Triangle, Synth.Midi(e % 2 == 0 ? root : root + 7), t + e * beat, beat * 0.4, 0.45f, 0.005, 0.06, 0.5, 0.05);
+                    buf.Note(Synth.Wave.Square, Synth.Midi(root + 16), t + (e + 0.5) * beat, beat * 0.25, 0.1f, 0.005, 0.04, 0.4, 0.04);
+                    buf.Note(Synth.Wave.Square, Synth.Midi(root + 19), t + (e + 0.5) * beat, beat * 0.25, 0.1f, 0.005, 0.04, 0.4, 0.04);
                 }
                 // A tambourine tick on every eighth and a hand-clap on 2 and 4.
                 for (int e = 0; e < 8; e++)
                 {
-                    var tick = Synth.Buffer(0.03);
-                    Synth.Noise(tick, rng, e % 2 == 0 ? 0.12f : 0.07f);
-                    Synth.HighPass(tick, 0.5f);
-                    Mix(buf, tick, t + e * beat / 2, 1f, true);
+                    float vol = e % 2 == 0 ? 0.12f : 0.07f;
+                    buf.Clip(0.03, () =>
+                    {
+                        var tick = Synth.Buffer(0.03);
+                        Synth.Noise(tick, rng, vol);
+                        Synth.HighPass(tick, 0.5f);
+                        return tick;
+                    }, t + e * beat / 2, true);
                 }
                 for (int e = 1; e < 4; e += 2)
-                {
-                    var clap = Synth.Buffer(0.12);
-                    for (int k = 0; k < 3; k++) Synth.Burst(clap, rng, k * 0.012, 0.06, 0.6f, 0.4f, 60);
-                    Mix(buf, clap, t + e * beat, 1f, true);
-                }
+                    buf.Clip(0.12, () =>
+                    {
+                        var clap = Synth.Buffer(0.12);
+                        for (int k = 0; k < 3; k++) Synth.Burst(clap, rng, k * 0.012, 0.06, 0.6f, 0.4f, 60);
+                        return clap;
+                    }, t + e * beat, true);
             }
             for (int rep = 0; rep < 2; rep++)
             {
                 double off = rep * 32 * beat;
                 foreach (var n in phrase)
                 {
-                    Synth.Note(buf, Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.04, 0.7, 0.05, 0.004);
+                    buf.Note(Synth.Wave.Square, Synth.Midi(n.P), off + n.S * beat, n.L * beat * 0.85, 0.2f, 0.01, 0.04, 0.7, 0.05, 0.004);
                     // The second time round a bright triangle doubles the tune an octave up.
-                    if (rep == 1) Synth.Note(buf, Synth.Wave.Triangle, Synth.Midi(n.P + 12), off + n.S * beat, n.L * beat * 0.8, 0.1f, 0.01, 0.04, 0.6, 0.05);
+                    if (rep == 1) buf.Note(Synth.Wave.Triangle, Synth.Midi(n.P + 12), off + n.S * beat, n.L * beat * 0.8, 0.1f, 0.01, 0.04, 0.6, 0.05);
                 }
             }
-            Synth.Delay(buf, beat * 0.5, 0.25f, 0.3f);
-            Synth.FadeEnds(buf, 0.01);
-            Synth.Normalize(buf, 0.8f);
+            buf.Finish(beat * 0.5, 0.25f, 0.3f, 0.01, 0.8f);
             return buf;
-        }
-
-        /// <summary>Adds src into dst at a time offset; with wrap, anything past the end folds to the start.</summary>
-        static void Mix(float[] dst, float[] src, double start, float vol, bool wrap)
-        {
-            int i0 = (int)(start * Synth.Rate);
-            for (int i = 0; i < src.Length; i++)
-            {
-                int j = i0 + i;
-                if (j >= dst.Length) { if (!wrap) break; j %= dst.Length; }
-                dst[j] += src[i] * vol;
-            }
         }
     }
 }

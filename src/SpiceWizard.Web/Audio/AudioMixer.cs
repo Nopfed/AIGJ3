@@ -15,6 +15,9 @@ namespace SpiceWizard.Web.Audio
     /// Nothing starts until <see cref="Unlock"/>, which the title
     /// screen calls from a click so the browser lets the audio context run. The cauldron simmers louder
     /// the closer the wizard stands to it, and the wizard hums, wonders and cheers to himself now and then.
+    /// Every sound is synthesised in code, which is slow in the browser, so a <see cref="Preloader"/> renders
+    /// them a few milliseconds per frame from the moment the game starts (more generously on the title
+    /// screen); a tune that is wanted before it is ready is moved to the front and starts once it exists.
     /// </summary>
     public sealed class AudioMixer
     {
@@ -46,11 +49,15 @@ namespace SpiceWizard.Web.Audio
         int _lastVoice = -1;
         bool _unlocked;
         readonly Random _rng = new Random();
+        readonly Preloader _preload = new Preloader();
 
         /// <summary>Gust strength right now, shared with the scene so the trees lean with the sound.</summary>
         public float Wind => Ambience.WindStrength(_windTime);
 
         public bool Unlocked => _unlocked;
+
+        /// <summary>Synthesises the effects and ambience while the loading screen is still up, so no first play stalls a frame.</summary>
+        public void Prepare() => _preload.RenderEffects();
 
         public void Unlock()
         {
@@ -99,6 +106,8 @@ namespace SpiceWizard.Web.Audio
         public void Update(float dt, GameState s, bool paused, bool onTitle)
         {
             _windTime += dt;
+            // Rendering is spread over frames: a big slice of the title screen's idle time, a sliver of a game frame.
+            _preload.Step(onTitle ? 10 : 3);
             if (!_unlocked) return;
 
             double f = s.Clock.DayFraction;
@@ -185,6 +194,7 @@ namespace SpiceWizard.Web.Audio
             }
             if (_music == null && want >= 0 && target > 0f)
             {
+                if (!Music.Tracks[want].IsRendered) { _preload.Prioritize(Music.Tracks[want]); return; }
                 _music = Music.Tracks[want].Effect.CreateInstance();
                 _music.IsLooped = true;
                 _music.Volume = 0f;
@@ -200,10 +210,11 @@ namespace SpiceWizard.Web.Audio
         }
 
         /// <summary>Runs one looping track toward a target level, starting it when wanted and dropping it once silent.</summary>
-        static void Loop(ref SoundEffectInstance inst, ref float level, Track track, float target, float step, float bus)
+        void Loop(ref SoundEffectInstance inst, ref float level, Track track, float target, float step, float bus)
         {
             if (inst == null && target > 0f)
             {
+                if (!track.IsRendered) { _preload.Prioritize(track); return; }
                 inst = track.Effect.CreateInstance();
                 inst.IsLooped = true;
                 inst.Volume = 0f;
