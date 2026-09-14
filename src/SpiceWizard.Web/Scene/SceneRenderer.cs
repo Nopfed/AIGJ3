@@ -27,7 +27,16 @@ namespace SpiceWizard.Web.Scene
             if (f < 0.05) return Palette.Navy * (float)(0.35 * (1 - f / 0.05));
             if (f < 0.75) return Color.Transparent;
             if (f < 0.9) return new Color(200, 90, 40) * (float)(0.22 * (f - 0.75) / 0.15);
-            return Blend01(new Color(200, 90, 40) * 0.22f, Palette.Navy * 0.5f, (f - 0.9) / 0.1);
+            return Blend01(new Color(200, 90, 40) * 0.22f, Palette.Navy * 0.42f, (f - 0.9) / 0.1);
+        }
+
+        /// <summary>How much the lamps and fires show, 0 by day and 1 at night; they come up through the
+        /// evening a little ahead of the dark so the yard never goes flat before the lights arrive.</summary>
+        public static float Lamplight(double f)
+        {
+            if (f < 0.08) return (float)(1 - f / 0.08);
+            if (f > 0.74) return (float)Math.Min(1, (f - 0.74) / 0.2);
+            return 0f;
         }
 
         public static bool IsDark(double f) => f > 0.93 || f < 0.02;
@@ -48,6 +57,13 @@ namespace SpiceWizard.Web.Scene
             double a = Math.PI * (1 - f);
             return new Point((int)(192 + 170 * Math.Cos(a)) - 5, (int)(Layout.Horizon - 2 - 62 * Math.Sin(a)) - 5);
         }
+
+        /// <summary>How far a shadow leans sideways per pixel of height: rightward in the morning (sun in the
+        /// east, on the left), nothing at noon, leftward through the afternoon.</summary>
+        public static float ShadowShear(double f) => (float)(-Math.Cos(Math.PI * (1 - f)) * 2.0);
+
+        /// <summary>How much of a thing's height its shadow keeps along the ground: short at noon, long at either end of the day.</summary>
+        public static float ShadowSquash(double f) => 0.2f + 0.34f * (1f - (float)Math.Max(0, Math.Sin(Math.PI * (1 - f))));
 
         public static Point MoonPos(double f)
         {
@@ -99,6 +115,26 @@ namespace SpiceWizard.Web.Scene
         const float BrewFadeSeconds = 20f;
         readonly List<Point> _markers = new List<Point>();
 
+        // Light sources queued while the yard is drawn, then added over the night tint in one additive pass.
+        // Day is how much of the light shows in full daylight (a fire still glows at noon; a lamp does not).
+        struct LightSrc { public int X, Y, RX, RY, W, H; public Color Color; public float Day; public bool IsRect; }
+        readonly List<LightSrc> _lights = new List<LightSrc>();
+        /// <summary>The warm cast of fire and lamplight, and the cold one of the ghost pepper.</summary>
+        public static readonly Color FireLight = new Color(255, 150, 60);
+        public static readonly Color LampLight = new Color(255, 190, 110);
+        public static readonly Color GhostLight = new Color(120, 190, 255);
+        /// <summary>0 by day and 1 at night, for anything outside the renderer that wants to light up with the lamps.</summary>
+        public float Lamp { get; private set; }
+        /// <summary>The tops of the town's chimneys, for hearth smoke; rebuilt with the town each frame.</summary>
+        public readonly List<Point> Chimneys = new List<Point>();
+        // Thunder: seconds until the next flash, and how bright the sky is right now.
+        float _lightningIn = 30f, _flash;
+        /// <summary>Fires when the lightning does, so the mixer can roll the thunder.</summary>
+        public Action OnLightning;
+        // A shooting star: when it started and where it is heading.
+        float _starAt = -10f;
+        int _starX, _starY;
+
         // Scenery outside the 384x216 design box, generated once per window size.
         public struct Prop { public string Sprite; public int X, Y; public int Base; }
         readonly List<Prop> _props = new List<Prop>();
@@ -131,6 +167,18 @@ namespace SpiceWizard.Web.Scene
             _time += dt;
             if (_brewFade > 0) _brewFade -= dt;
             if (BurstTimer > 0) BurstTimer -= dt;
+            // Storms flash every so often once the rain deck is fully in.
+            if (_flash > 0) _flash -= dt * 6f;
+            if (_overcast > 0.9f)
+            {
+                _lightningIn -= dt;
+                if (_lightningIn <= 0)
+                {
+                    _lightningIn = 25f + Hash((int)(_time * 100), 61) % 50;
+                    _flash = 1f;
+                    OnLightning?.Invoke();
+                }
+            }
             float windy = Weather == Weather.Windy ? 1f : Weather == Weather.Rain ? 0.35f : 0f;
             float overcast = Weather == Weather.Rain ? 1f : 0f;
             _windy = Approach(_windy, windy, dt * 0.5f);
@@ -160,12 +208,14 @@ namespace SpiceWizard.Web.Scene
             _hover = hover;
             _hoverParts.Clear();
             _markers.Clear();
+            _lights.Clear();
 
             DrawSky(f);
             DrawHills(f);
             DrawTreeLine(f);
             DrawTown(f);
             DrawGround();
+            DrawCastShadows(f, wizard, cats, villagers);
             DrawProps(f);
             DrawTower(f, wizard);
             DrawGarden(s, hover);
@@ -182,6 +232,44 @@ namespace SpiceWizard.Web.Scene
             DrawRain();
             var tint = DayNight.Tint(f);
             if (tint.A > 0) _c.Rect(Camera.View, tint);
+            // Lightning: the whole window whites out for an instant, with a second dimmer flicker behind it.
+            if (_flash > 0)
+            {
+                float a = _flash > 0.7f ? 0.55f : _flash > 0.45f ? 0.05f : _flash > 0.3f ? 0.25f : 0f;
+                if (a > 0) _c.Rect(Camera.View, Palette.White * a);
+            }
+            // Everything that glows goes on last, brightening whatever it falls on.
+            _c.BeginAdditive();
+            DrawLights(f);
+            particles.Draw(_c, true);
+            _c.EndAdditive();
+        }
+
+        // ---- Lights ------------------------------------------------------------------------------
+
+        /// <summary>Queues a pool of light centred on (x, y); <paramref name="day"/> is its strength in full daylight.</summary>
+        void Light(int x, int y, int rx, int ry, Color color, float day = 0f) =>
+            _lights.Add(new LightSrc { X = x, Y = y, RX = rx, RY = ry, Color = color, Day = day });
+
+        /// <summary>Queues a lit rectangle (a window pane, a fire-lit rim) for the additive pass.</summary>
+        void LightRect(int x, int y, int w, int h, Color color, float day = 0f) =>
+            _lights.Add(new LightSrc { X = x, Y = y, W = w, H = h, Color = color, Day = day, IsRect = true });
+
+        void DrawLights(double f)
+        {
+            float lamp = DayNight.Lamplight(f);
+            // Under rain clouds the day is dim enough for the fire and the windows to show a little.
+            lamp = Math.Max(lamp, 0.3f * _overcast);
+            Lamp = lamp;
+            foreach (var l in _lights)
+            {
+                float k = l.Day + (1f - l.Day) * lamp;
+                if (k < 0.02f) continue;
+                var col = Canvas.Tone(l.Color, k);
+                if (l.IsRect) _c.Rect(l.X, l.Y, l.W, l.H, col);
+                else _c.Light(l.X, l.Y, l.RX, l.RY, col);
+            }
+            _lights.Clear();
         }
 
         // ---- Rain --------------------------------------------------------------------------------
@@ -208,6 +296,16 @@ namespace SpiceWizard.Web.Scene
                 var col = i % 3 == 0 ? streakDim : streak;
                 for (int r = 0; r < 3; r++) _c.Rect(x + r * slant, y - r, 1, 1, col);
             }
+            // Puddles on the road catch the sky: a few fixed pale glints that shimmer as the rain hits them.
+            var glint = Palette.PaleBlue * (0.5f * _overcast);
+            for (int x = view.Left - (view.Left % 7 + 7) % 7; x < Layout.Tower.X; x += 7)
+            {
+                if (Hash(x, 53) % 4 != 0) continue;
+                int y = Layout.RoadTop + 2 + Hash(x, 54) % (Layout.RoadBottom - Layout.RoadTop - 4);
+                int wobble = ((int)(_time * 6) + Hash(x, 55)) % 3;
+                _c.Rect(x + wobble - 1, y, 3, 1, glint);
+                _c.Rect(x + 1 - wobble, y + 1, 2, 1, glint * 0.6f);
+            }
             // Splashes: little flicks that wink on and off wherever a drop lands on grass, soil or road.
             int rows = Math.Max(1, view.Bottom - Layout.Horizon);
             var splash = Palette.PaleBlue * (0.6f * _overcast);
@@ -229,7 +327,11 @@ namespace SpiceWizard.Web.Scene
         void DrawMarkers()
         {
             int bob = (int)Math.Round(Math.Sin(_time * 5) * 1.5);
-            foreach (var m in _markers) _c.Sprite("ic_bang", m.X - 2, m.Y - 8 + bob);
+            foreach (var m in _markers)
+            {
+                _c.Rect(m.X - 1, m.Y + 1, 3, 1, Palette.Shadow);
+                _c.Sprite("ic_bang", m.X - 2, m.Y - 8 + bob);
+            }
         }
 
         /// <summary>Draws one sprite of a station, remembering it for the hover outline when that station is hot.</summary>
@@ -244,7 +346,8 @@ namespace SpiceWizard.Web.Scene
         void DrawHover()
         {
             if (_hoverParts.Count == 0) return;
-            foreach (var p in _hoverParts) _c.SpriteOutline(p.Sprite, p.X, p.Y, p.Lean, Palette.Yellow);
+            var glow = Color.Lerp(Palette.Yellow, Palette.LightYellow, 0.5f + 0.5f * (float)Math.Sin(_time * 6));
+            foreach (var p in _hoverParts) _c.SpriteOutline(p.Sprite, p.X, p.Y, p.Lean, glow);
             foreach (var p in _hoverParts) _c.SpriteSway(p.Sprite, p.X, p.Y, p.Lean, p.Tint);
         }
 
@@ -263,16 +366,34 @@ namespace SpiceWizard.Web.Scene
                 _c.Rect(view.Left, y0, view.Width, y1 - y0, Color.Lerp(top, bottom, i / (float)(bands - 1)));
             }
             float dark = DayNight.Darkness(f);
+            int rows = Layout.Horizon - 30 - view.Top;
             if (dark > 0.3f && _overcast < 0.95f)
             {
                 float a = (dark - 0.3f) / 0.7f * (1f - _overcast);
-                int rows = Layout.Horizon - 30 - view.Top;
                 for (int i = 0; i < 140; i++)
                 {
                     int sx = view.Left + Hash(i, 1) % view.Width, sy = view.Top + Hash(i, 2) % Math.Max(1, rows);
                     float tw = 0.45f + 0.55f * (float)Math.Sin(_time * 2 + i);
                     _c.Rect(sx, sy, 1, 1, Palette.White * (tw * a));
                     if (i % 9 == 0) { _c.Rect(sx - 1, sy, 3, 1, Palette.White * (0.25f * a)); _c.Rect(sx, sy - 1, 1, 3, Palette.White * (0.25f * a)); }
+                }
+            }
+            // Once in a while on a clear night a star falls: a short streak that fades as it goes.
+            if (dark > 0.6f && _overcast < 0.5f)
+            {
+                float since = _time - _starAt;
+                if (since > 0.8f && Hash((int)(_time * 2), 62) % 90 == 0)
+                {
+                    _starAt = _time;
+                    _starX = view.Left + 20 + Hash((int)_time, 63) % Math.Max(1, view.Width - 60);
+                    _starY = view.Top + 10 + Hash((int)_time, 64) % Math.Max(1, rows / 2);
+                    since = 0f;
+                }
+                if (since < 0.6f)
+                {
+                    int head = (int)(since * 90);
+                    for (int k = 0; k < 5; k++)
+                        _c.Rect(_starX + head - k * 2, _starY + (head - k * 2) / 3, 1, 1, Palette.White * ((1f - since / 0.6f) * (1f - k * 0.2f)));
                 }
             }
             float clear = 1f - _overcast;
@@ -287,6 +408,7 @@ namespace SpiceWizard.Web.Scene
             {
                 var m = DayNight.MoonPos(f < 0.05 ? 1 : f);
                 _c.Sprite("moon", m.X, m.Y, Color.White * clear);
+                Light(m.X + 5, m.Y + 5, 16, 14, Canvas.Tone(new Color(150, 170, 220), 0.35f * clear));
             }
             // Clouds drift at a few heights; the higher ones only show when the window is tall.
             // Each one lives in world space and repeats every CloudPeriod pixels, so the window
@@ -378,6 +500,7 @@ namespace SpiceWizard.Web.Scene
         {
             // Little houses along the horizon on the left; the row carries on into the margin.
             bool dark = DayNight.Darkness(f) > 0.5f;
+            Chimneys.Clear();
             var wall = DayNight.Haze(Palette.LightStone, f);
             var wallShade = DayNight.Haze(Palette.Stone, f);
             var outline = DayNight.Haze(Palette.Outline, f);
@@ -405,11 +528,12 @@ namespace SpiceWizard.Web.Scene
                     _c.Rect(chx - 1, chy - 3, 4, 4, outline);
                     _c.Rect(chx, chy - 2, 2, 3, wallShade);
                     _c.Rect(chx, chy - 2, 1, 1, wall);
+                    Chimneys.Add(new Point(chx, chy - 4));
                 }
                 // Door and a window.
                 _c.Rect(x + w - 5, H - 5, 3, 5, DayNight.Haze(Palette.DarkBrown, f));
                 _c.Rect(x + 3, H - hgt + 3, 2, 2, dark ? Palette.Yellow : DayNight.Haze(Palette.Navy, f));
-                if (dark) _c.Rect(x + 2, H - hgt + 2, 4, 4, Palette.Glow);
+                if (dark) Light(x + 4, H - hgt + 4, 5, 4, Canvas.Tone(LampLight, 0.5f));
                 // The church spire: a tall slate steeple with a cross.
                 if (i == 3)
                 {
@@ -484,9 +608,11 @@ namespace SpiceWizard.Web.Scene
                     }
                     else if (kind < 8)
                     {
+                        // Tufts lean with the same breeze as the flowers, so the wind shows on the ground too.
+                        int lean = (int)Math.Round(Sway("flower", x, y) * 0.6f);
                         _c.Rect(x, y, 1, 2, Palette.DarkGrass);
-                        _c.Rect(x + 2, y + 1, 1, 1, Palette.DarkGrass);
-                        _c.Rect(x + 1, y - 1, 1, 1, Palette.DarkGrass);
+                        _c.Rect(x + 2 + lean, y + 1, 1, 1, Palette.DarkGrass);
+                        _c.Rect(x + 1 + lean, y - 1, 1, 1, Palette.DarkGrass);
                     }
                 }
 
@@ -505,6 +631,54 @@ namespace SpiceWizard.Web.Scene
             }
             // Where the road meets the tower the grass creeps in.
             _c.Rect(right - 2, rt, 2, rb - rt, Palette.DarkGrass);
+        }
+
+        // ---- Sun shadows -----------------------------------------------------------------------
+
+        /// <summary>The shadows the sun throws across the grass. Everything that stands up gets one; they all lean
+        /// the same way and stretch out together toward dawn and dusk, then fade with the light.</summary>
+        void DrawCastShadows(double f, WizardActor wizard, Cats cats, Villagers villagers)
+        {
+            float shear = DayNight.ShadowShear(f);
+            float squash = DayNight.ShadowSquash(f);
+            float sunUp = 1f - DayNight.Darkness(f);
+            // Only a straight-overhead sun gives no lean; then the contact shadows alone do the job.
+            if (Math.Abs(shear) < 0.35f || sunUp <= 0.01f) return;
+            float a = 0.22f * sunUp * (1f - 0.85f * _overcast) * Math.Min(1f, (Math.Abs(shear) - 0.35f) / 0.4f);
+            if (a < 0.01f) return;
+            var col = Palette.Outline * a;
+
+            // The tower: its wall as a sheared block, cut off at the horizon so it never climbs into the sky.
+            var t = Layout.Tower;
+            int lastY = int.MinValue;
+            for (int up = 0; up < t.Height * 2 / 3; up++)
+            {
+                int y = t.Bottom - (int)Math.Round(up * squash);
+                if (y == lastY) continue;
+                lastY = y;
+                if (y < Layout.Horizon) break;
+                int dx = (int)Math.Round(up * shear);
+                int w = t.Width;
+                _c.Rect(t.X + dx + (t.Width - w) / 2, y, w, 1, col);
+            }
+            foreach (var p in _props)
+                if (p.Sprite != "rock" && !p.Sprite.StartsWith("flower"))
+                    _c.CastShadow(p.Sprite, p.X, p.Base - 1, shear, squash, col);
+            foreach (var tr in Layout.Trees) _c.CastShadow("tree", tr.X, tr.Y + 21, shear, squash, col);
+            foreach (var b in Layout.Bushes) _c.CastShadow("bush", b.X, b.Y + 7, shear, squash, col);
+            for (int i = 0; i <= Layout.FenceBays; i++)
+                _c.CastShadow("fence_post", Layout.Fence.X + i * 12, Layout.Fence.Y + 9, shear, squash, col);
+            _c.CastShadow("well", Layout.Well.X, Layout.Well.Y + 25, shear, squash, col);
+            _c.CastShadow("board", Layout.Board.X, Layout.Board.Y + 23, shear, squash, col);
+            _c.CastShadow("cart", (int)CartX, Layout.CartPark.Y + 21, shear, squash, col);
+            if (Math.Abs(CartX - Layout.CartPark.X) < 1) _c.CastShadow("merchant", Layout.Merchant.X, Layout.Merchant.Y + 17, shear, squash, col);
+            _c.CastShadow("cauldron", Layout.Cauldron.X, Layout.Cauldron.Y + 21, shear, squash, col);
+            _c.CastShadow("crate", Layout.Crate.X, Layout.Crate.Y + 13, shear, squash, col);
+            _c.CastShadow("pantry", Layout.Pantry.X, Layout.Pantry.Y + 13, shear, squash, col);
+            _c.CastShadow("stump", Layout.Stump.X, Layout.Stump.Y + 9, shear, squash, col);
+            wizard.DrawCastShadow(_c, shear, squash, col);
+            villagers.DrawCastShadows(_c, shear, squash, col);
+            cats.DrawCastShadows(_c, shear, squash, col);
         }
 
         // ---- Meadow outside the yard ---------------------------------------------------------
@@ -543,9 +717,15 @@ namespace SpiceWizard.Web.Scene
 
         void DrawProps(double f)
         {
-            foreach (var p in _props) _c.SpriteSway(p.Sprite, p.X, p.Y, Sway(p.Sprite, p.X, p.Y));
-            foreach (var t in Layout.Trees) _c.SpriteSway("tree", t.X, t.Y, Sway("tree", t.X, t.Y));
-            foreach (var b in Layout.Bushes) _c.SpriteSway("bush", b.X, b.Y, Sway("bush", b.X, b.Y));
+            foreach (var p in _props)
+            {
+                if (p.Sprite.StartsWith("tree")) _c.GroundShadow(p.X + _c.Size(p.Sprite).X / 2, p.Sprite == "tree_big" ? 12 : 8, p.Base - 1);
+                else if (p.Sprite == "bush") _c.GroundShadow(p.X + 6, 10, p.Base - 1, 0.7f);
+                else if (p.Sprite == "rock") _c.GroundShadow(p.X + 4, 8, p.Base - 1, 0.7f);
+                _c.SpriteSway(p.Sprite, p.X, p.Y, Sway(p.Sprite, p.X, p.Y));
+            }
+            foreach (var t in Layout.Trees) { _c.GroundShadow(t.X + 8, 8, t.Y + 20); _c.SpriteSway("tree", t.X, t.Y, Sway("tree", t.X, t.Y)); }
+            foreach (var b in Layout.Bushes) { _c.GroundShadow(b.X + 6, 10, b.Y + 6, 0.7f); _c.SpriteSway("bush", b.X, b.Y, Sway("bush", b.X, b.Y)); }
             for (int i = 0; i < Layout.FenceBays; i++) _c.Sprite(FenceBay(i), Layout.Fence.X + i * 12, Layout.Fence.Y);
             _c.Sprite("fence_post", Layout.Fence.X + Layout.FenceBays * 12, Layout.Fence.Y);
             _c.Rect(Layout.Fence.X + 1, Layout.Fence.Y + 10, Layout.FenceBays * 12 + 2, 1, Palette.Shadow);
@@ -609,8 +789,13 @@ namespace SpiceWizard.Web.Scene
             bool lit = WindowsLit || f > 0.8 || f < 0.06;
             foreach (var w in Layout.Windows)
             {
-                if (lit) _c.Glow(w.X + 4, w.Y + 5, 11, 10, Palette.Glow);
                 _c.Sprite(lit ? "window_lit" : "window", w.X, w.Y);
+                if (lit)
+                {
+                    float day = WindowsLit ? 0.4f : 0f;
+                    Light(w.X + 4, w.Y + 5, 14, 12, Canvas.Tone(LampLight, 0.55f), day);
+                    LightRect(w.X + 2, w.Y + 2, 4, 6, Canvas.Tone(LampLight, 0.25f), day);
+                }
                 _c.Rect(w.X + 1, w.Y + 10, 7, 1, Palette.Shadow);
             }
             if (Snoring)
@@ -636,11 +821,16 @@ namespace SpiceWizard.Web.Scene
                 _c.Rect(inside.X, inside.Bottom - 2, inside.Width, 2, Palette.DarkBrown);
                 if (wizard.InDoorway) wizard.Draw(_c);
                 StationSprite(Hot(StationKind.Door), "door_open", Layout.Door.X - 3, Layout.Door.Y);
+                Light(inside.X + inside.Width / 2, inside.Bottom, 16, 8, Canvas.Tone(LampLight, 0.5f), 0.3f);
             }
             else
             {
                 StationSprite(Hot(StationKind.Door), "door", Layout.Door.X, Layout.Door.Y);
-                if (lit) _c.Rect(Layout.Door.X + 3, Layout.Door.Y + 6, 8, 1, Palette.Glow);
+                if (lit)
+                {
+                    LightRect(Layout.Door.X + 3, Layout.Door.Y + 6, 8, 1, Canvas.Tone(LampLight, 0.6f));
+                    Light(Layout.Door.X + 7, Layout.Door.Y + 7, 8, 4, Canvas.Tone(LampLight, 0.3f));
+                }
             }
 
             // Ivy climbing the left edge and a creeper on the right.
@@ -686,11 +876,16 @@ namespace SpiceWizard.Web.Scene
                         PlantStage.Budding => "bud",
                         _ => ItemArt.MatureSprite(plant.Species),
                     };
+                    if (plant.Stage != PlantStage.Seed) _c.GroundShadow(p.X + 12, plant.Stage == PlantStage.Sprout ? 4 : 8, p.Y + 4, 0.5f);
                     StationSprite(hot, sprite, p.X + 4, p.Y - 10, Color.White, plant.Stage == PlantStage.Seed ? 0f : Sway("plant", p.X, i));
                     if (plant.Stage == PlantStage.Mature && plant.Species == PepperSpecies.Ghost)
                     {
                         int bob = (int)(Math.Sin(_time * 3 + i) * 2);
                         StationSprite(hot, "ghost", p.X + 7, p.Y - 14 + bob);
+                        // The ghost hovers: its shadow shrinks as it rises, and after dark it gives off a cold glow.
+                        _c.GroundShadow(p.X + 12, 6 - bob, p.Y + 2, 0.6f);
+                        float pulse = 0.5f + 0.2f * (float)Math.Sin(_time * 3 + i);
+                        Light(p.X + 12, p.Y - 9 + bob, 12, 10, Canvas.Tone(GhostLight, pulse), 0.15f);
                     }
                     if (plant.IsMature) Marker(p.X + 19, p.Y - 12);
                     else if (plant.PepTalkedToday)
@@ -706,13 +901,19 @@ namespace SpiceWizard.Web.Scene
         void DrawStations(GameState s, Station hover)
         {
             // Well and bucket.
+            _c.GroundShadow(Layout.Well.X + 10, 20, Layout.Well.Y + 24);
             StationSprite(Hot(StationKind.Well), "well", Layout.Well.X, Layout.Well.Y);
             _c.Rect(Layout.Bucket.X + 1, Layout.Bucket.Y + 8, 7, 1, Palette.Shadow);
             StationSprite(Hot(StationKind.Well), "bucket", Layout.Bucket.X, Layout.Bucket.Y);
             if (s.Garden.BucketWater > 0)
+            {
+                // Water in the bucket, with a glint that slides across it.
                 _c.Rect(Layout.Bucket.X + 2, Layout.Bucket.Y + 2, 4, 1, Palette.Sky);
+                _c.Rect(Layout.Bucket.X + 2 + (int)(_time * 2) % 4, Layout.Bucket.Y + 2, 1, 1, Palette.PaleBlue);
+            }
 
             // Notice board with quota ticks.
+            _c.GroundShadow(Layout.Board.X + 10, 16, Layout.Board.Y + 22, 0.8f);
             StationSprite(Hot(StationKind.Board), "board", Layout.Board.X, Layout.Board.Y);
             if (s.Quota != null)
                 for (int i = 0; i < s.Quota.Lines.Count; i++)
@@ -729,6 +930,7 @@ namespace SpiceWizard.Web.Scene
             }
 
             // Shipping crate. Late in the day an empty crate with sauces still in the pantry gets a nudge.
+            _c.GroundShadow(Layout.Crate.X + 9, 18, Layout.Crate.Y + 12);
             StationSprite(Hot(StationKind.Crate), s.Crate.Sauces.Count > 0 ? "crate_full" : "crate", Layout.Crate.X, Layout.Crate.Y);
             if (s.Crate.Sauces.Count > 0)
                 _c.TextShadow(s.Crate.Sauces.Count.ToString(), Layout.Crate.X + 20, Layout.Crate.Y + 2, Palette.White);
@@ -739,14 +941,23 @@ namespace SpiceWizard.Web.Scene
             // flickering pool of firelight spreads out around them.
             var cp = Layout.Cauldron;
             float flicker = 0.7f + 0.3f * (float)Math.Sin(_time * 11) * (float)Math.Cos(_time * 7);
-            _c.Glow(cp.X + 12, cp.Y + 20, 24, 6, Palette.Glow * flicker);
+            _c.Glow(cp.X + 12, cp.Y + 20, 18, 4, Palette.Glow * (0.5f * flicker));
             _c.Rect(cp.X + 1, cp.Y + 20, 22, 2, Palette.Shadow);
+            // Firelight: a wide pool on the grass and a smaller one up the belly of the pot.
+            Light(cp.X + 12, cp.Y + 20, 30, 9, Canvas.Tone(FireLight, 0.55f * flicker), 0.3f);
+            Light(cp.X + 12, cp.Y + 14, 12, 7, Canvas.Tone(FireLight, 0.35f * flicker), 0.2f);
             string fire = (int)(_time * 6) % 2 == 0 ? "fire0" : "fire1";
             StationSprite(Hot(StationKind.Cauldron), fire, cp.X - 2, cp.Y + 11);
             StationSprite(Hot(StationKind.Cauldron), "cauldron", cp.X, cp.Y);
             string bubbles = "bubbles" + ((int)(_time * 3) % 3);
             var brew = Color.Lerp(Palette.LightGreen, _brewColor, Math.Clamp(_brewFade / BrewFadeSeconds, 0f, 1f));
             StationSprite(Hot(StationKind.Cauldron), bubbles, cp.X, cp.Y - 2, brew);
+            // The iron catches the fire along its lower rim, and the brew throws back a shifting highlight.
+            float lick = 0.5f + 0.5f * (float)Math.Sin(_time * 9 + 1);
+            LightRect(cp.X + 4, cp.Y + 16, 16, 1, Canvas.Tone(FireLight, 0.25f + 0.2f * lick), 0.5f);
+            LightRect(cp.X + 6, cp.Y + 17, 12, 1, Canvas.Tone(FireLight, 0.15f + 0.15f * (1f - lick)), 0.5f);
+            int gleam = cp.X + 6 + (int)(6 + 5 * Math.Sin(_time * 1.3));
+            LightRect(gleam, cp.Y + 3, 3, 1, Canvas.Tone(Palette.White, 0.25f), 0.6f);
 
             // Jar shelf on the tower wall.
             bool shelfHot = Hot(StationKind.Shelf);
@@ -762,13 +973,19 @@ namespace SpiceWizard.Web.Scene
                     StationSprite(shelfHot, "jar_fill", jx, jy, jar.IsReady ? color : Color.Lerp(color, Palette.Grey, 0.5f));
                 }
                 StationSprite(shelfHot, "jar", jx, jy);
-                if (jar.IsReady) Marker(jx + 5, jy - 1);
+                if (jar.IsReady)
+                {
+                    Marker(jx + 5, jy - 1);
+                    float shimmer = 0.3f + 0.15f * (float)Math.Sin(_time * 2.5 + i);
+                    Light(jx + 5, jy + 8, 8, 7, Canvas.Tone(ItemArt.SpeciesColor(jar.Species.Value), shimmer), 0.1f);
+                }
             }
 
             // Mortar on a stump, pantry chest.
             _c.Rect(Layout.Stump.X + 2, Layout.Stump.Y + 9, 16, 2, Palette.Shadow);
             StationSprite(Hot(StationKind.Mortar), "stump", Layout.Stump.X, Layout.Stump.Y);
             StationSprite(Hot(StationKind.Mortar), "mortar", Layout.Mortar.X, Layout.Mortar.Y);
+            _c.GroundShadow(Layout.Pantry.X + 9, 18, Layout.Pantry.Y + 12);
             StationSprite(Hot(StationKind.Pantry), "pantry", Layout.Pantry.X, Layout.Pantry.Y);
             if (s.Inventory.Sauces.Count > 0) Marker(Layout.Pantry.X + 9, Layout.Pantry.Y - 2);
         }

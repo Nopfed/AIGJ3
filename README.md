@@ -19,7 +19,7 @@ dotnet test                                    # simulation tests + balance bot
 dotnet publish src/SpiceWizard.Web -c Release  # static site in bin/Release/net8.0/publish/wwwroot
 ```
 
-Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk, `?demo=windy` / `?demo=rain` for the weather, `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once), `?demo=rush` for the mid-game state with the rush-order sauce crated (with `&panel=Morning` the report shows the order filled), or `?demo=levelup` to go straight to bed one fame short of a level (the level-up cheer in the yard, then the villagers collecting the crate).
+Add `?demo` to the URL for a mid-game state, `?demo=master` to be one night away from winning, `?demo=night` for the same mid-game state at dusk (`?demo=morning` / `?demo=evening` for a low sun and long shadows), `?demo=windy` / `?demo=rain` for the weather, `?demo=chores` for a day-one garden that is fully planted and watered (the early-bedtime nudge shows at once), `?demo=rush` for the mid-game state with the rush-order sauce crated (with `&panel=Morning` the report shows the order filled), or `?demo=levelup` to go straight to bed one fame short of a level (the level-up cheer in the yard, then the villagers collecting the crate).
 
 The yard is drawn at 384x216 pixels and scaled up by the largest whole number that fits your window; whatever room is left is filled with more sky and meadow, so there are no black bars. Resize the window and the game follows.
 
@@ -33,8 +33,9 @@ The yard is drawn at 384x216 pixels and scaled up by the largest whole number th
 | Pause | `Esc` with nothing open: **Resume**, **Options** or **Quit to title** |
 | Help | The `?` button in the top-right corner |
 | Go to bed early | The moon button in the top-right corner, or the tower door |
+| Fullscreen | The expand button in the top-right corner (`Esc` leaves fullscreen) |
 
-Mouse (or touch) only. The game autosaves every morning to your browser's local storage; **Continue** on the title screen picks up where you left off, and **New game** asks before it overwrites a save. Quitting to the title from the pause menu also saves.
+Mouse (or touch) only. The game autosaves to your browser's local storage: every morning, whenever a panel closes, every 30 seconds of play, and the moment the tab is hidden or closed, so a half-played day is never lost. **Continue** on the title screen picks up where you left off (mid-day if that is where you stopped), and **New game** asks before it overwrites a save. Quitting to the title from the pause menu also saves. `?demo` states are never written to the save slot.
 
 ## Options and sound
 
@@ -42,9 +43,22 @@ The pause menu's **Options** screen has three volume sliders — **Music**, **Am
 
 - **Music**: three daytime tunes, one per day in rotation (*Morning Meadow*, a G major waltz; *Simmering Pot*, a bouncing D dorian tune with bubbling blips; *Turmeric Sun*, slow F lydian pads), fading out at dusk and back in at dawn. From 20:00 — and whenever the tower door's bedtime panel is open — the quiet A minor lullaby *Moth Lamp* takes over until the night fades. While the town is in the yard celebrating a new Master, the fast D major jig *Festival* plays instead.
 - **Ambience**: the wind always blows in slow gusts; birds chirp by day and crickets take over at night; on rainy days the rain hisses on the hot cauldron, louder the closer you stand to it.
-- **SFX**: clicks, watering splashes, sparkles, the morning chime, and a brassy fanfare on a morning when the week's request was met. A rush order going up on the board flaps its envelope; the merchant's cart rumbles and clops in at dawn; the crowd cheers when the celebration starts; and the cats meow when they settle or stretch and purr when they roll or curl up (only the ones on screen).
+- **SFX**: clicks (and a faint tick as the pointer lands on a button), watering splashes, sparkles, the morning chime, a thunderclap when lightning flashes over a rainy yard, and a brassy fanfare on a morning when the week's request was met. A rush order going up on the board flaps its envelope; the merchant's cart rumbles and clops in at dawn; the crowd cheers when the celebration starts; and the cats meow when they settle or stretch and purr when they roll or curl up (only the ones on screen).
 
-The gusts you hear are the same ones that sway the trees, bushes, flowers and garden plants — the meadow leans with the wind. Everything is synthesised in code at start-up; there are no audio files.
+The gusts you hear are the same ones that sway the trees, bushes, flowers, garden plants and grass tufts — the meadow leans with the wind. Everything is synthesised in code at start-up; there are no audio files.
+
+## Light and weather
+
+The yard is lit by what is in it. Everything that glows is drawn in an additive pass over the evening tint, so it brightens the ground it falls on rather than sitting under the dark:
+
+- **Firelight** pools around the cauldron's logs and licks up the belly of the pot; the brew throws back a shifting highlight and sparks rise off the fire (a burst of them after a sauce is cooked).
+- **Lamplight** spills from the tower windows and under the door when the wizard is up and about, from the open doorway, and from the town's windows after dark; the moon has a soft halo.
+- **The ghost pepper** gives off a cold blue pulse and hovers over a shadow that shrinks as it rises; a jar that has finished fermenting glows faintly in its pepper's colour.
+- **Fireflies** wander the meadow after dark on clear nights; by day the air carries drifting pollen instead. Now and then a small flock of birds crosses the sky, and at breakfast and supper time smoke curls from the town's chimneys. On a clear night a star may fall.
+- **Shadows**: everything that stands on the grass has a contact shadow, and the sun throws a longer one that leans right in the morning, shrinks to nothing at noon and stretches left toward evening — trees, fence posts, the well, the cart, the tower, the wizard, the villagers and the cats all cast them. They fade under rain clouds and at night.
+- **Rain** brings lightning every so often (a white flash and a rolling thunderclap), and puddles on the road catch the sky.
+
+Small touches: dust kicks up behind every footstep; planting throws soil, harvesting scatters leaves in the pepper's colour, a pep talk sends up hearts, grinding puffs powder off the mortar, cooking slops brew over the rim, and a jar that finished overnight sparkles after the morning report. Panels pop open, buttons press down, the toast slides up, and the HUD bars ease toward their values and flash when they rise.
 
 ## The day
 

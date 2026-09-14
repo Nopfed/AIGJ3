@@ -143,6 +143,14 @@ namespace SpiceWizard.Web.Scene
             return new Vector2(FacingLeft ? x : x + 11, y + 9);
         }
 
+        /// <summary>The shadow he throws along the grass, drawn before everything that stands on it.</summary>
+        public void DrawCastShadow(Canvas c, float shear, float squash, Color color)
+        {
+            if (Hidden || InDoorway) return;
+            int x = (int)Math.Round(Feet.X) - 6, y = (int)Math.Round(Feet.Y) - 1;
+            c.CastShadow("wizard0", x, y, shear, squash, color, FacingLeft);
+        }
+
         public void Draw(Canvas c)
         {
             if (Hidden) return;
@@ -198,6 +206,18 @@ namespace SpiceWizard.Web.Scene
         public string Sprite;
         public Vector2 From, To;
         public float Arc;
+        /// <summary>Drawn in the additive light pass (embers, fireflies) rather than over the scene.</summary>
+        public bool Additive;
+        /// <summary>When set, the colour slides from <see cref="Color"/> to this over the particle's life.</summary>
+        public Color? ColorEnd;
+        /// <summary>Blinks on and off at this rate (radians per second of life); 0 stays lit.</summary>
+        public float Blink;
+        /// <summary>Radius of the little pool of light a glowing particle throws; 0 for a bare dot.</summary>
+        public int Halo;
+        /// <summary>Two-frame sprite particles (birds) alternate "name0"/"name1" at this rate.</summary>
+        public float Flap;
+        /// <summary>Sprite particles that fly in a straight line under their own velocity rather than lobbing.</summary>
+        public bool Straight;
     }
 
     public sealed class Particles
@@ -218,6 +238,172 @@ namespace SpiceWizard.Web.Scene
         {
             for (int i = 0; i < 8; i++)
                 Spawn(new Vector2(at.X + _rng.Next(-6, 7), at.Y - 6), new Vector2(_rng.Next(-10, 11), -20 - _rng.Next(20)), 0.5f, Palette.Sky, 1, 120f);
+        }
+
+        /// <summary>A spark off the fire: bright yellow, cooling to dark red as it rises and drifts.</summary>
+        public void Ember(Point at)
+        {
+            var p = new Particle
+            {
+                Pos = new Vector2(at.X + _rng.Next(-6, 7), at.Y - _rng.Next(3)),
+                Vel = new Vector2(_rng.Next(-6, 7), -18 - _rng.Next(16)),
+                Life = 0.7f + (float)_rng.NextDouble() * 0.8f,
+                Color = Palette.LightYellow,
+                ColorEnd = Palette.DarkRed,
+                Size = 1,
+                Wobble = 6f + _rng.Next(8),
+                Additive = true,
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
+        /// <summary>A firefly wandering the meadow after dark: a slow drifting green dot that winks on and off.</summary>
+        public void Firefly(int left, int right, int top, int bottom)
+        {
+            var p = new Particle
+            {
+                Pos = new Vector2(_rng.Next(left, right), _rng.Next(top, bottom)),
+                Vel = new Vector2(_rng.Next(-5, 6), _rng.Next(-3, 4)),
+                Life = 6f + (float)_rng.NextDouble() * 5f,
+                Color = new Color(190, 255, 120),
+                Size = 1,
+                Wobble = 3f + _rng.Next(4),
+                Blink = 1.5f + (float)_rng.NextDouble() * 2f,
+                Halo = 3,
+                Additive = true,
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
+        /// <summary>A speck of pollen or dust hanging in the daylight, carried along on the breeze.</summary>
+        public void Mote(int left, int right, int top, int bottom)
+        {
+            var p = new Particle
+            {
+                Pos = new Vector2(_rng.Next(left, right), _rng.Next(top, bottom)),
+                Vel = new Vector2(_rng.Next(-2, 3), -1 - _rng.Next(2)),
+                Life = 6f + (float)_rng.NextDouble() * 4f,
+                Color = Palette.LightYellow * 0.45f,
+                Size = 1,
+                Wobble = 2f + _rng.Next(3),
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
+        /// <summary>A little kick of dry earth behind a foot coming down.</summary>
+        public void Dust(Vector2 feet, bool facingLeft)
+        {
+            for (int i = 0; i < 2; i++)
+                Spawn(new Vector2(feet.X + _rng.Next(-2, 3), feet.Y - 1), new Vector2((facingLeft ? 6 : -6) + _rng.Next(-3, 4), -6 - _rng.Next(6)), 0.35f, Palette.Tan * 0.8f, 1, 60f);
+        }
+
+        /// <summary>Crumbs of soil thrown up when a seed goes into a plot.</summary>
+        public void Soil(Point at)
+        {
+            for (int i = 0; i < 5; i++)
+                Spawn(new Vector2(at.X + _rng.Next(-5, 6), at.Y), new Vector2(_rng.Next(-14, 15), -22 - _rng.Next(16)), 0.5f, i % 2 == 0 ? Palette.Soil : Palette.DeepSoil, 1, 140f);
+        }
+
+        /// <summary>Flecks of leaf and fruit that scatter when a pepper is picked.</summary>
+        public void Petals(Point at, Color color)
+        {
+            for (int i = 0; i < 7; i++)
+            {
+                var p = new Particle
+                {
+                    Pos = new Vector2(at.X + _rng.Next(-5, 6), at.Y + _rng.Next(-6, 3)),
+                    Vel = new Vector2(_rng.Next(-16, 17), -14 - _rng.Next(14)),
+                    Life = 0.8f + (float)_rng.NextDouble() * 0.5f,
+                    Color = i % 3 == 0 ? Palette.LightGreen : color,
+                    Size = i % 4 == 0 ? 2 : 1,
+                    Gravity = 40f,
+                    Wobble = 8f,
+                };
+                p.MaxLife = p.Life;
+                _list.Add(p);
+            }
+        }
+
+        /// <summary>Little pink hearts floating up from a plant that has just been talked to.</summary>
+        public void Hearts(Point at)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var p = new Particle
+                {
+                    Pos = new Vector2(at.X + _rng.Next(-5, 6), at.Y - i * 3),
+                    Vel = new Vector2(_rng.Next(-3, 4), -9 - _rng.Next(4)),
+                    Life = 1.1f + i * 0.15f,
+                    Color = i == 1 ? Palette.DarkPink : Palette.Pink,
+                    Size = 2,
+                    Wobble = 4f,
+                };
+                p.MaxLife = p.Life;
+                _list.Add(p);
+            }
+        }
+
+        /// <summary>A puff of ground spice rising off the mortar in the spice's own colour.</summary>
+        public void Powder(Point at, Color color)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                var p = new Particle
+                {
+                    Pos = new Vector2(at.X + _rng.Next(-3, 4), at.Y),
+                    Vel = new Vector2(_rng.Next(-5, 6), -8 - _rng.Next(6)),
+                    Life = 0.8f + (float)_rng.NextDouble() * 0.5f,
+                    Color = color * 0.8f,
+                    Size = 1,
+                    Grow = 2,
+                };
+                p.MaxLife = p.Life;
+                _list.Add(p);
+            }
+        }
+
+        /// <summary>Drops of brew slopping over the rim as a sauce comes together.</summary>
+        public void Splash(Point at, Color color)
+        {
+            for (int i = 0; i < 6; i++)
+                Spawn(new Vector2(at.X + _rng.Next(-9, 10), at.Y), new Vector2(_rng.Next(-18, 19), -26 - _rng.Next(18)), 0.55f, color, i % 2 == 0 ? 2 : 1, 150f);
+        }
+
+        /// <summary>A thin curl of hearth smoke from a distant chimney, hazed like the town it rises from.</summary>
+        public void Chimney(Point at, Color tint)
+        {
+            var p = new Particle
+            {
+                Pos = new Vector2(at.X, at.Y),
+                Vel = new Vector2(2 + _rng.Next(3), -5 - _rng.Next(3)),
+                Life = 2.5f + (float)_rng.NextDouble(),
+                Color = tint * 0.5f,
+                Size = 1,
+                Grow = 2,
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
+        }
+
+        /// <summary>A bird crossing the sky in a straight line, flapping as it goes.</summary>
+        public void Bird(Vector2 at, Vector2 vel, float life)
+        {
+            var p = new Particle
+            {
+                Pos = at,
+                Vel = vel,
+                Life = life,
+                Color = Color.White,
+                Sprite = "bird",
+                Straight = true,
+                Flap = 6f + (float)_rng.NextDouble() * 3f,
+                Wobble = 2f,
+            };
+            p.MaxLife = p.Life;
+            _list.Add(p);
         }
 
         public void Sparkle(Point at, Color color)
@@ -325,7 +511,7 @@ namespace SpiceWizard.Web.Scene
                 var p = _list[i];
                 p.Life -= dt;
                 if (p.Life <= 0) { _list.RemoveAt(i); continue; }
-                if (p.Sprite != null)
+                if (p.Sprite != null && !p.Straight)
                 {
                     // Sprite particles fly a fixed lob from one point to another rather than under gravity.
                     float t = 1f - p.Life / p.MaxLife;
@@ -342,21 +528,50 @@ namespace SpiceWizard.Web.Scene
             }
         }
 
-        public void Draw(Canvas c)
+        public void Draw(Canvas c) => Draw(c, false);
+
+        /// <summary>Draws the ordinary particles, or with <paramref name="additive"/> only the glowing ones
+        /// (call that inside the canvas's additive pass).</summary>
+        public void Draw(Canvas c, bool additive)
         {
             foreach (var p in _list)
             {
+                if (p.Additive != additive) continue;
                 if (p.Sprite != null)
                 {
+                    if (p.Straight)
+                    {
+                        string frame = p.Sprite + ((int)(p.Life * p.Flap) % 2);
+                        var sz = c.Size(frame);
+                        c.Sprite(frame, (int)Math.Round(p.Pos.X) - sz.X / 2, (int)Math.Round(p.Pos.Y) - sz.Y / 2, p.Color, p.Vel.X < 0);
+                        continue;
+                    }
                     var size0 = c.Size(p.Sprite);
                     c.Rect((int)p.Pos.X - 2, (int)p.To.Y - 1, 5, 2, Palette.Shadow);
                     c.Sprite(p.Sprite, (int)p.Pos.X - size0.X / 2, (int)p.Pos.Y - size0.Y, p.Color);
                     continue;
                 }
+                float frac = p.Life / p.MaxLife;
                 // Growing particles (smoke) thin out steadily as they swell; the rest hold full until half-life.
-                float a = p.Grow > 0 ? p.Life / p.MaxLife : Math.Min(1f, p.Life / p.MaxLife * 2f);
-                int size = p.Size + (int)(p.Grow * (1f - p.Life / p.MaxLife));
-                c.Rect((int)p.Pos.X - (size - p.Size) / 2, (int)p.Pos.Y, size, size, p.Color * a);
+                float a = p.Grow > 0 ? frac : Math.Min(1f, frac * 2f);
+                var color = p.ColorEnd.HasValue ? Color.Lerp(p.ColorEnd.Value, p.Color, frac) : p.Color;
+                if (p.Blink > 0)
+                {
+                    // Fireflies fade in and out rather than snapping, and are off for a good part of each cycle.
+                    float wink = (float)Math.Sin(p.Life * p.Blink);
+                    if (wink < 0.15f) continue;
+                    a *= Math.Min(1f, (wink - 0.15f) * 2.5f);
+                }
+                int size = p.Size + (int)(p.Grow * (1f - frac));
+                int x = (int)p.Pos.X - (size - p.Size) / 2, y = (int)p.Pos.Y;
+                if (additive)
+                {
+                    // Additive light wants brightness in the colour, not the alpha.
+                    var lit = Canvas.Tone(color, a);
+                    if (p.Halo > 0) c.Light(x, y, p.Halo, p.Halo, Canvas.Tone(color, a * 0.45f), 2);
+                    c.Rect(x, y, size, size, lit);
+                }
+                else c.Rect(x, y, size, size, color * a);
             }
         }
     }
@@ -371,15 +586,21 @@ namespace SpiceWizard.Web.Scene
 
         public bool Arrived => Vector2.DistanceSquared(Feet, Target) < 1f;
 
+        /// <summary>True on the frame a hop comes down, so the owner can kick up dust.</summary>
+        public bool Landed;
+
         public void Update(float dt, float speed)
         {
+            int hopBefore = (int)(Anim * 6 / Math.PI);
             Anim += dt;
+            Landed = false;
             var d = Target - Feet;
             float step = speed * dt;
             if (d.Length() <= step) { Feet = Target; return; }
             d.Normalize();
             Feet += d * step;
             if (Math.Abs(d.X) > 0.2f) FacingLeft = d.X < 0;
+            Landed = (int)(Anim * 6 / Math.PI) != hopBefore;
         }
 
         public void Draw(Canvas c)
@@ -389,6 +610,9 @@ namespace SpiceWizard.Web.Scene
             c.Rect(x - 3, y - 2, 7, 2, Palette.Shadow);
             c.Sprite("townsfolk" + Sprite, x - 5, y - 16 - hop, Color.White, FacingLeft);
         }
+
+        public void DrawCastShadow(Canvas c, float shear, float squash, Color color) =>
+            c.CastShadow("townsfolk" + Sprite, (int)Math.Round(Feet.X) - 5, (int)Math.Round(Feet.Y) - 2, shear, squash, color, FacingLeft);
     }
 
     /// <summary>
@@ -398,6 +622,8 @@ namespace SpiceWizard.Web.Scene
     public sealed class Villagers
     {
         const float Speed = 45f;
+        /// <summary>Fires with a villager's feet and facing each time one lands a hop, for a kick of dust.</summary>
+        public Action<Vector2, bool> OnStep;
         Walker _a, _b;
         // 0 idle, 1 along the road, 2 down to the crate, 3 lifting, 4 back up to the road, 5 away down the road.
         int _phase;
@@ -431,6 +657,8 @@ namespace SpiceWizard.Web.Scene
             }
             _a.Update(dt, Speed);
             _b.Update(dt, Speed);
+            if (_a.Landed) OnStep?.Invoke(_a.Feet, _a.FacingLeft);
+            if (_b.Landed) OnStep?.Invoke(_b.Feet, _b.FacingLeft);
             if (!_a.Arrived || !_b.Arrived) return;
             switch (_phase)
             {
@@ -454,6 +682,13 @@ namespace SpiceWizard.Web.Scene
                     _phase = 0;
                     break;
             }
+        }
+
+        public void DrawCastShadows(Canvas c, float shear, float squash, Color color)
+        {
+            if (_phase == 0) return;
+            _a.DrawCastShadow(c, shear, squash, color);
+            _b.DrawCastShadow(c, shear, squash, color);
         }
 
         public void Draw(Canvas c)

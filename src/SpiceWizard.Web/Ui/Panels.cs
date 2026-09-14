@@ -39,8 +39,12 @@ namespace SpiceWizard.Web.Ui
 
         static bool Open(Ui ui, Session ss, string title)
         {
-            if (ui.Panel(Frame, title)) { ss.Close(); return false; }
-            return true;
+            // The frame pops open over a few frames; its contents wait until it has reached full size.
+            int inset = ss.PopInset;
+            var r = Frame;
+            r.Inflate(-inset, -inset);
+            if (ui.Panel(r, title)) { ss.Close(); return false; }
+            return inset == 0;
         }
 
         /// <summary>Small status at the right end of the title bar, with an optional icon.</summary>
@@ -113,7 +117,7 @@ namespace SpiceWizard.Web.Ui
                         {
                             var r = Actions.PlantSeed(s, i, info.Species);
                             ss.Say(r, Sfx.Plant);
-                            if (r.Ok) ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y + 4), Palette.LightGreen);
+                            if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y + 4), Palette.LightGreen); ss.Particles?.Soil(new Point(pos.X + 12, pos.Y + 6)); }
                         }
                     }
                     return y + Row + 12;
@@ -170,13 +174,13 @@ namespace SpiceWizard.Web.Ui
                 {
                     var r = Actions.PepTalk(s, i);
                     ss.Say(r);
-                    if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Pink); ss.OnPose?.Invoke(WizardActor.PoseCheer); }
+                    if (r.Ok) { ss.Particles?.Hearts(new Point(pos.X + 12, pos.Y - 4)); ss.OnPose?.Invoke(WizardActor.PoseCheer); }
                 }
                 if (ui.Button(new Rectangle(Left + 184, by, 86, 16), "Harvest", plant.IsMature, "Yields " + sp.Yield + " peppers", icon: ItemArt.PepperIcon(plant.Species)))
                 {
                     var r = Actions.Harvest(s, i);
                     ss.Say(r, Sfx.Harvest);
-                    if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Yellow); ss.Close(); }
+                    if (r.Ok) { ss.OnSparkle?.Invoke(new Point(pos.X + 12, pos.Y), Palette.Yellow); ss.Particles?.Petals(new Point(pos.X + 12, pos.Y), ItemArt.SpeciesColor(plant.Species)); ss.Close(); }
                 }
                 by += 20;
                 HastenButton(ui, ss, new Rectangle(Left, by, 178, 16), s, !plant.IsMature, "Grows " + Balance.HastenNights + " nights at once",
@@ -537,7 +541,11 @@ namespace SpiceWizard.Web.Ui
                     // Packed to the pixel: "Banana 12", the powder count ("x12"), the button, the + and the blend column.
                     if (ui.Button(new Rectangle(Left + 95, y - 1, 54, 11), "Grind", s.Inventory.Pepper(sp) > 0 && s.Spice.CanSpend(Balance.GrindSpiceCost),
                         "One pepper to one powder for " + Balance.GrindSpiceCost + " spice", badge: Cost(Balance.GrindSpiceCost)))
-                        ss.Say(Actions.Grind(s, sp), Sfx.Grind);
+                    {
+                        var gr = Actions.Grind(s, sp);
+                        ss.Say(gr, Sfx.Grind);
+                        if (gr.Ok) ss.Particles?.Powder(new Point(Layout.Mortar.X + 7, Layout.Mortar.Y + 2), ItemArt.SpeciesColor(sp));
+                    }
                     PinchButton(ui, ss, s, draft, ing, Left + 153, y, unlocked && room);
                 }
                 y += 2;

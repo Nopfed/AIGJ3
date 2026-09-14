@@ -8,9 +8,30 @@ namespace SpiceWizard.Web.Ui
     /// <summary>HUD strip, toast, title screen and the level-20 celebration.</summary>
     public static class Overlays
     {
+        // The HUD's numbers ease toward their true values and flash white for a moment when they go up.
+        static float _lastTime, _spiceShown, _xpShown, _pcShown, _spiceFlash, _xpFlash, _pcFlash;
+        static int _spiceWas, _pcWas, _levelWas;
+        static double _xpWas;
+
+        static float Ease(float shown, float target, float dt) =>
+            Math.Abs(target - shown) < 0.01f ? target : shown + (target - shown) * Math.Min(1f, dt * 7f);
+
+        static Color Flashed(Color fill, float flash) => flash > 0 ? Color.Lerp(fill, Palette.White, Math.Min(1f, flash * 3f)) : fill;
+
         public static void Hud(Ui ui, GameState s, Session ss, float time)
         {
             var c = ui.C;
+            float dt = Math.Clamp(time - _lastTime, 0f, 0.1f);
+            _lastTime = time;
+            if (s.Spice.Current > _spiceWas) _spiceFlash = 0.35f;
+            if (s.Peppercorns > _pcWas) _pcFlash = 0.35f;
+            if (s.Progression.Xp > _xpWas || s.Level > _levelWas) _xpFlash = 0.35f;
+            _spiceWas = s.Spice.Current; _pcWas = s.Peppercorns; _xpWas = s.Progression.Xp; _levelWas = s.Level;
+            _spiceFlash -= dt; _pcFlash -= dt; _xpFlash -= dt;
+            _spiceShown = Ease(_spiceShown, s.Spice.Current / (float)s.Spice.Max, dt);
+            float xpTarget = (float)s.Progression.Fraction;
+            _xpShown = xpTarget < _xpShown - 0.5f ? xpTarget : Ease(_xpShown, xpTarget, dt);   // a new level empties the bar at once
+            _pcShown = Math.Abs(s.Peppercorns - _pcShown) > 200 ? s.Peppercorns : Ease(_pcShown, s.Peppercorns, dt);
             int top = Camera.Top, left = Camera.Left, right = Camera.Right;
             c.Rect(left, top, Camera.View.Width, Scene.Layout.HudHeight, Palette.Outline * 0.75f);
             c.Rect(left, top + Scene.Layout.HudHeight - 1, Camera.View.Width, 1, Palette.Gold * 0.5f);
@@ -29,35 +50,39 @@ namespace SpiceWizard.Web.Ui
             if (ui.Hot(new Rectangle(left + 88, top + 2, 12, 10))) ui.Tooltip = WeatherInfo.Name(s.Weather) + ": " + WeatherInfo.Describe(s.Weather);
 
             c.Sprite("ic_peppercorn", left + 126, top + 3);
-            c.Text(s.Peppercorns.ToString(), left + 137, top + 4, Palette.Yellow);
+            c.Text(((int)Math.Round(_pcShown)).ToString(), left + 137, top + 4, Flashed(Palette.Yellow, _pcFlash));
 
             // The right-hand group hugs the right edge of the window.
             int rx = right - Camera.Width;
             c.Sprite("ic_flame", rx + 176, top + 3);
-            ui.Bar(new Rectangle(rx + 187, top + 4, 40, 7), s.Spice.Current / (float)s.Spice.Max, Palette.Orange);
+            ui.Bar(new Rectangle(rx + 187, top + 4, 40, 7), _spiceShown, Flashed(Palette.Orange, _spiceFlash));
             c.Text(s.Spice.Current + "/" + s.Spice.Max, rx + 230, top + 4, Palette.Cream);
             if (ui.Hot(new Rectangle(rx + 176, top + 2, 80, 10))) ui.Tooltip = "Spice: cooking energy. Eat peppers or sleep.";
 
-            c.Sprite("ic_hat", rx + 268, top + 3);
-            c.Text("Lv " + s.Level, rx + 279, top + 4, Palette.LightPurple);
-            ui.Bar(new Rectangle(rx + 312, top + 4, 34, 7), (float)s.Progression.Fraction, Palette.LightPurple);
-            if (ui.Hot(new Rectangle(rx + 268, top + 2, 78, 10)))
+            c.Sprite("ic_hat", rx + 265, top + 3);
+            c.Text("Lv " + s.Level, rx + 276, top + 4, Palette.LightPurple);
+            ui.Bar(new Rectangle(rx + 307, top + 4, 22, 7), _xpShown, Flashed(Palette.LightPurple, _xpFlash));
+            if (ui.Hot(new Rectangle(rx + 265, top + 2, 64, 10)))
             {
                 string next = Progression.UnlockAt(s.Level + 1);
                 ui.Tooltip = s.Progression.IsMaster ? "Master Spice Wizard" : s.Progression.Xp + "/" + s.Progression.XpToNext + " fame" + (next.Length > 0 ? ". Next: " + next : "");
             }
 
             // The moon does what the tower door does: turn in early once the day's chores are done.
-            if (ui.Button(new Rectangle(rx + 349, top + 2, 14, 10), "", !ss.PanelOpen, ss.PanelOpen ? null : "Go to bed early", icon: "ic_moon")) ss.Open(PanelKind.Door);
-            if (ui.Button(new Rectangle(rx + 366, top + 2, 14, 10), "?", true, "How to play")) ss.Open(PanelKind.Help);
+            if (ui.Button(new Rectangle(rx + 330, top + 1, 16, 11), "", !ss.PanelOpen, ss.PanelOpen ? null : "Go to bed early", icon: "ic_moon")) ss.Open(PanelKind.Door);
+            if (ui.Button(new Rectangle(rx + 348, top + 1, 16, 11), "", ss.RequestFullscreen != null, "Fullscreen", icon: "ic_expand")) ss.RequestFullscreen?.Invoke();
+            if (ui.Button(new Rectangle(rx + 366, top + 1, 16, 11), "?", true, "How to play")) ss.Open(PanelKind.Help);
         }
 
         public static void Toast(Ui ui, Session ss)
         {
             if (ss.ToastTime <= 0 || string.IsNullOrEmpty(ss.Toast)) return;
-            float a = Math.Min(1f, ss.ToastTime / 0.5f);
+            // Slides up and fades in over its first tenth of a second, then fades out at the end.
+            float age = 3f - ss.ToastTime;
+            float a = Math.Min(Math.Min(1f, ss.ToastTime / 0.5f), Math.Max(0f, age / 0.12f));
+            int rise = (int)Math.Min(4f, age * 32f);
             int w = PixelFont.Measure(ss.Toast) + 10;
-            int x = Camera.Width / 2 - w / 2, y = Camera.Bottom - 16;
+            int x = Camera.Width / 2 - w / 2, y = Camera.Bottom - 12 - rise;
             ui.C.Rect(x, y, w, 12, Palette.Outline * (0.85f * a));
             ui.C.Text(ss.Toast, x + 5, y + 2, ss.ToastColor * a);
         }
@@ -73,8 +98,10 @@ namespace SpiceWizard.Web.Ui
             c.TextCentered("a cooking and farming tale", cx, 72, Palette.Cream);
             int bob = (int)(Math.Sin(time * 2) * 2);
             c.Sprite("wizard0", cx - 6, 86 + bob);
-            c.Sprite("ic_bell", cx - 40, 92); c.Sprite("ic_banana", cx - 26, 92);
-            c.Sprite("ic_bonnet", cx + 18, 92); c.Sprite("ic_ghost", cx + 32, 92);
+            // The peppers bob in turn, like a little wave passing along the row.
+            string[] icons = { "ic_bell", "ic_banana", "ic_bonnet", "ic_ghost" };
+            int[] ix = { cx - 40, cx - 26, cx + 18, cx + 32 };
+            for (int i = 0; i < 4; i++) c.Sprite(icons[i], ix[i], 92 + (int)Math.Round(Math.Sin(time * 2.5 + i * 0.9)));
 
             int y = 120;
             if (ss.ConfirmNewGame)
@@ -108,8 +135,11 @@ namespace SpiceWizard.Web.Ui
             int cx = Camera.Width / 2;
             var box = new Rectangle(cx - 60, 60, 120, 96);
             c.Rect(Camera.View, Palette.Outline * 0.55f);
-            c.Rect(box.X + 3, box.Y + 3, box.Width, box.Height, Palette.Shadow);
-            c.NineSlice("frame", box);
+            int inset = ss.PopInset;
+            var frame = box; frame.Inflate(-inset, -inset);
+            c.Rect(frame.X + 3, frame.Y + 3, frame.Width, frame.Height, Palette.Shadow);
+            c.NineSlice("frame", frame);
+            if (inset > 0) return;
             BigText(c, "PAUSED", cx, box.Y + 8, 2, Palette.Yellow);
             int y = box.Y + 30;
             if (ui.Button(new Rectangle(cx - 50, y, 100, 16), "Resume", true)) ss.Close();

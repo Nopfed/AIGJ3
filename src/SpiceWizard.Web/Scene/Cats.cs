@@ -421,6 +421,19 @@ namespace SpiceWizard.Web.Scene
 
         // ---- Drawing ---------------------------------------------------------------------------
 
+        /// <summary>The cats' sun shadows, drawn with the rest of the yard's before anything stands on the grass.</summary>
+        public void DrawCastShadows(Canvas c, float shear, float squash, Color color)
+        {
+            foreach (var cat in _cats)
+            {
+                if (cat.Mood == Mood.Hide || cat.Mood == Mood.Perch || cat.Mood == Mood.Jump) continue;
+                string frame = Frame(cat, out int lift);
+                var size = c.Size(frame);
+                int x = (int)Math.Round(cat.Feet.X) - size.X / 2;
+                c.CastShadow(frame, x, (int)Math.Round(cat.Feet.Y) - 1 - lift, shear, squash, color, cat.FacingLeft);
+            }
+        }
+
         public void Draw(Canvas c, bool dark)
         {
             foreach (var cat in _cats)
@@ -438,7 +451,7 @@ namespace SpiceWizard.Web.Scene
                 int x = (int)Math.Round(cat.Feet.X) - size.X / 2;
                 int y = (int)Math.Round(cat.Feet.Y) - size.Y - lift;
                 if (cat.Mood != Mood.Perch && cat.Mood != Mood.Jump)
-                    c.Rect(x + 2, (int)Math.Round(cat.Feet.Y) - 1, size.X - 4, 1, Palette.Shadow);
+                    c.GroundShadow((int)Math.Round(cat.Feet.X), size.X - 4, (int)Math.Round(cat.Feet.Y) - 1, cat.Mood == Mood.Sleep ? 0.6f : 1f);
                 c.Sprite(frame, x, y, cat.Coat, cat.FacingLeft);
 
                 bool blink = cat.Anim % 3.3f < 0.12f;

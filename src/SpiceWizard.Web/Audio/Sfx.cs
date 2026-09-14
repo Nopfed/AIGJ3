@@ -13,6 +13,7 @@ namespace SpiceWizard.Web.Audio
         public const string Pinch = "pinch", Blend = "blend", Eat = "eat", Ship = "ship", Unship = "unship", Bucket = "bucket";
         public const string LevelUp = "levelup", Yawn = "yawn", Fanfare = "fanfare", Cheer = "cheer", Cart = "cart", Flap = "flap", Purr = "purr";
         public const string Step = "step", Blorp = "blorp", Mumble = "mumble", Think = "think", Affirm = "affirm", Meow = "meow";
+        public const string Thunder = "thunder", Tick = "tick";
         public const int StepVariants = 4, BlorpVariants = 3, MumbleVariants = 4, ThinkVariants = 3, AffirmVariants = 3, MeowVariants = 3;
 
         /// <summary>Name of a numbered variant: "step2", "mumble0".</summary>
@@ -76,6 +77,32 @@ namespace SpiceWizard.Web.Audio
                             b[i0 + i] += (float)Math.Sin(phase * Math.PI * 2) * 0.3f * (float)Math.Exp(-t * 35);
                         }
                     }
+                    return b;
+                }
+                case Thunder:
+                {
+                    // A crack, then a long low rumble that rolls away over a couple of seconds.
+                    var b = Synth.Buffer(2.8);
+                    Synth.Burst(b, rng, 0.02, 0.08, 0.7f, 0.5f, 40);
+                    var rumble = Synth.Buffer(2.8);
+                    Synth.Noise(rumble, rng, 0.8f);
+                    Synth.LowPass(rumble, i => 0.012f + 0.03f * (float)Math.Exp(-i / (double)Synth.Rate * 1.5));
+                    for (int i = 0; i < rumble.Length; i++)
+                    {
+                        double t = i / (double)Synth.Rate;
+                        float env = (float)(Math.Min(1, t / 0.15) * Math.Exp(-t * 1.3) * (0.7 + 0.3 * Math.Sin(t * 9)));
+                        rumble[i] *= env * 6f;
+                    }
+                    Synth.Mix(b, rumble, 1f);
+                    Synth.Note(b, Synth.Wave.Sine, 48, 0.05, 1.2, 0.35f, 0.02, 0.4, 0.5, 0.7);
+                    return b;
+                }
+                case Tick:
+                {
+                    // The faintest wooden tick, for the pointer landing on a button.
+                    var b = Synth.Buffer(0.05);
+                    Synth.Burst(b, rng, 0, 0.02, 0.35f, 0.3f, 150);
+                    Synth.Note(b, Synth.Wave.Triangle, 1200, 0, 0.02, 0.1f, 0.001, 0.01, 0.2, 0.02);
                     return b;
                 }
                 case Thud:

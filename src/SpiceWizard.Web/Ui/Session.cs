@@ -28,6 +28,10 @@ namespace SpiceWizard.Web.Ui
 
         public string Toast;
         public float ToastTime;
+        /// <summary>Seconds since the current panel opened, for its pop-in.</summary>
+        public float PanelAge;
+        /// <summary>How many pixels the panel frame is still shy of full size while it pops open.</summary>
+        public int PopInset => PanelAge < 0.04f ? 6 : PanelAge < 0.08f ? 3 : 0;
         public Color ToastColor;
 
         public Particles Particles;
@@ -41,6 +45,9 @@ namespace SpiceWizard.Web.Ui
         public Action RequestNewGame;
         public Action RequestContinue;
         public Action RequestQuit;
+        public Action RequestFullscreen;
+        /// <summary>Fires after a panel closes, so the game can tuck the day away in the save.</summary>
+        public Action<PanelKind> OnClosed;
         public Action SettingsChanged;
         public Action<string> PlaySfx;
         /// <summary>The wizard is pleased with himself: called after actions that went well.</summary>
@@ -52,6 +59,7 @@ namespace SpiceWizard.Web.Ui
         public void Open(PanelKind kind, int index = 0)
         {
             if (kind != Panel && kind != PanelKind.Title) PlaySfx?.Invoke(Sfx.Open);
+            if (kind != Panel) PanelAge = 0f;
             Panel = kind;
             Index = index;
             ConfirmNewGame = false;
@@ -70,8 +78,11 @@ namespace SpiceWizard.Web.Ui
 
         public void Close()
         {
-            if (Panel != PanelKind.None && Panel != PanelKind.Title) PlaySfx?.Invoke(Sfx.Close);
+            var closing = Panel;
+            bool was = Panel != PanelKind.None && Panel != PanelKind.Title;
+            if (was) PlaySfx?.Invoke(Sfx.Close);
             Panel = PanelKind.None;
+            if (was) OnClosed?.Invoke(closing);
         }
 
         /// <summary>Toasts the result; a success plays its own sound (and may earn an "a-ha"), a failure buzzes.</summary>
@@ -100,6 +111,7 @@ namespace SpiceWizard.Web.Ui
         public void Update(float dt)
         {
             if (ToastTime > 0) ToastTime -= dt;
+            PanelAge += dt;
         }
     }
 }

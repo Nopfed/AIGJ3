@@ -1009,6 +1009,19 @@ namespace SpiceWizard.Web.Art
                 "..wWWWww..",
                 "...wwww...",
             },
+            // A distant bird, wings up and wings down.
+            ["bird0"] = new[]
+            {
+                "K...K",
+                ".K.K.",
+                "..K..",
+            },
+            ["bird1"] = new[]
+            {
+                ".....",
+                "KK.KK",
+                "..K..",
+            },
             ["cloud"] = new[]
             {
                 "......WWWW..........",
@@ -1588,6 +1601,18 @@ namespace SpiceWizard.Web.Art
                 "..GGG...",
                 ".GG.GG..",
                 "G.....G.",
+            },
+            // Four corners pulling outward: go fullscreen.
+            ["ic_expand"] = new[]
+            {
+                "KKK..KKK",
+                "KW....WK",
+                "K......K",
+                "........",
+                "........",
+                "K......K",
+                "KW....WK",
+                "KKK..KKK",
             },
             ["ic_hat"] = new[]
             {

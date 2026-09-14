@@ -17,12 +17,15 @@ namespace SpiceWizard.Web
     public class SpiceWizardGame : Game
     {
         readonly GraphicsDeviceManager _graphics;
-        readonly string _savedJson;
+        string _savedJson;            // the latest save, so Continue after Quit to title picks up where it left off
         readonly Action<string> _saveHook;
         readonly Action _clearSaveHook;
         readonly string _savedSettings;
         readonly Action<string> _saveSettingsHook;
         readonly Func<int[]> _pollClicks;
+        readonly Action _fullscreenHook;
+        float _autosaveTimer = AutosaveSeconds;
+        const float AutosaveSeconds = 30f;
         readonly string _demo;
         readonly string _demoPanel;   // ?demo&panel=Cauldron opens a panel straight away, for screenshots
         readonly int _demoIndex;      // ...&index=5 picks the plot for panel=Plot
@@ -54,6 +57,11 @@ namespace SpiceWizard.Web
         float _time;
         float _smokeTimer;
         float _leafTimer;
+        float _emberTimer;
+        float _fireflyTimer;
+        float _moteTimer;
+        float _birdTimer = 20f;
+        float _chimneyTimer;
 
         // Bedtime, in order: 0 awake, 3 walking to the door, 4 door opening, 5 stepping inside,
         // 6 door closing, 7 snoring at the window, 1 fading to black, 2 fading back in (and coming out),
@@ -68,8 +76,9 @@ namespace SpiceWizard.Web
         int _sleepHintDay;            // the day the "nothing left to do" nudge was last shown
 
         public SpiceWizardGame(string savedJson, Action<string> saveHook, Action clearSaveHook, Func<int[]> pollClicks, string demo = null,
-            string savedSettings = null, Action<string> saveSettingsHook = null, string demoPanel = null, int demoIndex = 0)
+            string savedSettings = null, Action<string> saveSettingsHook = null, string demoPanel = null, int demoIndex = 0, Action fullscreenHook = null)
         {
+            _fullscreenHook = fullscreenHook;
             _demo = demo;
             _demoPanel = demoPanel;
             _demoIndex = demoIndex;
@@ -112,20 +121,27 @@ namespace SpiceWizard.Web
                 RequestContinue = Continue,
                 RequestQuit = QuitToTitle,
                 SettingsChanged = SaveSettings,
+                RequestFullscreen = _fullscreenHook,
+                OnClosed = PanelClosed,
                 PlaySfx = _mixer.Play,
                 OnAffirm = _mixer.Affirm,
             };
-            _wizard.OnStep = _mixer.Footstep;
+            _wizard.OnStep = Footstep;
             _wizard.OnPuff = _particles.Puff;
+            _villagers.OnStep = _particles.Dust;
             _cats.OnMeow = () => { if (_session.Panel != PanelKind.Title) _mixer.PlayVariant(Sfx.Meow, Sfx.MeowVariants, 0.45f, 0.1f); };
             _cats.OnPurr = () => { if (_session.Panel != PanelKind.Title) _mixer.Play(Sfx.Purr, 0.5f, 0f); };
             _ui.OnClick = () => _mixer.Play(Sfx.Click);
+            _ui.OnHover = () => _mixer.Play(Sfx.Tick, 0.35f, 0f);
+            _scene.OnLightning = () => { if (_session.Panel != PanelKind.Title) _mixer.Play(Sfx.Thunder, 0.7f, 0f); };
             _state = GameState.NewGame((ulong)DateTime.UtcNow.Ticks);
             _session.Panel = PanelKind.Title;
             if (_demo != null)
             {
                 _state = DemoState.Build(_demo == "master");
                 if (_demo == "night") _state.Clock.Minute = 21 * 60 + 20;
+                if (_demo == "morning") _state.Clock.Minute = 7 * 60 + 15;
+                if (_demo == "evening") _state.Clock.Minute = 18 * 60 + 30;
                 if (_demo == "windy") _state.Weather = Weather.Windy;
                 if (_demo == "rain") { _state.Weather = Weather.Rain; WeatherInfo.ApplyRain(_state); }
                 // The demo rush order wants one more Rainbow Chutney: crate it so ?demo=rush&panel=Morning shows it filled.
@@ -149,11 +165,33 @@ namespace SpiceWizard.Web
             }
         }
 
+        /// <summary>A panel just closed: the day is tucked into the save, and after the morning report any jar
+        /// that finished overnight gets a sparkle so the eye finds it.</summary>
+        void PanelClosed(PanelKind kind)
+        {
+            if (_sleepPhase == 0) Save();
+            if (kind != PanelKind.Morning) return;
+            for (int i = 0; i < _state.UnlockedJars && i < FermentShelf.MaxJars; i++)
+            {
+                var jar = _state.Shelf.Jars[i];
+                if (jar.IsEmpty || !jar.IsReady) continue;
+                _particles.Sparkle(new Point(Layout.Shelf.X + 6 + i * 11, Layout.Shelf.Y + 8), ItemArt.SpeciesColor(jar.Species.Value));
+            }
+        }
+
+        /// <summary>A footstep: the sound, and a kick of dust behind the boot.</summary>
+        void Footstep()
+        {
+            _mixer.Footstep();
+            _particles.Dust(_wizard.Feet, _wizard.FacingLeft);
+        }
+
         /// <summary>A sauce came out of the cauldron: sparks, a coloured brew, a burst of steam and a bottle lobbed to the pantry.</summary>
         void Cooked(Color color)
         {
             var top = new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 2);
             _particles.Sparkle(top, color);
+            _particles.Splash(top, color);
             _mixer.Play(Sfx.Sparkle);
             _scene.Brew(color);
             _particles.Bottle(top, new Point(Layout.Pantry.X + 9, Layout.Pantry.Y + 2), color);
@@ -173,7 +211,7 @@ namespace SpiceWizard.Web
             _villagers.Stop();
             _sleepHintDay = 0;
             ResetSleep();
-            _wizard = new WizardActor(Layout.WizardStart) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff };
+            _wizard = new WizardActor(Layout.WizardStart) { OnStep = Footstep, OnPuff = _particles.Puff };
             _session.Open(PanelKind.Help);
             _session.Say("Welcome to your tower. Click the garden to begin!");
         }
@@ -212,8 +250,23 @@ namespace SpiceWizard.Web
 
         void Save()
         {
-            try { _saveHook?.Invoke(SaveSystem.ToJson(_state)); _session.HasSave = true; }
+            _autosaveTimer = AutosaveSeconds;
+            if (_demo != null) return;   // demo states are for screenshots, never for the save slot
+            try
+            {
+                _savedJson = SaveSystem.ToJson(_state);
+                _saveHook?.Invoke(_savedJson);
+                _session.HasSave = true;
+            }
             catch (Exception) { /* storage may be unavailable; the game still plays */ }
+        }
+
+        /// <summary>Called from the page when the tab is hidden or closed, so a half-played day is never lost.
+        /// Nothing is written while the day is turning over or on the title screen.</summary>
+        public void SaveNow()
+        {
+            if (_session == null || _session.Panel == PanelKind.Title || _sleepPhase == 1 || _sleepPhase == 2) return;
+            Save();
         }
 
         void StartSleep()
@@ -281,6 +334,7 @@ namespace SpiceWizard.Web
             _scene.Weather = _state.Weather;
             _particles.Wind = _scene.WindPush;
 
+            UpdateAmbientParticles();
             if (_session.Panel == PanelKind.Title) { base.Update(gameTime); return; }
 
             if (_escape)
@@ -295,6 +349,8 @@ namespace SpiceWizard.Web
             if (_sleepPhase == 0 && !_session.PausesClock)
             {
                 _state.Clock.Advance(_dt);
+                _autosaveTimer -= _dt;
+                if (_autosaveTimer <= 0) Save();
                 if (_state.Clock.IsNightfall)
                 {
                     _session.Say("You can barely keep your eyes open...");
@@ -349,6 +405,77 @@ namespace SpiceWizard.Web
 
             base.Update(gameTime);
         }
+
+        /// <summary>The small life of the yard that needs no one to do anything: sparks off the fire, fireflies
+        /// after dark, pollen in the sunshine, birds over the hills and smoke from the town's chimneys.</summary>
+        void UpdateAmbientParticles()
+        {
+            double f = _state.Clock.DayFraction;
+            float dark = DayNight.Darkness(f);
+            bool raining = _state.Weather == Weather.Rain;
+            var fire = new Point(Layout.Cauldron.X + 12, Layout.Cauldron.Y + 18);
+
+            _emberTimer -= _dt;
+            if (_emberTimer <= 0)
+            {
+                _emberTimer = _scene.BurstTimer > 0 ? 0.06f : 0.22f;
+                _particles.Ember(fire);
+            }
+
+            if (dark > 0.2f && !raining)
+            {
+                _fireflyTimer -= _dt;
+                if (_fireflyTimer <= 0)
+                {
+                    _fireflyTimer = 0.6f;
+                    _particles.Firefly(Camera.Left, Camera.Right, Layout.Horizon + 6, Camera.Bottom - 4);
+                }
+            }
+            else if (dark < 0.01f && !raining)
+            {
+                _moteTimer -= _dt;
+                if (_moteTimer <= 0)
+                {
+                    _moteTimer = 0.8f;
+                    _particles.Mote(Camera.Left, Camera.Right, Camera.Top + Layout.HudHeight + 4, Camera.Bottom - 4);
+                }
+            }
+
+            // A small flock now and then by day, always well above the horizon and clear of the tower roof.
+            _birdTimer -= _dt;
+            if (_birdTimer <= 0)
+            {
+                _birdTimer = 25f + (float)_rng.NextDouble() * 30f;
+                if (dark < 0.3f && !raining)
+                {
+                    bool leftward = _rng.Next(2) == 0;
+                    int y = Camera.Top + Layout.HudHeight + 6 + _rng.Next(Math.Max(1, Layout.Horizon - 50 - Camera.Top - Layout.HudHeight));
+                    float span = Camera.View.Width + 40;
+                    float speed = 22f + _rng.Next(10);
+                    int n = 2 + _rng.Next(4);
+                    for (int i = 0; i < n; i++)
+                    {
+                        float x = leftward ? Camera.Right + 6 + i * 7 : Camera.Left - 6 - i * 7;
+                        _particles.Bird(new Vector2(x, y + (i % 2) * 3 + i), new Vector2(leftward ? -speed : speed, 0), span / speed + 1f);
+                    }
+                }
+            }
+
+            // Hearth smoke from the town at breakfast and supper time.
+            bool mealtime = f > 0.05 && f < 0.2 || f > 0.7 && f < 0.95;
+            if (mealtime && _scene.Chimneys.Count > 0)
+            {
+                _chimneyTimer -= _dt;
+                if (_chimneyTimer <= 0)
+                {
+                    _chimneyTimer = 0.9f;
+                    var ch = _scene.Chimneys[_rng.Next(_scene.Chimneys.Count)];
+                    _particles.Chimney(ch, DayNight.Haze(Palette.LightGrey, f));
+                }
+            }
+        }
+
+        readonly Random _rng = new Random();
 
         /// <summary>True when the garden is planted and watered, nothing is ripe, and no sauce is waiting for the crate.</summary>
         bool ChoresDone()
@@ -411,7 +538,7 @@ namespace SpiceWizard.Web
                         _scene.Snoring = false;
                         _scene.WindowsLit = false;
                         _scene.DoorOpen = true;
-                        _wizard = new WizardActor(Layout.DoorInside) { OnStep = _mixer.Footstep, OnPuff = _particles.Puff, InDoorway = true };
+                        _wizard = new WizardActor(Layout.DoorInside) { OnStep = Footstep, OnPuff = _particles.Puff, InDoorway = true };
                         if (report.BecameMaster)
                         {
                             _crowd.Start();

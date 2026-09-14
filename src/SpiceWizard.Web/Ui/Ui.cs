@@ -14,6 +14,9 @@ namespace SpiceWizard.Web.Ui
         public bool Clicked { get; private set; }
         public bool Down { get; private set; }
         public System.Action OnClick;
+        /// <summary>Fires once each time the pointer arrives over an enabled button.</summary>
+        public System.Action OnHover;
+        Rectangle _hotButton, _lastHotButton;
         public string Tooltip { get; set; }
         int _wheel;
         Rectangle? _hitClip;
@@ -28,6 +31,8 @@ namespace SpiceWizard.Web.Ui
             Tooltip = null;
             _wheel = wheel;
             _hitClip = null;
+            _lastHotButton = _hotButton;
+            _hotButton = Rectangle.Empty;
         }
 
         /// <summary>True over the rectangle and, while inside a scroll region, only for its visible part.</summary>
@@ -47,14 +52,30 @@ namespace SpiceWizard.Web.Ui
         public bool Button(Rectangle r, string label, bool enabled = true, string tooltip = null, string icon = null, Color? tint = null, string badge = null)
         {
             bool hot = Hot(r);
+            if (enabled && hot)
+            {
+                _hotButton = r;
+                if (r != _lastHotButton) OnHover?.Invoke();
+            }
+            // The button sinks a pixel under the pointer while the mouse is held down on it.
+            bool pressed = enabled && hot && Down;
             C.Rect(r.X + 1, r.Y + 1, r.Width, r.Height, Palette.Shadow);
+            if (pressed) r.Offset(1, 1);
             C.NineSlice(enabled ? "button" : "button_dim", r);
-            if (enabled && hot) C.Rect(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2, Palette.White * 0.25f);
+            if (enabled && hot && !pressed) C.Rect(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2, Palette.White * 0.25f);
             var color = enabled ? Palette.Outline : Palette.Charcoal;
-            int w = PixelFont.Measure(label) + (icon != null ? IconGap : 0) + (badge != null ? IconGap + PixelFont.Measure(badge) + 1 : 0);
+            // An icon is measured at its real size and, with no label after it, sits dead centre in the button.
+            var iconSrc = icon != null ? C.Atlas[icon] : Rectangle.Empty;
+            int iconGap = icon != null && label.Length > 0 ? IconGap - 8 : 0;
+            int w = PixelFont.Measure(label) + iconSrc.Width + iconGap + (badge != null ? IconGap + PixelFont.Measure(badge) + 1 : 0);
             int x = r.X + (r.Width - w) / 2;
             int ty = r.Y + (r.Height - PixelFont.GlyphHeight) / 2;
-            if (icon != null) { C.Sprite(icon, x, ty - 1, enabled ? (tint ?? Color.White) : Palette.LightGrey); x += IconGap; }
+            if (icon != null)
+            {
+                int iy = label.Length > 0 ? ty - 1 : r.Y + (r.Height - iconSrc.Height) / 2;
+                C.Sprite(icon, x, iy, enabled ? (tint ?? Color.White) : Palette.LightGrey);
+                x += iconSrc.Width + iconGap;
+            }
             C.Text(label, x, ty, color);
             x += PixelFont.Measure(label);
             if (badge != null)
@@ -129,6 +150,7 @@ namespace SpiceWizard.Web.Ui
         public bool Panel(Rectangle r, string title)
         {
             C.Rect(Camera.View, Palette.Outline * 0.45f);
+            C.Rect(r.X + 4, r.Y + 4, r.Width, r.Height, Palette.Shadow * 0.5f);
             C.Rect(r.X + 3, r.Y + 3, r.Width, r.Height, Palette.Shadow);
             C.NineSlice("frame", r);
             C.Rect(r.X + 4, r.Y + 4, r.Width - 8, 11, Palette.Brown);

@@ -76,6 +76,16 @@ namespace SpiceWizard.Web.Art
             Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, null, Camera.Transform);
         }
 
+        /// <summary>Switches to additive blending until <see cref="EndAdditive"/>: everything drawn in between
+        /// brightens what is already there, which is how firelight, lamplight and fireflies light the night.</summary>
+        public void BeginAdditive()
+        {
+            Batch.End();
+            Batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp, null, null, null, Camera.Transform);
+        }
+
+        public void EndAdditive() => PopClip();
+
         public void Sprite(string name, int x, int y) => Sprite(name, x, y, Color.White);
 
         public void Sprite(string name, int x, int y, Color tint)
@@ -140,13 +150,74 @@ namespace SpiceWizard.Web.Art
             for (int l = layers; l >= 1; l--)
             {
                 float frac = l / (float)layers;
-                int hx = (int)Math.Round(rx * frac), hy = (int)Math.Round(ry * frac);
-                for (int dy = -hy; dy <= hy; dy++)
-                {
-                    float t = hy == 0 ? 0f : dy / (float)(hy + 0.5f);
-                    int half = (int)Math.Round(hx * Math.Sqrt(Math.Max(0f, 1f - t * t)));
-                    Rect(cx - half, cy + dy, half * 2 + 1, 1, step);
-                }
+                Ellipse(cx, cy, (int)Math.Round(rx * frac), (int)Math.Round(ry * frac), step);
+            }
+        }
+
+        /// <summary>A light source for the additive pass: the same soft ellipse as <see cref="Glow"/> but with a
+        /// brighter core, so a fire or a lamp reads as a hot centre with a wide dim spill.</summary>
+        public void Light(int cx, int cy, int rx, int ry, Color color, int layers = 4)
+        {
+            if (color.A == 0 && color.R == 0 && color.G == 0 && color.B == 0) return;
+            var step = Tone(color, 1f / layers);
+            for (int l = layers; l >= 1; l--)
+            {
+                float frac = l / (float)layers;
+                Ellipse(cx, cy, (int)Math.Round(rx * frac), (int)Math.Round(ry * frac), step);
+            }
+            Ellipse(cx, cy, Math.Max(1, rx / 5), Math.Max(1, ry / 5), step);
+        }
+
+        /// <summary>A colour at a fraction of its brightness with full alpha: what additive light wants (scaling the
+        /// alpha as well would dim it twice).</summary>
+        public static Color Tone(Color c, float k)
+        {
+            k = Math.Clamp(k, 0f, 1f);
+            return new Color((int)(c.R * k), (int)(c.G * k), (int)(c.B * k), 255);
+        }
+
+        /// <summary>A filled ellipse of whole-pixel rows.</summary>
+        public void Ellipse(int cx, int cy, int hx, int hy, Color color)
+        {
+            for (int dy = -hy; dy <= hy; dy++)
+            {
+                float t = hy == 0 ? 0f : dy / (float)(hy + 0.5f);
+                int half = (int)Math.Round(hx * Math.Sqrt(Math.Max(0f, 1f - t * t)));
+                Rect(cx - half, cy + dy, half * 2 + 1, 1, color);
+            }
+        }
+
+        /// <summary>The contact shadow everything standing on the grass gets: a squat dark ellipse under its feet,
+        /// <paramref name="w"/> pixels wide, centred on x, with its top edge at y.</summary>
+        public void GroundShadow(int x, int w, int y, float alpha = 1f)
+        {
+            if (w <= 0) return;
+            var col = Palette.Shadow * alpha;
+            if (w <= 3) { Rect(x - w / 2, y, w, 1, col); return; }
+            Rect(x - w / 2 + 1, y, w - 2, 1, col);
+            Rect(x - w / 2, y + 1, w, 1, col);
+            if (w >= 8) Rect(x - w / 2 + 2, y + 2, w - 4, 1, col);
+        }
+
+        /// <summary>The shadow a sprite throws across the ground: its silhouette laid flat from its base, sheared by
+        /// <paramref name="shear"/> pixels of sideways lean per pixel of height and squashed to <paramref name="squash"/>
+        /// of its height. Rows are drawn from the base up in whole pixels so it stays crisp at every scale.</summary>
+        public void CastShadow(string name, int x, int baseY, float shear, float squash, Color color, bool flip = false)
+        {
+            if (color.A == 0) return;
+            var src = Atlas.Mask(name);
+            int h = src.Height;
+            int lastY = int.MinValue;
+            for (int row = h - 1; row >= 0; row--)
+            {
+                int up = h - 1 - row;
+                int y = baseY - (int)Math.Round(up * squash);
+                // Squashing drops rows: draw one source row per destination row, the lowest that lands there.
+                if (y == lastY) continue;
+                lastY = y;
+                int dx = (int)Math.Round(up * shear);
+                Batch.Draw(Atlas.Texture, new Vector2(x + dx, y), new Rectangle(src.X, src.Y + row, src.Width, 1), color, 0f, Vector2.Zero, 1f,
+                    flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
             }
         }
 

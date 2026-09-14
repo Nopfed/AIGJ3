@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html style="background:#1a1423">
 
 <head>
     <meta charset="utf-8" />
@@ -9,16 +9,36 @@
     <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="SpiceWizard.Web.styles.css" rel="stylesheet" />
+    <style>
+        /* The splash that shows while the runtime downloads: the game's own palette, and a row of embers. */
+        #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+                   background: #1a1423; color: #e6d8bd; font-family: 'Courier New', Courier, monospace; text-align: center; }
+        #loading .title { color: #f2c94c; font-size: 2.4em; font-weight: bold; letter-spacing: 0.25em; margin-bottom: 0.4em;
+                          text-shadow: 3px 3px 0 #1a1423, 4px 4px 0 #5a3d8a; }
+        #loading .sub { color: #b8b4ae; font-size: 0.95em; letter-spacing: 0.08em; }
+        #loading .embers { display: flex; gap: 10px; margin: 1.4em 0 1.2em; }
+        #loading .embers span { width: 10px; height: 10px; background: #e8762b; box-shadow: 0 0 0 2px #1a1423, 0 0 0 4px #8f2b1e;
+                                animation: ember 1.2s infinite; }
+        #loading .embers span:nth-child(2) { animation-delay: 0.2s; }
+        #loading .embers span:nth-child(3) { animation-delay: 0.4s; }
+        #loading .embers span:nth-child(4) { animation-delay: 0.6s; }
+        #loading .embers span:nth-child(5) { animation-delay: 0.8s; }
+        @keyframes ember { 0%, 100% { background: #8f2b1e; transform: translateY(0); } 40% { background: #fceaa0; } 50% { background: #f2c94c; transform: translateY(-6px); } }
+        #loading .credit { color: #6e6a73; font-size: 0.75em; margin-top: 2.5em; }
+        #loading .credit a { color: #9b7bd1; text-decoration: none; }
+        #loading .credit img { height: 14px; vertical-align: middle; opacity: 0.7; }
+    </style>
 </head>
 
 <body>
 
     <div id="app">
-        <div id="loading" style="display: table-cell; margin: auto; width:100vw; height:100vh; vertical-align: middle; background: #ffcc10;">
-            <div style="display: block; margin: auto; width: 9em; color: white;font-family: 'Segoe UI', sans-serif;">
-                <div style="text-align: center; font-size: 0.85em;">Made with<br/><a href="https://github.com/kniEngine/kni"><img src="kni.png" border="0" alt="Kni"></a></div>
-                <div style="text-align: center; font-size: 1.8em;">loading&nbsp;<marquee style="width:0.9em; vertical-align: bottom;">.&nbsp;.&nbsp;.&nbsp;&nbsp;&nbsp;</marquee></div>
-            </div>
+        <div id="loading">
+            <div class="title">SPICE WIZARD</div>
+            <div class="sub">stoking the cauldron&hellip;</div>
+            <div class="embers"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="sub">grow peppers &middot; brew sauces &middot; feed the town</div>
+            <div class="credit">made with <a href="https://github.com/kniEngine/kni"><img src="kni.png" alt="KNI"></a> KNI</div>
         </div>
     </div>
 
@@ -109,6 +129,17 @@
             var swResume = function() { window.swAudioContexts.forEach(function(ac) { if (ac.state === "suspended") ac.resume(); }); };
             window.addEventListener("pointerdown", swResume);
             window.addEventListener("keydown", swResume);
+
+            // Tuck the day away whenever the tab is hidden or the page is left, so nothing is lost on a close.
+            var swSaveNow = function() { try { window.theInstance.invokeMethod('SaveNow'); } catch (e) {} };
+            document.addEventListener("visibilitychange", function() { if (document.visibilityState === "hidden") swSaveNow(); });
+            window.addEventListener("pagehide", swSaveNow);
+            window.swFullscreen = function() {
+                var el = document.documentElement;
+                if (document.fullscreenElement) { document.exitFullscreen(); return; }
+                var go = el.requestFullscreen || el.webkitRequestFullscreen;
+                if (go) { try { go.call(el); } catch (e) {} }
+            };
 
             // begin game loop
             window.requestAnimationFrame(tickJS);
