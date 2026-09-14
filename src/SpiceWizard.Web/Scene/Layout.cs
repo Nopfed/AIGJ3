@@ -100,8 +100,44 @@ namespace SpiceWizard.Web.Scene
         {
             int x = Math.Max(Camera.Left + 6, Math.Min(Camera.Right - 6, p.X));
             int y = Math.Max(RoadTop, Math.Min(Camera.Bottom - 2, p.Y));
-            if (x >= Tower.X - 4 && x <= Tower.Right + 4 && y < Tower.Bottom + 6) y = Tower.Bottom + 6;
+            if (TowerBlock.Contains(x, y)) y = TowerBlock.Bottom;
             return new Point(x, y);
+        }
+
+        /// <summary>Ground the wizard's feet may never be on: the tower's footprint, down to just above the doorstep.</summary>
+        public static readonly Rectangle TowerBlock = new Rectangle(Tower.X - 4, 0, Tower.Width + 9, Tower.Bottom + 6);
+
+        /// <summary>
+        /// The corners a walk has to go round to get past the tower, in order, ending with
+        /// <paramref name="to"/> itself. A straight line is used whenever it stays clear of the
+        /// tower, and always when either end is inside it (stepping in or out of the door).
+        /// </summary>
+        public static Vector2[] Route(Vector2 from, Vector2 to)
+        {
+            var block = TowerBlock;
+            if (block.Contains((int)from.X, (int)from.Y) || block.Contains((int)to.X, (int)to.Y) || Clear(from, to))
+                return new[] { to };
+            var left = new Vector2(block.Left - 2, block.Bottom + 2);
+            var right = new Vector2(block.Right + 1, block.Bottom + 2);
+            foreach (var route in new[] { new[] { left, to }, new[] { right, to }, new[] { left, right, to }, new[] { right, left, to } })
+            {
+                var prev = from;
+                bool ok = true;
+                foreach (var w in route) { if (!Clear(prev, w)) { ok = false; break; } prev = w; }
+                if (ok) return route;
+            }
+            return new[] { to };
+        }
+
+        static bool Clear(Vector2 a, Vector2 b)
+        {
+            int steps = Math.Max(1, (int)(Vector2.Distance(a, b) / 2f));
+            for (int i = 0; i <= steps; i++)
+            {
+                var p = Vector2.Lerp(a, b, i / (float)steps);
+                if (TowerBlock.Contains((int)p.X, (int)p.Y)) return false;
+            }
+            return true;
         }
 
         public static Station Find(StationKind kind, int index = 0)

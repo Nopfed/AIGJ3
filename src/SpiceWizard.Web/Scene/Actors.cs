@@ -5,7 +5,7 @@ using SpiceWizard.Web.Art;
 
 namespace SpiceWizard.Web.Scene
 {
-    /// <summary>The wizard walks (in a straight line) to whatever was clicked, then the panel opens.</summary>
+    /// <summary>The wizard walks to whatever was clicked (straight, or round the tower), then the panel opens.</summary>
     public sealed class WizardActor
     {
         public const float Speed = 70f; // virtual pixels per second
@@ -38,6 +38,8 @@ namespace SpiceWizard.Web.Scene
         float _idleCheck;
         readonly Random _rng = new Random();
         Vector2? _target;
+        Vector2[] _route;
+        int _leg;
         Action _onArrive;
 
         public WizardActor(Point start) { Feet = start.ToVector2(); }
@@ -46,9 +48,11 @@ namespace SpiceWizard.Web.Scene
         {
             var t = stand.ToVector2();
             if (Vector2.Distance(Feet, t) < 2f) { Feet = t; onArrive?.Invoke(); return; }
-            _target = t;
+            _route = Layout.Route(Feet, t);
+            _leg = 0;
+            _target = _route[0];
             _onArrive = onArrive;
-            FacingLeft = t.X < Feet.X;
+            FacingLeft = _target.Value.X < Feet.X;
             _smoke = 0;
             _poseTime = 0;
         }
@@ -90,6 +94,13 @@ namespace SpiceWizard.Web.Scene
             if (delta.Length() <= step)
             {
                 Feet = t;
+                if (++_leg < _route.Length)
+                {
+                    // Round the corner and carry on to the next leg.
+                    _target = _route[_leg];
+                    FacingLeft = _target.Value.X < Feet.X;
+                    return;
+                }
                 _target = null;
                 var cb = _onArrive; _onArrive = null;
                 cb?.Invoke();

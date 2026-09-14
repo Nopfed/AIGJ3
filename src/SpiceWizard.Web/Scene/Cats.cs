@@ -295,7 +295,7 @@ namespace SpiceWizard.Web.Scene
 
         // ---- Update ----------------------------------------------------------------------------
 
-        public void Update(float dt, SceneRenderer scene, Particles particles)
+        public void Update(float dt, SceneRenderer scene, Particles particles, WizardActor wizard)
         {
             _particles = particles;
             if (_spotsFor != Camera.View) { scene.EnsureProps(); BuildSpots(scene); }
@@ -312,6 +312,8 @@ namespace SpiceWizard.Web.Scene
                     cat.HiddenEyes = bush.Eyes;
                     Rest(cat, Mood.Hide, Between(3f, 8f));
                 }
+
+                if (Underfoot(cat, wizard)) { Scoot(cat, wizard); continue; }
 
                 switch (cat.Mood)
                 {
@@ -382,6 +384,38 @@ namespace SpiceWizard.Web.Scene
                         if (cat.Timer <= 0) Decide(cat);
                         break;
                 }
+            }
+        }
+
+        // ---- Keeping out from under the wizard ---------------------------------------------------
+
+        /// <summary>True when the wizard is about to tread on this cat: it is on the ground and his feet are nearly on top of its own.</summary>
+        static bool Underfoot(Cat cat, WizardActor wizard)
+        {
+            if (wizard == null || wizard.Hidden || wizard.InDoorway) return false;
+            if (cat.Mood == Mood.Hide || cat.Mood == Mood.Perch || cat.Mood == Mood.Jump) return false;
+            var d = wizard.Feet - cat.Feet;
+            return Math.Abs(d.X) < 12 && Math.Abs(d.Y) < 7;
+        }
+
+        /// <summary>Hops the cat out of the wizard's way: sideways across his path when he is walking, otherwise straight away from him.</summary>
+        void Scoot(Cat cat, WizardActor wizard)
+        {
+            var away = cat.Feet - wizard.Feet;
+            if (away.LengthSquared() < 0.01f) away = new Vector2(cat.FacingLeft ? -1 : 1, 0);
+            away.Normalize();
+            var side = new Vector2(-away.Y, away.X);
+            var meadow = Camera.View; meadow.Inflate(-8, -8);
+            // Try beside him first, then behind, then wherever there is room.
+            foreach (var dir in new[] { side, -side, away, side + away, -side + away })
+            {
+                var d = dir; d.Normalize();
+                var to = cat.Feet + d * (14 + _rng.Next(6));
+                if (Blocked(to) || !meadow.Contains((int)to.X, (int)to.Y)) continue;
+                cat.OnArrive = null; cat.HiddenEyes = null;
+                Jump(cat, to, null);
+                if (_rng.Next(2) == 0 && Camera.View.Contains((int)cat.Feet.X, (int)cat.Feet.Y)) OnMeow?.Invoke();
+                return;
             }
         }
 

@@ -270,7 +270,7 @@ namespace SpiceWizard.Web
             _scene.ShowMarkers = !_session.PanelOpen && _sleepPhase == 0;
             _crowd.Update(_dt);
             _villagers.Update(_dt);
-            _cats.Update(_dt, _scene, _particles);
+            _cats.Update(_dt, _scene, _particles, _wizard);
             bool paused = _session.Panel == PanelKind.Pause || _session.Panel == PanelKind.Options;
             _mixer.WizardFeet = _wizard.Feet;
             _mixer.Deliberating = _session.PanelOpen && !paused && _session.Panel != PanelKind.Celebration;
